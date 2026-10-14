@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics 11: Vector River Lab</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --text-color: #e2e8f0;
+            --accent: #10b981;
+            --border: #334155;
+            --math-font: 'Courier New', monospace;
+        }
+
+        body {
+            margin: 0; background-color: var(--bg-color); color: var(--text-color);
+            font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; overflow: hidden;
+        }
+
+        /* 左侧控制 */
+        .sidebar {
+            width: 320px; background: var(--panel-bg); padding: 20px;
+            border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 10;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.5); overflow-y: auto;
+        }
+
+        .header-nav { padding-bottom: 15px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+        .back-link { color: #94a3b8; text-decoration: none; font-size: 0.85rem; display: flex; align-items: center; gap: 5px; }
+        .back-link:hover { color: white; }
+        h2 { margin: 5px 0 0 0; color: var(--accent); font-size: 1.4rem; }
+
+        .control-group { margin-bottom: 20px; background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid var(--border); }
+        .label-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.85rem; color: #cbd5e1; }
+        input[type=range] { width: 100%; cursor: pointer; margin-bottom: 5px; }
+
+        /* 按钮组 */
+        .btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
+        .btn-action {
+            flex: 1; padding: 12px; font-size: 1rem; font-weight: bold;
+            border: none; border-radius: 6px; cursor: pointer;
+            background: var(--accent); color: #0f172a; transition: filter 0.2s;
+        }
+        .btn-action:hover { filter: brightness(1.1); }
+        
+        .btn-pause { flex: 1; background: #f59e0b; color: white; font-weight: bold; border:none; border-radius:6px; cursor:pointer; }
+        .btn-pause:hover { background: #d97706; }
+        .btn-pause.paused { background: #ef4444; animation: pulse 1.5s infinite; }
+        
+        .btn-reset { background: #334155; color: white; width: 100%; padding: 10px; border-radius: 6px; border:none; font-weight:bold; cursor:pointer; margin-top:5px;}
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+
+        /* 中间：主视图 */
+        .center-view {
+            flex: 1; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border);
+        }
+
+        /* 1. 动画区 */
+        .sim-container {
+            flex: 5; position: relative; background: #1e3a8a;
+            overflow: hidden; border-bottom: 2px solid var(--border);
+        }
+        canvas { display: block; width: 100%; height: 100%; }
+
+        #pause-overlay {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(245, 158, 11, 0.9); color: #000;
+            padding: 5px 15px; border-radius: 20px; font-weight: bold;
+            display: none; pointer-events: none; z-index: 50;
+        }
+
+        /* 2. 计算板 */
+        .calc-board {
+            flex: 3; background: #0b1120; padding: 15px; display: flex; gap: 15px;
+            border-top: 1px solid var(--border); overflow-x: auto;
+        }
+        .calc-card {
+            flex: 1; background: #1e293b; border-radius: 8px; padding: 12px; border: 1px solid var(--border);
+            min-width: 220px; display: flex; flex-direction: column;
+        }
+        .calc-title { 
+            color: #94a3b8; font-weight: bold; font-size: 0.9rem; margin-bottom: 8px; 
+            border-bottom: 1px solid #333; padding-bottom: 5px; text-transform: uppercase;
+        }
+        .math-content { 
+            font-family: var(--math-font); color: #cbd5e1; font-size: 0.85rem; line-height: 1.8; 
+        }
+        .step { color: #64748b; font-size: 0.75rem; display: block; margin-top: 5px; }
+        .result { color: var(--accent); font-weight: bold; font-size: 1rem; }
+
+        /* 右侧：说明书 & 数据表 & 图表 */
+        .right-panel {
+            width: 400px; background: #111; display: flex; flex-direction: column;
+        }
+
+        .panel-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--panel-bg); }
+        .tab-btn {
+            flex: 1; padding: 12px; text-align: center; cursor: pointer; color: #94a3b8; font-weight: bold;
+            border-bottom: 3px solid transparent; transition: all 0.2s; font-size: 0.9rem;
+        }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: #182235; }
+        
+        .panel-content { flex: 1; overflow-y: auto; display: none; padding: 0; }
+        .panel-content.active { display: block; }
+
+        .guide-box { padding: 20px; line-height: 1.6; color: #ccc; font-size: 0.9rem; }
+        .guide-box h3 { color: #fff; margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .guide-box h4 { color: var(--accent); margin: 15px 0 5px 0; }
+        
+        /* 数据表格 */
+        .table-container { width: 100%; }
+        table { width: 100%; border-collapse: collapse; text-align: center; font-family: monospace; font-size: 0.8rem; }
+        th { position: sticky; top: 0; background: #1e293b; color: #94a3b8; padding: 8px; border-bottom: 1px solid var(--border); }
+        td { padding: 6px 8px; border-bottom: 1px solid #222; color: #ccc; }
+        tr:hover { background: #1e293b; }
+
+        /* 图表容器 */
+        .charts-wrapper { padding: 15px; display: flex; flex-direction: column; gap: 15px; height: 100%; }
+        .chart-box { 
+            flex: 1; background: #1e293b; border-radius: 8px; padding: 10px; 
+            border: 1px solid var(--border); min-height: 150px; position: relative; 
+        }
+        .chart-label { position: absolute; top: 5px; left: 10px; font-size: 0.7rem; color: #94a3b8; font-weight: bold;}
+
+        /* 浮动标签 */
+        .legend {
+            position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7);
+            padding: 8px; border-radius: 4px; font-size: 0.75rem; pointer-events: none;
+        }
+        .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="header-nav">
+            <a href="unit1.html" class="back-link">⬅ Back to Unit 1</a>
+            <h2>🚤 Relative Motion</h2>
+        </div>
+
+        <div class="control-group">
+            <div class="label-row">
+                <span>Boat Speed (v<sub>b</sub>)</span>
+                <span id="val-vb">5.0 m/s</span>
+            </div>
+            <input type="range" id="slider-vb" min="1" max="10" step="0.5" value="5" oninput="updateConfig()">
+            
+            <div class="label-row">
+                <span>River Current (v<sub>r</sub>)</span>
+                <span id="val-vr">3.0 m/s</span>
+            </div>
+            <input type="range" id="slider-vr" min="0" max="8" step="0.5" value="3" oninput="updateConfig()">
+
+            <div class="label-row">
+                <span>Heading Angle (&theta;)</span>
+                <span id="val-ang">90&deg;</span>
+            </div>
+            <input type="range" id="slider-ang" min="30" max="150" step="1" value="90" oninput="updateConfig()">
+            
+            <div class="label-row">
+                <span>River Width (d<sub>y</sub>)</span>
+                <span id="val-width">100 m</span>
+            </div>
+            <input type="range" id="slider-width" min="50" max="200" step="10" value="100" oninput="updateConfig()">
+        </div>
+
+        <div class="btn-group">
+            <button class="btn-action" onclick="startSim()">🚀 START</button>
+            <button class="btn-pause" id="btn-pause" onclick="togglePause()">⏸ PAUSE</button>
+        </div>
+        <button class="btn-reset" onclick="resetSim()">Reset</button>
+    </div>
+
+    <div class="center-view">
+        <div class="sim-container" id="viewport">
+            <div class="legend">
+                <div><span class="dot" style="background:#ef4444"></span>Boat Vector ($v_b$)</div>
+                <div><span class="dot" style="background:#3b82f6"></span>River Vector ($v_r$)</div>
+                <div><span class="dot" style="background:#10b981"></span>Resultant ($v_{net}$)</div>
+            </div>
+            <canvas id="simCanvas"></canvas>
+            <div id="pause-overlay">PAUSED</div>
+        </div>
+
+        <div class="calc-board">
+            <div class="calc-card">
+                <div class="calc-title">1. Component Analysis</div>
+                <div class="math-content" id="math-comp">
+                    Waiting for start...
+                </div>
+            </div>
+            <div class="calc-card">
+                <div class="calc-title">2. Net Velocity</div>
+                <div class="math-content" id="math-net">
+                    Waiting for start...
+                </div>
+            </div>
+            <div class="calc-card">
+                <div class="calc-title">3. Live Position</div>
+                <div class="math-content" id="math-live">
+                    Time: 0.0 s<br>
+                    X-Pos: 0.0 m<br>
+                    Y-Pos: 0.0 m
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div class="panel-tabs">
+            <div class="tab-btn active" onclick="switchTab('manual')">📖 Manual</div>
+            <div class="tab-btn" onclick="switchTab('data')">📊 Data</div>
+            <div class="tab-btn" onclick="switchTab('charts')">📈 Graphs</div>
+        </div>
+
+        <div id="content-manual" class="panel-content active">
+            <div class="guide-box">
+                <h3>Lab: Vector Analysis</h3>
+                <h4>Objective</h4>
+                <p>To determine how vector components affect crossing time and drift distance.</p>
+                <h4>Procedure</h4>
+                <ol>
+                    <li>Set parameters using sliders.</li>
+                    <li>Click <b>START</b> to begin the simulation.</li>
+                    <li>Switch to the <b>Graphs</b> tab to see real-time position plots.</li>
+                    <li>Use <b>PAUSE</b> to stop and check calculations.</li>
+                </ol>
+            </div>
+        </div>
+
+        <div id="content-data" class="panel-content">
+            <div class="table-container">
+                <table id="data-table">
+                    <thead>
+                        <tr>
+                            <th>Time (s)</th>
+                            <th>X-Pos</th>
+                            <th>Y-Pos</th>
+                            <th>v-Net</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <tr><td colspan="4" style="text-align:center; padding:20px; color:#666;">Press START...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <button onclick="copyData()" style="width:100%; padding:10px; background:#334; color:white; border:none; cursor:pointer; font-weight:bold; border-top:1px solid #555;">📋 Copy Data</button>
+        </div>
+
+        <div id="content-charts" class="panel-content">
+            <div class="charts-wrapper">
+                <div class="chart-box">
+                    <div class="chart-label" style="color:#10b981">Y-Position (Crossing) vs Time</div>
+                    <canvas id="chartY"></canvas>
+                </div>
+                <div class="chart-box">
+                    <div class="chart-label" style="color:#ef4444">X-Position (Drift) vs Time</div>
+                    <canvas id="chartX"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        // State
+        let config = { vb: 5, vr: 3, angle: 90, width: 100 };
+        let boat = { x: 0, y: 0, t: 0, active: false, path: [] };
+        let isPaused = false;
+        let animationId;
+        let scale = 3; 
+        let lastLogTime = 0;
+        const LOG_INTERVAL = 0.2; 
+
+        // Charts Variables (Corrected)
+        let chartY, chartX;
+        let chartLabels = []; // Unified labels
+        let valsY = [];
+        let valsX = [];
+
+        window.onload = function() {
+            resize();
+            initCharts();
+            updateConfig();
+            draw();
+        };
+        window.onresize = resize;
+
+        function resize() {
+            const container = document.getElementById('viewport');
+            width = canvas.width = container.clientWidth;
+            height = canvas.height = container.clientHeight;
+            scale = height / (config.width * 1.4);
+            draw();
+        }
+
+        function updateConfig() {
+            if(boat.active) return;
+
+            config.vb = parseFloat(document.getElementById('slider-vb').value);
+            config.vr = parseFloat(document.getElementById('slider-vr').value);
+            config.angle = parseInt(document.getElementById('slider-ang').value);
+            config.width = parseInt(document.getElementById('slider-width').value);
+
+            document.getElementById('val-vb').innerText = config.vb.toFixed(1) + " m/s";
+            document.getElementById('val-vr').innerText = config.vr.toFixed(1) + " m/s";
+            document.getElementById('val-ang').innerHTML = config.angle + "&deg;";
+            document.getElementById('val-width').innerText = config.width + " m";
+
+            updateMath(0, 0); 
+            draw();
+        }
+
+        function updateMath(curX, curY) {
+            const rad = config.angle * Math.PI / 180;
+            const vbx = config.vb * Math.cos(rad);
+            const vby = config.vb * Math.sin(rad);
+            const netX = vbx + config.vr;
+            const netY = vby;
+
+            document.getElementById('math-comp').innerHTML = 
+                `<span class="step">Boat X:</span> ${vbx.toFixed(2)} m/s<br>` +
+                `<span class="step">Boat Y:</span> ${vby.toFixed(2)} m/s`;
+            
+            document.getElementById('math-net').innerHTML = 
+                `<span class="step">Total X:</span> ${vbx.toFixed(2)} + ${config.vr} = <span class="result">${netX.toFixed(2)} m/s</span><br>` +
+                `<span class="step">Total Y:</span> <span class="result">${netY.toFixed(2)} m/s</span>`;
+
+            document.getElementById('math-live').innerHTML = 
+                `Time: <span class="result">${boat.t.toFixed(1)} s</span><br>` +
+                `X-Pos: ${curX.toFixed(1)} m<br>` + 
+                `Y-Pos: ${curY.toFixed(1)} m`;
+
+            return { netX, netY };
+        }
+
+        function startSim() {
+            if(boat.active) return;
+            
+            boat.active = true;
+            isPaused = false;
+            document.getElementById('pause-overlay').style.display = 'none';
+            document.getElementById('btn-pause').innerText = "⏸ PAUSE";
+            
+            boat.t = 0;
+            boat.x = width / 2; 
+            boat.y = height - 50; 
+            boat.path = [{x: boat.x, y: boat.y}];
+            
+            document.getElementById('table-body').innerHTML = "";
+            lastLogTime = -LOG_INTERVAL; 
+            
+            // Reset Charts
+            chartLabels = []; valsY = []; valsX = [];
+            updateCharts();
+            
+            switchTab('charts');
+            animate();
+        }
+
+        function togglePause() {
+            if(!boat.active) return;
+            isPaused = !isPaused;
+            const btn = document.getElementById('btn-pause');
+            const overlay = document.getElementById('pause-overlay');
+            
+            if(isPaused) {
+                btn.innerText = "▶ RESUME";
+                btn.classList.add('paused');
+                overlay.style.display = 'block';
+            } else {
+                btn.innerText = "⏸ PAUSE";
+                btn.classList.remove('paused');
+                overlay.style.display = 'none';
+            }
+        }
+
+        function animate() {
+            if(!boat.active) return;
+
+            if(!isPaused) {
+                let dt = 1/60;
+                boat.t += dt;
+
+                const rad = config.angle * Math.PI / 180;
+                const vbx = config.vb * Math.cos(rad);
+                const vby = config.vb * Math.sin(rad);
+                const netX = vbx + config.vr;
+                const netY = vby;
+                let netV = Math.sqrt(netX*netX + netY*netY);
+
+                boat.x += netX * scale * dt;
+                boat.y -= netY * scale * dt;
+
+                if(boat.t % 0.1 < dt) boat.path.push({x: boat.x, y: boat.y});
+
+                let realX = (boat.x - width/2) / scale;
+                let realY = (height - 50 - boat.y) / scale;
+
+                if(boat.t - lastLogTime >= LOG_INTERVAL) {
+                    logData(boat.t, realX, realY, netV);
+                    lastLogTime = boat.t;
+                }
+
+                // Update Charts (Throttle)
+                if(boat.t % 0.1 < dt) {
+                    chartLabels.push(boat.t.toFixed(1));
+                    valsY.push(realY);
+                    valsX.push(realX);
+                    updateCharts();
+                }
+
+                updateMath(realX, realY);
+
+                // Finish
+                let riverPixelH = config.width * scale;
+                let bankY = height - 50 - riverPixelH;
+
+                if(boat.y <= bankY) {
+                    boat.y = bankY;
+                    boat.active = false;
+                    logData(boat.t, realX, config.width, netV);
+                    draw();
+                    return;
+                }
+            }
+
+            draw();
+            if(boat.active) requestAnimationFrame(animate);
+        }
+
+        function logData(t, x, y, v) {
+            const tbody = document.getElementById('table-body');
+            const row = document.createElement('tr');
+            row.innerHTML = `<td>${t.toFixed(2)}</td><td>${x.toFixed(1)}</td><td>${y.toFixed(1)}</td><td>${v.toFixed(2)}</td>`;
+            tbody.insertBefore(row, tbody.firstChild);
+            if(tbody.children.length > 100) tbody.removeChild(tbody.lastChild);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, width, height);
+
+            let bankBottom = height - 50;
+            let riverH = config.width * scale;
+            let bankTop = bankBottom - riverH;
+
+            ctx.fillStyle = "#1e40af"; ctx.fillRect(0, bankTop, width, riverH);
+            ctx.fillStyle = "#334155"; ctx.fillRect(0, bankBottom, width, 50); ctx.fillRect(0, 0, width, bankTop);
+
+            ctx.strokeStyle = "rgba(255,255,255,0.1)";
+            for(let i=bankTop; i<bankBottom; i+=scale*10) {
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(width, i); ctx.stroke();
+            }
+
+            ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 2;
+            ctx.beginPath();
+            if(boat.path.length>0) {
+                ctx.moveTo(boat.path[0].x, boat.path[0].y);
+                for(let p of boat.path) ctx.lineTo(p.x, p.y);
+            }
+            ctx.stroke();
+
+            let bx = boat.active ? boat.x : width/2;
+            let by = boat.active ? boat.y : bankBottom;
+            
+            ctx.save(); ctx.translate(bx, by);
+            let rot = -(config.angle - 90) * Math.PI / 180;
+            ctx.rotate(rot);
+            ctx.fillStyle = "#cbd5e1"; ctx.beginPath(); ctx.ellipse(0, 0, 8, 20, 0, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+
+            if(!boat.active || boat.t < 0.1) {
+                let vScale = 10;
+                let rad = config.angle * Math.PI / 180;
+                let vbx = config.vb * Math.cos(rad); let vby = -config.vb * Math.sin(rad); 
+                drawArrow(bx, by, bx+vbx*vScale, by+vby*vScale, "#ef4444", 2);
+                let vrx = config.vr;
+                drawArrow(bx+vbx*vScale, by+vby*vScale, bx+vbx*vScale+vrx*vScale, by+vby*vScale, "#3b82f6", 2);
+                drawArrow(bx, by, bx+(vbx+vrx)*vScale, by+vby*vScale, "#10b981", 3);
+            }
+        }
+
+        function drawArrow(fx, fy, tx, ty, color, w) {
+            const head = 8; const angle = Math.atan2(ty-fy, tx-fx);
+            ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(tx, ty); 
+            ctx.strokeStyle = color; ctx.lineWidth = w; ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(tx, ty);
+            ctx.lineTo(tx - head*Math.cos(angle-Math.PI/6), ty - head*Math.sin(angle-Math.PI/6));
+            ctx.lineTo(tx - head*Math.cos(angle+Math.PI/6), ty - head*Math.sin(angle+Math.PI/6));
+            ctx.fillStyle = color; ctx.fill();
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.panel-content').forEach(p => p.classList.remove('active'));
+            
+            if(tab==='manual') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('content-manual').classList.add('active');
+            } else if(tab==='data') {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('content-data').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab-btn')[2].classList.add('active');
+                document.getElementById('content-charts').classList.add('active');
+            }
+        }
+
+        function initCharts() {
+            const opts = {
+                responsive: true, maintainAspectRatio: false, animation: false,
+                scales: { x: { display:false }, y: { grid:{color:'#333'}, ticks:{color:'#888'} } },
+                plugins: { legend: { display:false } }
+            };
+
+            chartY = new Chart(document.getElementById('chartY'), {
+                type: 'line', data: { labels:[], datasets:[{borderColor:'#10b981', borderWidth:2, data:[]}] }, options: opts
+            });
+            chartX = new Chart(document.getElementById('chartX'), {
+                type: 'line', data: { labels:[], datasets:[{borderColor:'#ef4444', borderWidth:2, data:[]}] }, options: opts
+            });
+        }
+
+        function updateCharts() {
+            if(chartLabels.length > 50) {
+                chartLabels.shift(); valsY.shift(); valsX.shift();
+            }
+            chartY.data.labels = chartLabels; chartY.data.datasets[0].data = valsY; chartY.update('none');
+            chartX.data.labels = chartLabels; chartX.data.datasets[0].data = valsX; chartX.update('none');
+        }
+
+        function resetSim() {
+            boat.active = false;
+            isPaused = false;
+            document.getElementById('btn-pause').innerText = "⏸ PAUSE";
+            document.getElementById('btn-pause').classList.remove('paused');
+            document.getElementById('pause-overlay').style.display = 'none';
+            
+            updateConfig();
+            document.getElementById('table-body').innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:#666;">Press START to record data...</td></tr>`;
+            switchTab('manual');
+        }
+
+        function copyData() {
+            let text = "Time,X,Y,V\n";
+            const rows = document.querySelectorAll('#table-body tr');
+            for(let i=rows.length-1; i>=0; i--) {
+                const cols = rows[i].querySelectorAll('td');
+                if(cols.length>0) {
+                    let line = []; cols.forEach(c => line.push(c.innerText)); text += line.join(",") + "\n";
+                }
+            }
+            navigator.clipboard.writeText(text).then(()=>alert("Data Copied!"));
+        }
+    </script>
+</body>
+</html>

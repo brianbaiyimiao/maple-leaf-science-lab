@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics 11: Hanging Sign Lab</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --text-color: #e2e8f0;
+            --accent: #8b5cf6; /* Purple Theme */
+            --t1-color: #ef4444; /* Red String */
+            --t2-color: #3b82f6; /* Blue String */
+            --g-color: #10b981; /* Gravity Green */
+            --border: #334155;
+            --math-font: 'Courier New', monospace;
+        }
+
+        body {
+            margin: 0; background-color: var(--bg-color); color: var(--text-color);
+            font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; overflow: hidden;
+        }
+
+        /* 左侧控制栏 */
+        .sidebar {
+            width: 320px; background: var(--panel-bg); padding: 20px;
+            border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 10;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.5); overflow-y: auto;
+        }
+
+        .header-nav { padding-bottom: 15px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+        .back-link { color: #94a3b8; text-decoration: none; font-size: 0.85rem; display: flex; align-items: center; gap: 5px; }
+        .back-link:hover { color: white; }
+        h2 { margin: 5px 0 0 0; color: var(--accent); font-size: 1.4rem; }
+
+        .control-group { margin-bottom: 20px; background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid var(--border); }
+        .label-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.85rem; color: #cbd5e1; }
+        
+        /* 输入框样式 */
+        input[type=number] { 
+            width: 70px; padding: 5px; background: #1e293b; color: white; 
+            border: 1px solid #475569; border-radius: 4px; text-align: center; font-weight: bold;
+        }
+        input[type=range] { width: 100%; cursor: pointer; margin-top: 5px; }
+
+        .btn-action {
+            width: 100%; padding: 12px; font-size: 1rem; font-weight: bold;
+            border: none; border-radius: 6px; cursor: pointer; margin-bottom: 10px;
+            background: var(--accent); color: white; transition: filter 0.2s;
+        }
+        .btn-action:hover { filter: brightness(1.1); }
+        .btn-reset { background: #334155; color: white; width: 100%; padding: 10px; border-radius: 6px; border:none; font-weight:bold; cursor:pointer; margin-top: 5px; }
+
+        .checkbox-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; cursor: pointer; font-size: 0.85rem; }
+
+        /* 中间：主视图 */
+        .center-view {
+            flex: 1; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border);
+        }
+
+        .sim-container {
+            flex: 5; position: relative; background: radial-gradient(circle at center, #1e293b 0%, #000 100%);
+            overflow: hidden; border-bottom: 2px solid var(--border);
+        }
+        canvas { display: block; width: 100%; height: 100%; }
+
+        .legend {
+            position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.8);
+            padding: 10px; border-radius: 6px; font-size: 0.8rem; pointer-events: none;
+            border-left: 3px solid var(--accent);
+        }
+        .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+        /* 计算板 */
+        .calc-board {
+            flex: 3; background: #0b1120; padding: 15px; display: flex; gap: 15px;
+            border-top: 1px solid var(--border); overflow-x: auto;
+        }
+        .calc-card {
+            flex: 1; background: #1e293b; border-radius: 8px; padding: 12px; border: 1px solid var(--border);
+            min-width: 260px; display: flex; flex-direction: column;
+        }
+        .calc-title { 
+            color: #94a3b8; font-weight: bold; font-size: 0.9rem; margin-bottom: 8px; 
+            border-bottom: 1px solid #333; padding-bottom: 5px; text-transform: uppercase;
+        }
+        .math-content { 
+            font-family: var(--math-font); color: #cbd5e1; font-size: 0.85rem; line-height: 1.6; 
+        }
+        .step { color: #64748b; font-size: 0.75rem; display: block; margin-top: 8px; margin-bottom: 2px;}
+        .result { color: var(--accent); font-weight: bold; }
+        .warn { color: #f59e0b; font-weight: bold; }
+
+        /* 右侧面板 */
+        .right-panel { width: 380px; background: #111; display: flex; flex-direction: column; }
+        .panel-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--panel-bg); }
+        .tab-btn {
+            flex: 1; padding: 12px; text-align: center; cursor: pointer; color: #94a3b8; font-weight: bold;
+            border-bottom: 3px solid transparent; transition: all 0.2s; font-size: 0.9rem;
+        }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: #182235; }
+        .panel-content { flex: 1; overflow-y: auto; display: none; padding: 0; }
+        .panel-content.active { display: block; }
+
+        .guide-box { padding: 20px; line-height: 1.6; color: #ccc; font-size: 0.9rem; }
+        .guide-box h3 { color: #fff; margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .guide-box h4 { color: var(--accent); margin: 15px 0 5px 0; }
+        
+        /* 数据表格 */
+        .table-container { width: 100%; }
+        table { width: 100%; border-collapse: collapse; text-align: center; font-family: monospace; font-size: 0.8rem; }
+        th { position: sticky; top: 0; background: #1e293b; color: #94a3b8; padding: 8px; border-bottom: 1px solid var(--border); }
+        td { padding: 6px 8px; border-bottom: 1px solid #222; color: #ccc; }
+        tr:hover { background: #1e293b; }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="header-nav">
+            <a href="unit2.html" class="back-link">⬅ Back to Unit 2</a>
+            <h2>🖼️ Hanging Sign</h2>
+        </div>
+
+        <div class="control-group">
+            <div class="label-row">
+                <span>Left Angle (&theta;<sub>1</sub>)</span>
+                <input type="number" id="in-a1" min="5" max="85" value="45" oninput="updateConfig()">
+            </div>
+            <input type="range" id="slider-a1" min="5" max="85" value="45" oninput="syncInput('a1', 'slider')">
+
+            <div class="label-row" style="margin-top:10px;">
+                <span>Right Angle (&theta;<sub>2</sub>)</span>
+                <input type="number" id="in-a2" min="5" max="85" value="45" oninput="updateConfig()">
+            </div>
+            <input type="range" id="slider-a2" min="5" max="85" value="45" oninput="syncInput('a2', 'slider')">
+        </div>
+
+        <div class="control-group">
+            <div class="label-row">
+                <span>Sign Mass (kg)</span>
+                <input type="number" id="in-mass" min="1" max="100" value="10" oninput="updateConfig()">
+            </div>
+            <input type="range" id="slider-mass" min="1" max="100" value="10" oninput="syncInput('mass', 'slider')">
+        </div>
+
+        <div class="control-group" style="padding:10px;">
+             <label class="checkbox-row">
+                <input type="checkbox" id="check-comp" checked onchange="draw()"> Show Components ($T_x, T_y$)
+            </label>
+        </div>
+
+        <button class="btn-action" onclick="recordData()">📸 Record Data</button>
+        <button class="btn-reset" onclick="resetSim()">Reset to 45&deg;</button>
+    </div>
+
+    <div class="center-view">
+        <div class="sim-container" id="viewport">
+            <div class="legend">
+                <div class="legend-item"><div class="dot" style="background:var(--t1-color)"></div> Tension 1 (Left)</div>
+                <div class="legend-item"><div class="dot" style="background:var(--t2-color)"></div> Tension 2 (Right)</div>
+                <div class="legend-item"><div class="dot" style="background:var(--g-color)"></div> Gravity (mg)</div>
+            </div>
+            <canvas id="simCanvas"></canvas>
+        </div>
+
+        <div class="calc-board">
+            <div class="calc-card">
+                <div class="calc-title">1. Equilibrium Equations</div>
+                <div class="math-content" id="math-eq">
+                    Loading...
+                </div>
+            </div>
+            
+            <div class="calc-card">
+                <div class="calc-title">2. Substitution</div>
+                <div class="math-content" id="math-sub">
+                    Loading...
+                </div>
+            </div>
+
+            <div class="calc-card">
+                <div class="calc-title">3. Final Tensions</div>
+                <div class="math-content" id="math-res">
+                    Loading...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div class="panel-tabs">
+            <div class="tab-btn active" onclick="switchTab('manual')">📖 Manual</div>
+            <div class="tab-btn" onclick="switchTab('data')">📊 Data</div>
+        </div>
+
+        <div id="content-manual" class="panel-content active">
+            <div class="guide-box">
+                <h3>Lab: 2D Static Equilibrium</h3>
+                <h4>Objective</h4>
+                <p>Analyze how the angles of suspension cables affect the tension required to support a hanging mass.</p>
+                
+                <h4>Theory (Newton's 1st Law)</h4>
+                <p>Since the sign is stationary ($\Sigma F = 0$):</p>
+                <ul>
+                    <li><b>X-Axis:</b> Left Pull = Right Pull<br>$T_1 \cos\theta_1 = T_2 \cos\theta_2$</li>
+                    <li><b>Y-Axis:</b> Up Pull = Gravity<br>$T_1 \sin\theta_1 + T_2 \sin\theta_2 = mg$</li>
+                </ul>
+                
+                <h4>Critical Thinking</h4>
+                <p>What happens when the angle approaches 0&deg; (horizontal)? Why can't we pull the strings perfectly straight?</p>
+            </div>
+        </div>
+
+        <div id="content-data" class="panel-content">
+            <div class="table-container">
+                <table id="data-table">
+                    <thead>
+                        <tr>
+                            <th>&theta;1</th>
+                            <th>&theta;2</th>
+                            <th>Mass</th>
+                            <th>T1 (N)</th>
+                            <th>T2 (N)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <tr><td colspan="5" style="text-align:center; padding:20px; color:#666;">No Data Recorded</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <button onclick="copyData()" style="width:100%; padding:10px; background:#334; color:white; border:none; cursor:pointer; font-weight:bold; border-top:1px solid #555;">📋 Copy Data</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        const g = 9.8;
+        let trialCount = 0;
+
+        let config = { a1: 45, a2: 45, m: 10 };
+        let results = { T1: 0, T2: 0, Fg: 0 };
+
+        window.onload = function() {
+            resize();
+            updateConfig();
+        };
+        window.onresize = resize;
+
+        function resize() {
+            const container = document.getElementById('viewport');
+            width = canvas.width = container.clientWidth;
+            height = canvas.height = container.clientHeight;
+            draw();
+        }
+
+        function syncInput(id, source) {
+            if (source === 'slider') {
+                document.getElementById(`in-${id}`).value = document.getElementById(`slider-${id}`).value;
+            }
+            updateConfig();
+        }
+
+        function updateConfig() {
+            // Read from Input fields (they are synced manually or by user)
+            config.a1 = parseFloat(document.getElementById('in-a1').value);
+            config.a2 = parseFloat(document.getElementById('in-a2').value);
+            config.m = parseFloat(document.getElementById('in-mass').value);
+
+            // Sync Sliders visually
+            document.getElementById('slider-a1').value = config.a1;
+            document.getElementById('slider-a2').value = config.a2;
+            document.getElementById('slider-mass').value = config.m;
+
+            calculate();
+            draw();
+        }
+
+        function calculate() {
+            // Physics Calculation
+            let r1 = config.a1 * Math.PI / 180;
+            let r2 = config.a2 * Math.PI / 180;
+            let Fg = config.m * g;
+            
+            // Solve System of Equations:
+            // 1) T1 cos1 = T2 cos2  -> T1 = T2 (cos2/cos1)
+            // 2) T1 sin1 + T2 sin2 = Fg
+            // Subst: T2(cos2/cos1)sin1 + T2 sin2 = Fg
+            // T2 (cos2*tan1 + sin2) = Fg
+            
+            let denom = Math.cos(r2) * Math.tan(r1) + Math.sin(r2);
+            let T2 = Fg / denom;
+            let T1 = T2 * Math.cos(r2) / Math.cos(r1);
+
+            results = { T1, T2, Fg };
+
+            // --- Update Calc Board ---
+            
+            // Card 1: Equations
+            document.getElementById('math-eq').innerHTML = 
+                `<span class="step">X-Axis Balance:</span> $T_1 \\cos(${config.a1}^\\circ) = T_2 \\cos(${config.a2}^\\circ)$<br>` +
+                `<span class="step">Y-Axis Balance:</span> $T_1 \\sin(${config.a1}^\\circ) + T_2 \\sin(${config.a2}^\\circ) = mg$`;
+
+            // Card 2: Subst
+            document.getElementById('math-sub').innerHTML = 
+                `<span class="step">Weight ($F_g$):</span> ${config.m}kg &times; 9.8 = <span class="result">${Fg.toFixed(1)} N</span><br>` +
+                `<span class="step">Components Sum:</span> $${T1.toFixed(1)} \\sin(${config.a1}) + ${T2.toFixed(1)} \\sin(${config.a2}) = ${Fg.toFixed(1)}$`;
+
+            // Card 3: Results
+            let warning = "";
+            if(config.a1 < 10 || config.a2 < 10) warning = "<br><span class='warn'>⚠️ Danger: High Tension!</span>";
+
+            document.getElementById('math-res').innerHTML = 
+                `<span class="step" style="color:var(--t1-color)">Tension 1:</span> <span class="result">${T1.toFixed(1)} N</span><br>` +
+                `<span class="step" style="color:var(--t2-color)">Tension 2:</span> <span class="result">${T2.toFixed(1)} N</span>` + 
+                warning;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, width, height);
+            
+            let cx = width / 2;
+            let cy = height / 2 + 50; 
+            let ceilingY = 50;
+
+            let r1 = config.a1 * Math.PI / 180;
+            let r2 = config.a2 * Math.PI / 180;
+
+            // Anchor points
+            let dy = cy - ceilingY;
+            let dx1 = dy / Math.tan(r1);
+            let dx2 = dy / Math.tan(r2);
+            let x1 = cx - dx1; 
+            let x2 = cx + dx2;
+
+            // Ceiling
+            ctx.fillStyle = "#334155"; ctx.fillRect(0, 0, width, ceilingY);
+            ctx.strokeStyle = "#64748b"; ctx.beginPath(); ctx.moveTo(0, ceilingY); ctx.lineTo(width, ceilingY); ctx.stroke();
+
+            // Strings (Visual)
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = "#999"; ctx.beginPath(); ctx.moveTo(x1, ceilingY); ctx.lineTo(cx, cy); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x2, ceilingY); ctx.lineTo(cx, cy); ctx.stroke();
+
+            // Sign
+            let size = 50 + config.m;
+            ctx.fillStyle = "#e2e8f0"; ctx.fillRect(cx - size/2, cy, size, size*0.6);
+            ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.strokeRect(cx - size/2, cy, size, size*0.6);
+            
+            // Text on sign
+            ctx.fillStyle = "#000"; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
+            ctx.fillText("Physics Lab", cx, cy + size*0.3);
+            ctx.font = "12px Arial"; ctx.fillText(config.m + "kg", cx, cy + size*0.3 + 15);
+
+            // --- Vectors ---
+            let vScale = 1.5;
+            // Dynamic scale to prevent arrows going off screen
+            if(results.T1 * vScale > 180) vScale = 180 / results.T1;
+
+            let showComp = document.getElementById('check-comp').checked;
+
+            // T1 (Red, Left) - Direction: 180 - a1
+            drawVector(cx, cy, results.T1 * vScale, Math.PI - r1, "#ef4444", "T1", showComp);
+
+            // T2 (Blue, Right) - Direction: a2 (Note: Canvas Y is inverted)
+            // Math Angle a2 is standard. In Canvas: x + cos, y - sin
+            drawVector(cx, cy, results.T2 * vScale, -r2, "#3b82f6", "T2", showComp); 
+            // Note: -r2 because in Canvas Y increases downwards. A positive mathematical angle (up-right) needs negative Y.
+
+            // Gravity (Green, Down)
+            drawVector(cx, cy, results.Fg * vScale, Math.PI/2, "#10b981", "mg", false);
+        }
+
+        function drawVector(x, y, len, angle, color, label, components) {
+            let endX = x + len * Math.cos(angle);
+            let endY = y + len * Math.sin(angle); // sin is positive = down in canvas
+
+            // Main Arrow
+            ctx.strokeStyle = color; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(endX, endY); ctx.stroke();
+            
+            // Head
+            let head = 10;
+            let hAng = Math.atan2(endY-y, endX-x);
+            ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - head*Math.cos(hAng-Math.PI/6), endY - head*Math.sin(hAng-Math.PI/6));
+            ctx.lineTo(endX - head*Math.cos(hAng+Math.PI/6), endY - head*Math.sin(hAng+Math.PI/6));
+            ctx.fill();
+
+            // Label
+            ctx.font = "bold 12px Arial"; ctx.fillText(label, endX + (endX>x?10:-20), endY + (endY>y?15:-5));
+
+            // Components (Dashed)
+            if(components) {
+                ctx.setLineDash([5, 3]); ctx.lineWidth = 1; ctx.strokeStyle = "#94a3b8";
+                // Horizontal comp
+                ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(endX, y); ctx.stroke();
+                // Vertical comp
+                ctx.beginPath(); ctx.moveTo(endX, y); ctx.lineTo(endX, endY); ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+
+        function recordData() {
+            trialCount++;
+            const tbody = document.getElementById('table-body');
+            if(trialCount === 1) tbody.innerHTML = "";
+            const row = document.createElement('tr');
+            row.innerHTML = `<td>${config.a1}&deg;</td><td>${config.a2}&deg;</td><td>${config.m}</td><td>${results.T1.toFixed(1)}</td><td>${results.T2.toFixed(1)}</td>`;
+            tbody.insertBefore(row, tbody.firstChild);
+            switchTab('data');
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.panel-content').forEach(p => p.classList.remove('active'));
+            if(tab==='manual') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('content-manual').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('content-data').classList.add('active');
+            }
+        }
+
+        function resetSim() {
+            document.getElementById('in-a1').value = 45;
+            document.getElementById('in-a2').value = 45;
+            document.getElementById('in-mass').value = 10;
+            updateConfig();
+        }
+
+        function copyData() {
+            let text = "Angle1,Angle2,Mass,T1,T2\n";
+            const rows = document.querySelectorAll('#table-body tr');
+            for(let i=rows.length-1; i>=0; i--) {
+                const cols = rows[i].querySelectorAll('td');
+                if(cols.length>0) {
+                    let line = []; cols.forEach(c => line.push(c.innerText)); text += line.join(",") + "\n";
+                }
+            }
+            navigator.clipboard.writeText(text).then(()=>alert("Data Copied!"));
+        }
+
+    </script>
+</body>
+</html>

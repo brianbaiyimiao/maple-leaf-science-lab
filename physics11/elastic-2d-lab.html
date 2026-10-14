@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Physics 11: Elastic Solver & Animator</title>
+    <style>
+        :root {
+            --bg: #0f172a; --panel: #1e293b; --text: #e2e8f0;
+            --accent: #38bdf8;
+            --c1: #ef4444; /* Red */
+            --c2: #3b82f6; /* Blue */
+            --res: #10b981; /* Green */
+            --math: 'Courier New', monospace;
+        }
+        body { margin:0; background:var(--bg); color:var(--text); font-family:'Segoe UI',sans-serif; display:flex; height:100vh; overflow:hidden; }
+
+        /* Sidebar */
+        .sidebar { width:400px; background:var(--panel); padding:20px; border-right:1px solid #334155; display:flex; flex-direction:column; z-index:10; box-shadow:5px 0 15px #000; overflow-y:auto; }
+        .header { border-bottom:1px solid #334155; padding-bottom:10px; margin-bottom:15px; }
+        h2 { margin:0; color:var(--accent); }
+        .back { color:#94a3b8; text-decoration:none; font-size:0.85rem; }
+
+        /* Tabs */
+        .tabs { display:flex; gap:5px; background:#000; padding:5px; border-radius:8px; margin-bottom:20px; }
+        .tab { flex:1; padding:10px; background:transparent; border:none; color:#666; cursor:pointer; font-weight:bold; border-radius:6px; transition:0.2s; }
+        .tab.active { background:var(--accent); color:#000; }
+
+        /* Inputs */
+        .card { background:#0f172a; border:1px solid #334155; border-radius:8px; padding:10px; margin-bottom:10px; border-left:5px solid #ccc; }
+        .t1 { color:var(--c1); border-color:var(--c1); } .t2 { color:var(--c2); border-color:var(--c2); }
+        .card-h { margin:0 0 5px 0; font-size:0.9rem; font-weight:bold; }
+        
+        .grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:5px; }
+        .row-2d { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-top:5px; border-top:1px dashed #333; padding-top:5px; }
+
+        .field label { font-size:0.7rem; color:#94a3b8; display:block; margin-bottom:2px; }
+        .field input { 
+            width:100%; padding:6px; background:#1e293b; color:#fff; border:1px solid #475569; 
+            border-radius:4px; text-align:center; font-family:var(--math); font-weight:bold; font-size:0.9rem;
+        }
+        .field input:focus { border-color:var(--accent); outline:none; }
+        
+        .unknown { border-color:#f59e0b !important; color:#f59e0b !important; background:rgba(245, 158, 11, 0.1) !important; }
+        .solved { border-color:var(--res) !important; color:var(--res) !important; background:rgba(16, 185, 129, 0.1) !important; }
+
+        /* Buttons */
+        .btn-solve { width:100%; padding:15px; background:var(--res); color:#000; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:1rem; margin-top:10px; }
+        .btn-reset { width:100%; padding:10px; background:#334155; color:#fff; border:none; border-radius:6px; margin-top:10px; cursor:pointer; }
+
+        /* Viewport */
+        .viewport { flex:1; background:#0b0f19; position:relative; display:flex; justify-content:center; align-items:center; overflow:hidden; }
+        canvas { z-index:2; }
+        .grid-bg { position:absolute; top:0; left:0; width:100%; height:100%; background-image:radial-gradient(#334155 1px, transparent 1px); background-size:40px 40px; opacity:0.3; }
+
+        /* Log */
+        .log-box { 
+            position:absolute; bottom:0; left:0; width:100%; height:180px; 
+            background:rgba(0,0,0,0.95); border-top:1px solid #334155; padding:20px; 
+            overflow-y:auto; font-family:var(--math); font-size:0.85rem; color:#ccc; z-index:20;
+        }
+        .step { margin-bottom:10px; border-bottom:1px dashed #333; padding-bottom:5px; }
+        .hl { color:var(--res); font-weight:bold; }
+
+        /* Anim Controls */
+        .controls { position:absolute; bottom:200px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:20; background:rgba(0,0,0,0.8); padding:5px 15px; border-radius:20px; }
+        button { cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="header"><a href="unit3.html" class="back">⬅ Back</a><h2>🎱 Elastic Solver</h2></div>
+    
+    <div class="tabs">
+        <button class="tab active" onclick="setMode('1D')">1D Linear</button>
+        <button class="tab" onclick="setMode('2D')">2D Angled</button>
+    </div>
+
+    <div style="font-size:0.75rem; color:#666; margin-bottom:10px; text-align:center;">
+        Enter knowns. Type <b>?</b> for unknowns.<br>Masses must be known.
+    </div>
+
+    <div id="inputs">
+        <div class="card" style="border-left-color:var(--c1)">
+            <h4 class="t1">Object 1 (Red)</h4>
+            <div class="grid">
+                <div class="field"><label>Mass (kg)</label><input id="m1" type="number" value="0.75"></div>
+                <div class="field"><label>Vi (m/s)</label><input id="v1i" type="text" value="22"></div>
+                <div class="field"><label>Vf (m/s)</label><input id="v1f" type="text" class="unknown" value="?"></div>
+            </div>
+            <div class="row-2d" style="display:none">
+                <div class="field"><label>Ang Init&deg;</label><input id="a1i" type="text" value="0"></div>
+                <div class="field"><label>Ang Final&deg;</label><input id="a1f" type="text" class="unknown" value="?"></div>
+            </div>
+        </div>
+
+        <div class="card" style="border-left-color:var(--c2)">
+            <h4 class="t2">Object 2 (Blue)</h4>
+            <div class="grid">
+                <div class="field"><label>Mass (kg)</label><input id="m2" type="number" value="0.05"></div>
+                <div class="field"><label>Vi (m/s)</label><input id="v2i" type="text" class="unknown" value="?"></div>
+                <div class="field"><label>Vf (m/s)</label><input id="v2f" type="text" value="54.38"></div>
+            </div>
+            <div class="row-2d" style="display:none">
+                <div class="field"><label>Ang Init&deg;</label><input id="a2i" type="text" value="0"></div>
+                <div class="field"><label>Ang Final&deg;</label><input id="a2f" type="text" class="unknown" value="?"></div>
+            </div>
+        </div>
+    </div>
+
+    <button class="btn-solve" onclick="solve()">🧮 SOLVE & ANIMATE</button>
+    <button class="btn-reset" onclick="reset()">Reset</button>
+</div>
+
+<div class="viewport">
+    <div class="grid-bg"></div>
+    <canvas id="c"></canvas>
+    <div class="controls">
+        <button id="btn-pause" style="background:none; border:none; color:#fff; font-size:1.2rem;" onclick="togglePause()">⏸</button>
+    </div>
+    <div class="log-box" id="log">
+        Ready.<br>Example 1D: Known V1i, V2f (Golf Ball). Solve for V2i, V1f.
+    </div>
+</div>
+
+<script>
+    const cvs = document.getElementById('c');
+    const ctx = cvs.getContext('2d');
+    let W, H;
+    let mode = '1D';
+    let running = false, paused = false, animTime = 0;
+    const IMPACT_T = 2.0; // Collision happens at 2.0s
+    let PIXEL_SCALE = 20;
+
+    // Objects
+    let objs = [];
+
+    window.onload = () => { resize(); setMode('1D'); };
+    window.onresize = resize;
+
+    function resize() {
+        W = cvs.width = cvs.parentElement.clientWidth;
+        H = cvs.height = cvs.parentElement.clientHeight;
+        if(!running) drawEmpty();
+    }
+
+    function setMode(m) {
+        mode = m;
+        document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+        event.target.classList.add('active');
+        
+        let is2D = (m === '2D');
+        document.querySelectorAll('.row-2d').forEach(el => el.style.display = is2D ? 'grid' : 'none');
+
+        // Set Defaults
+        if(m === '1D') {
+            // Golf Ball Defaults
+            setVal('m1', 0.75); setVal('v1i', 22); setVal('v1f', '?');
+            setVal('m2', 0.05); setVal('v2i', '?'); setVal('v2f', 54.38);
+            document.querySelectorAll('.2d-only input').forEach(i => i.value=0);
+        } else {
+            // 2D Defaults
+            setVal('m1', 2); setVal('v1i', 10); setVal('a1i', 0); setVal('v1f', '?'); setVal('a1f', 30);
+            setVal('m2', 2); setVal('v2i', 0); setVal('a2i', 0); setVal('v2f', '?'); setVal('a2f', '?');
+            markUnknown('v1f'); markUnknown('v2f'); markUnknown('a2f');
+            document.getElementById('a1f').classList.remove('unknown');
+        }
+        resetLog();
+        running = false; drawEmpty();
+    }
+
+    function getVal(id) {
+        let v = document.getElementById(id).value.trim();
+        return (v==='?' || v==='') ? null : parseFloat(v);
+    }
+    function setVal(id, v) {
+        document.getElementById(id).value = (typeof v === 'number') ? v.toFixed(2) : v;
+        if(typeof v === 'number') document.getElementById(id).classList.add('solved');
+        else document.getElementById(id).classList.add('unknown');
+    }
+    function markSolved(id, v) {
+        let el = document.getElementById(id);
+        el.value = v.toFixed(2);
+        el.classList.remove('unknown'); el.classList.add('solved');
+    }
+    function markUnknown(id) {
+        let el = document.getElementById(id);
+        el.classList.remove('solved'); el.classList.add('unknown');
+    }
+
+    function log(msg, err=false) {
+        document.getElementById('log').innerHTML += `<div class="step" style="color:${err?'#ef4444':'#ccc'}">${msg}</div>`;
+        document.getElementById('log').scrollTop = document.getElementById('log').scrollHeight;
+    }
+    function resetLog() { document.getElementById('log').innerHTML = ""; }
+
+    function toRad(d) { return d*Math.PI/180; }
+    function toDeg(r) { return r*180/Math.PI; }
+
+    // --- SOLVER ---
+    function solve() {
+        resetLog();
+        running = false;
+        let m1 = getVal('m1'), m2 = getVal('m2');
+        if(m1===null || m2===null) { log("Masses required!", true); return; }
+
+        // Values for animation
+        let u1=0, u2=0, v1=0, v2=0;
+        let au1=0, au2=0, av1=0, av2=0;
+
+        // --- 1D Logic ---
+        if(mode === '1D') {
+            u1 = getVal('v1i'); u2 = getVal('v2i');
+            v1 = getVal('v1f'); v2 = getVal('v2f');
+            au1=0; au2=0; av1=0; av2=0; // 1D angles
+
+            // Case: Forward
+            if(u1!==null && u2!==null && v1===null && v2===null) {
+                v1 = ((m1-m2)*u1 + 2*m2*u2)/(m1+m2);
+                v2 = ((m2-m1)*u2 + 2*m1*u1)/(m1+m2);
+                markSolved('v1f', v1); markSolved('v2f', v2);
+                log(`<b>Solved Forward:</b> V1f=${v1.toFixed(2)}, V2f=${v2.toFixed(2)}`);
+            }
+            // Case: Mixed (Golf Ball)
+            else if(u1!==null && v2!==null && u2===null && v1===null) {
+                // u2 = (2m1u1 - v2(m1+m2))/(m1-m2)
+                u2 = (2*m1*u1 - v2*(m1+m2)) / (m1-m2);
+                v1 = u2 + v2 - u1;
+                markSolved('v2i', u2); markSolved('v1f', v1);
+                log(`<b>Solved Mixed:</b> Found Init V2=${u2.toFixed(2)} and Final V1=${v1.toFixed(2)}`);
+            }
+            // Case: Reverse
+            else if(v1!==null && v2!==null && u1===null && u2===null) {
+                u1 = ((m1-m2)*v1 + 2*m2*v2)/(m1+m2);
+                u2 = ((m2-m1)*v2 + 2*m1*v1)/(m1+m2);
+                markSolved('v1i', u1); markSolved('v2i', u2);
+                log(`<b>Solved Reverse:</b> Found Initials from Finals.`);
+            }
+            else { log("Unsupported combination for 1D.", true); return; }
+        }
+        
+        // --- 2D Logic ---
+        else {
+            u1=getVal('v1i'); au1=getVal('a1i');
+            u2=getVal('v2i'); au2=getVal('a2i');
+            av1=getVal('a1f');
+
+            if(u1===null || u2===null) { log("2D needs initial velocities.", true); return; }
+            
+            // Standard Scattering: Known Initials + Final Angle 1
+            if(av1!==null && getVal('v1f')===null) {
+                let r1i=toRad(au1), r2i=toRad(au2), r1f=toRad(av1);
+                let Px = m1*u1*Math.cos(r1i) + m2*u2*Math.cos(r2i);
+                let Py = m1*u1*Math.sin(r1i) + m2*u2*Math.sin(r2i);
+                let E = 0.5*m1*u1**2 + 0.5*m2*u2**2;
+
+                // Quadratic for v1
+                let K = Px*Math.cos(r1f) + Py*Math.sin(r1f);
+                let A = m1 + m1*m1/m2;
+                let B = -2*m1*K/m2;
+                let C = (Px**2 + Py**2)/m2 - 2*E;
+                
+                let disc = B*B - 4*A*C;
+                if(disc < 0) { log("No solution for this angle.", true); return; }
+                v1 = (-B + Math.sqrt(disc))/(2*A); // Larger root
+
+                // Find v2 vector
+                let p2x = Px - m1*v1*Math.cos(r1f);
+                let p2y = Py - m1*v1*Math.sin(r1f);
+                v2 = Math.sqrt(p2x**2 + p2y**2)/m2;
+                av2 = toDeg(Math.atan2(p2y, p2x));
+
+                markSolved('v1f', v1);
+                markSolved('v2f', v2);
+                markSolved('a2f', av2);
+                log(`<b>Solved 2D:</b> V1=${v1.toFixed(2)}, V2=${v2.toFixed(2)} @ ${av2.toFixed(1)}°`);
+            }
+            else { log("Please provide all Initials and 'Ang Final 1'.", true); return; }
+        }
+
+        // Setup Animation
+        startAnim(m1, u1, au1, m2, u2, au2, v1, av1, v2, av2);
+    }
+
+    // --- ANIMATION ---
+    function startAnim(m1, u1, a1, m2, u2, a2, v1, af1, v2, af2) {
+        // Auto Scale
+        let maxV = Math.max(Math.abs(u1), Math.abs(u2), Math.abs(v1), Math.abs(v2));
+        if(maxV < 1) maxV = 1;
+        PIXEL_SCALE = 300 / (maxV * IMPACT_TIME); // Fit trajectory in 300px radius
+
+        let cx = W/2, cy = H/2;
+        
+        // 1D Hack: Offset vertically if 1D so they don't overlap perfectly
+        let yOff = mode==='1D' ? 0 : 0; 
+
+        // Vectors (Y Up for calc, Invert for Canvas)
+        let toVec = (v, a) => ({ x: v*Math.cos(toRad(a)), y: v*Math.sin(toRad(a)) });
+        
+        let vu1 = toVec(u1, a1); let vu2 = toVec(u2, a2);
+        let vv1 = toVec(v1, af1); let vv2 = toVec(v2, af2);
+
+        // Backtrack Start Pos from Center (Impact)
+        // P_start = Center - V_init * T
+        let p1s = { x: cx - vu1.x*PIXEL_SCALE*IMPACT_TIME, y: cy + vu1.y*PIXEL_SCALE*IMPACT_TIME }; // Y inv
+        let p2s = { x: cx - vu2.x*PIXEL_SCALE*IMPACT_TIME, y: cy + vu2.y*PIXEL_SCALE*IMPACT_TIME };
+
+        objs = [
+            { m:m1, color:'#ef4444', r:15+m1*2, s:p1s, vi:vu1, vf:vv1 },
+            { m:m2, color:'#3b82f6', r:15+m2*2, s:p2s, vi:vu2, vf:vv2 }
+        ];
+
+        running = true; paused = false; animTime = 0;
+        document.getElementById('btn-pause').innerText = "⏸";
+        requestAnimationFrame(loop);
+    }
+
+    function loop() {
+        if(!running) return;
+        if(!paused) animTime += 1/60;
+
+        ctx.clearRect(0,0,W,H);
+        
+        // Grid
+        let cx=W/2, cy=H/2;
+        ctx.strokeStyle="#334155"; ctx.beginPath();
+        ctx.moveTo(cx,0); ctx.lineTo(cx,H); ctx.moveTo(0,cy); ctx.lineTo(W,cy); ctx.stroke();
+
+        objs.forEach(o => {
+            let x, y;
+            if(animTime < IMPACT_TIME) {
+                x = o.s.x + o.vi.x * PIXEL_SCALE * animTime;
+                y = o.s.y - o.vi.y * PIXEL_SCALE * animTime; // Draw Y
+            } else {
+                let dt = animTime - IMPACT_TIME;
+                x = cx + o.vf.x * PIXEL_SCALE * dt;
+                y = cy - o.vf.y * PIXEL_SCALE * dt; // Draw Y
+            }
+            
+            // Ball
+            ctx.fillStyle=o.color; ctx.beginPath(); ctx.arc(x,y,o.r,0,6.28); ctx.fill();
+            ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
+            
+            // Label
+            ctx.fillStyle='#fff'; ctx.font='10px Arial'; ctx.textAlign='center';
+            ctx.fillText(o.m+"kg", x, y+4);
+        });
+
+        if(animTime < IMPACT_TIME + 3.0) requestAnimationFrame(loop);
+        else running = false;
+    }
+
+    function drawEmpty() { ctx.clearRect(0,0,W,H); }
+    function togglePause() { 
+        paused = !paused; 
+        document.getElementById('btn-pause').innerText = paused ? "▶" : "⏸";
+    }
+    
+    function reset() {
+        running = false; drawEmpty(); resetLog();
+        document.querySelectorAll('input').forEach(i => {
+            if(i.classList.contains('solved')) {
+                i.value = "?"; i.classList.remove('solved'); i.classList.add('unknown');
+            }
+        });
+    }
+
+</script>
+</body>
+</html>

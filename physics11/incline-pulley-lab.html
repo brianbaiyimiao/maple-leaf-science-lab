@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics 11: Incline Pulley Lab</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --text-color: #e2e8f0;
+            --accent: #3b82f6;
+            --m1-color: #3b82f6; /* Blue Box */
+            --m2-color: #ef4444; /* Red Hanging Mass */
+            
+            /* Forces Colors */
+            --arrow-t: #f43f5e; /* Tension (Pink/Red) */
+            --arrow-fg: #8b5cf6; /* Gravity (Purple) */
+            --arrow-fn: #0ea5e9; /* Normal (Light Blue) */
+            --arrow-f: #f59e0b; /* Friction (Orange) */
+            
+            --border: #334155;
+            --math-font: 'Courier New', monospace;
+        }
+
+        body {
+            margin: 0; background-color: var(--bg-color); color: var(--text-color);
+            font-family: 'Segoe UI', monospace; display: flex; height: 100vh; overflow: hidden;
+        }
+
+        /* 左侧控制 */
+        .sidebar {
+            width: 320px; background: var(--panel-bg); padding: 20px;
+            border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 10;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.5); overflow-y: auto;
+        }
+
+        .header-nav { padding-bottom: 15px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+        .back-link { color: #94a3b8; text-decoration: none; font-size: 0.85rem; display: flex; align-items: center; gap: 5px; }
+        .back-link:hover { color: white; }
+        h2 { margin: 5px 0 0 0; color: var(--accent); font-size: 1.4rem; }
+
+        .control-group { margin-bottom: 20px; background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid var(--border); }
+        .label-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.85rem; color: #cbd5e1; }
+        input[type=range] { width: 100%; cursor: pointer; margin-bottom: 5px; }
+
+        .btn-action {
+            width: 100%; padding: 12px; font-size: 1rem; font-weight: bold;
+            border: none; border-radius: 6px; cursor: pointer; margin-bottom: 10px;
+            background: #10b981; color: #0f172a; transition: filter 0.2s;
+        }
+        .btn-action:hover { filter: brightness(1.1); }
+        
+        .btn-pause { background: #f59e0b; color: white; width:100%; padding:10px; border-radius:6px; border:none; cursor:pointer; font-weight:bold; margin-bottom:10px;}
+        .btn-reset { background: #ef4444; color: white; width: 100%; padding: 10px; border-radius: 6px; border:none; font-weight:bold; cursor:pointer;}
+
+        /* 中间：主视图 */
+        .center-view {
+            flex: 1; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border);
+        }
+
+        .sim-container {
+            flex: 5; position: relative; background: radial-gradient(circle at center, #1e293b 0%, #000 100%);
+            overflow: hidden; border-bottom: 2px solid var(--border);
+        }
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* 改进的图例 */
+        .legend {
+            position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.8);
+            padding: 10px; border-radius: 6px; font-size: 0.8rem; pointer-events: none;
+            border-left: 3px solid var(--accent);
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px;
+        }
+        .legend-item { display: flex; align-items: center; gap: 8px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+        /* 计算板 */
+        .calc-board {
+            flex: 3; background: #0b1120; padding: 15px; display: flex; gap: 15px;
+            border-top: 1px solid var(--border); overflow-x: auto;
+        }
+        .calc-card {
+            flex: 1; background: #1e293b; border-radius: 8px; padding: 12px; border: 1px solid var(--border);
+            min-width: 240px; display: flex; flex-direction: column;
+        }
+        .calc-title { 
+            color: #94a3b8; font-weight: bold; font-size: 0.9rem; margin-bottom: 8px; 
+            border-bottom: 1px solid #333; padding-bottom: 5px; text-transform: uppercase;
+        }
+        .math-content { 
+            font-family: var(--math-font); color: #cbd5e1; font-size: 0.85rem; line-height: 1.6; 
+        }
+        .step { color: #64748b; font-size: 0.75rem; display: block; margin-top: 8px; margin-bottom: 2px;}
+        .result { color: var(--accent); font-weight: bold; }
+
+        /* 右侧面板 */
+        .right-panel { width: 400px; background: #111; display: flex; flex-direction: column; }
+        .panel-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--panel-bg); }
+        .tab-btn {
+            flex: 1; padding: 12px; text-align: center; cursor: pointer; color: #94a3b8; font-weight: bold;
+            border-bottom: 3px solid transparent; transition: all 0.2s; font-size: 0.9rem;
+        }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: #182235; }
+        .panel-content { flex: 1; overflow-y: auto; display: none; padding: 0; }
+        .panel-content.active { display: block; }
+
+        .guide-box { padding: 20px; line-height: 1.6; color: #ccc; font-size: 0.9rem; }
+        .guide-box h3 { color: #fff; margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .guide-box h4 { color: var(--accent); margin: 15px 0 5px 0; }
+        
+        .table-container { width: 100%; }
+        table { width: 100%; border-collapse: collapse; text-align: center; font-family: monospace; font-size: 0.8rem; }
+        th { position: sticky; top: 0; background: #1e293b; color: #94a3b8; padding: 8px; border-bottom: 1px solid var(--border); }
+        td { padding: 6px 8px; border-bottom: 1px solid #222; color: #ccc; }
+        tr:hover { background: #1e293b; }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="header-nav">
+            <a href="unit2.html" class="back-link">⬅ Back to Unit 2</a>
+            <h2>⛓ Incline System</h2>
+        </div>
+
+        <div class="control-group">
+            <div class="label-row"><span>Ramp Angle (&theta;)</span><span id="val-angle">30&deg;</span></div>
+            <input type="range" id="slider-angle" min="0" max="90" value="30" oninput="updateConfig()">
+        </div>
+
+        <div class="control-group">
+            <div class="label-row"><span>Box Mass (M<sub>1</sub>)</span><span id="val-m1">10 kg</span></div>
+            <input type="range" id="slider-m1" min="1" max="50" value="10" oninput="updateConfig()">
+        </div>
+
+        <div class="control-group">
+            <div class="label-row"><span>Hanging Mass (m<sub>2</sub>)</span><span id="val-m2">5.0 kg</span></div>
+            <input type="range" id="slider-m2" min="0.5" max="20" step="0.5" value="5" oninput="updateConfig()">
+        </div>
+
+        <div class="control-group">
+            <div class="label-row"><span>Friction (&mu;)</span><span id="val-mu">0.2</span></div>
+            <input type="range" id="slider-mu" min="0" max="1.0" step="0.05" value="0.2" oninput="updateConfig()">
+        </div>
+
+        <button class="btn-action" onclick="startSim()">🚀 START</button>
+        <button class="btn-pause" id="btn-pause" onclick="togglePause()">⏸ PAUSE</button>
+        <button class="btn-reset" onclick="resetSim()">Reset System</button>
+    </div>
+
+    <div class="center-view">
+        <div class="sim-container" id="viewport">
+            <div class="legend">
+                <div class="legend-item"><div class="dot" style="background:var(--arrow-grav)"></div> Gravity (mg)</div>
+                <div class="legend-item"><div class="dot" style="background:var(--arrow-fn)"></div> Normal (F<sub>N</sub>)</div>
+                <div class="legend-item"><div class="dot" style="background:var(--arrow-t)"></div> Tension (T)</div>
+                <div class="legend-item"><div class="dot" style="background:var(--arrow-f)"></div> Friction (f)</div>
+            </div>
+            <canvas id="simCanvas"></canvas>
+            <div id="pause-overlay" style="position:absolute;top:20px;left:50%;transform:translateX(-50%);background:orange;color:black;padding:5px 15px;border-radius:20px;font-weight:bold;display:none;">PAUSED</div>
+        </div>
+
+        <div class="calc-board">
+            <div class="calc-card">
+                <div class="calc-title">1. Forces Competition</div>
+                <div class="math-content" id="math-forces">Waiting...</div>
+            </div>
+            <div class="calc-card">
+                <div class="calc-title">2. Net Force & Direction</div>
+                <div class="math-content" id="math-net">Waiting...</div>
+            </div>
+            <div class="calc-card">
+                <div class="calc-title">3. Results</div>
+                <div class="math-content" id="math-res">Waiting...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div class="panel-tabs">
+            <div class="tab-btn active" onclick="switchTab('manual')">📖 Manual</div>
+            <div class="tab-btn" onclick="switchTab('data')">📊 Data</div>
+        </div>
+
+        <div id="content-manual" class="panel-content active">
+            <div class="guide-box">
+                <h3>Lab: Incline Pulley</h3>
+                <h4>Objective</h4>
+                <p>Analyze a system of connected objects where one is on an incline and the other hangs vertically.</p>
+                <h4>Free Body Diagram (M1)</h4>
+                <ul>
+                    <li><b>Gravity (Purple):</b> Straight down.</li>
+                    <li><b>Normal (Blue):</b> Perpendicular to ramp.</li>
+                    <li><b>Tension (Pink):</b> Up the ramp.</li>
+                    <li><b>Friction (Orange):</b> Opposes motion.</li>
+                </ul>
+                <h4>Procedure</h4>
+                <ol>
+                    <li>Set $M_1$ and $\theta$.</li>
+                    <li>Predict: Will adding more $m_2$ pull $M_1$ up the ramp?</li>
+                    <li>Start and observe acceleration.</li>
+                </ol>
+            </div>
+        </div>
+
+        <div id="content-data" class="panel-content">
+            <div class="table-container">
+                <table id="data-table">
+                    <thead>
+                        <tr>
+                            <th>Trial</th>
+                            <th>M1</th>
+                            <th>m2</th>
+                            <th>Dir</th>
+                            <th>a (m/s²)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <tr><td colspan="5" style="text-align:center; padding:20px; color:#666;">Press START...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <button onclick="copyData()" style="width:100%; padding:10px; background:#334; color:white; border:none; cursor:pointer; font-weight:bold; border-top:1px solid #555;">📋 Copy Data</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        const g = 9.8;
+        const PIXELS_PER_METER = 20;
+
+        // State
+        let config = { angle: 30, m1: 10, m2: 5, mu: 0.2 };
+        let sys = { pos: 0, v: 0, moving: false };
+        let isPaused = false;
+        let trialCount = 0;
+        let animationId;
+
+        window.onload = function() {
+            resize();
+            updateConfig();
+            draw();
+        };
+        window.onresize = resize;
+
+        function resize() {
+            const container = document.getElementById('viewport');
+            width = canvas.width = container.clientWidth;
+            height = canvas.height = container.clientHeight;
+            draw();
+        }
+
+        function updateConfig() {
+            if(sys.moving) return;
+            config.angle = parseInt(document.getElementById('slider-angle').value);
+            config.m1 = parseFloat(document.getElementById('slider-m1').value);
+            config.m2 = parseFloat(document.getElementById('slider-m2').value);
+            config.mu = parseFloat(document.getElementById('slider-mu').value);
+
+            document.getElementById('val-angle').innerHTML = config.angle + "&deg;";
+            document.getElementById('val-m1').innerText = config.m1 + " kg";
+            document.getElementById('val-m2').innerText = config.m2 + " kg";
+            document.getElementById('val-mu').innerText = config.mu.toFixed(2);
+
+            updateMath();
+            draw();
+        }
+
+        function updateMath() {
+            const rad = config.angle * Math.PI / 180;
+            
+            let F_pull_up = config.m2 * g; 
+            let F_pull_down = config.m1 * g * Math.sin(rad); 
+            let FN = config.m1 * g * Math.cos(rad);
+            let Ff_max = config.mu * FN;
+            
+            let Fnet = 0;
+            let a = 0;
+            let frictionDir = 0; 
+            let f_val = 0;
+            let directionStr = "Static";
+
+            let diff = F_pull_up - F_pull_down; 
+            
+            if (Math.abs(diff) <= Ff_max) {
+                a = 0; Fnet = 0; f_val = Math.abs(diff);
+                frictionDir = diff > 0 ? 1 : -1; 
+                directionStr = "Balanced";
+            } else if (diff > Ff_max) {
+                Fnet = diff - Ff_max;
+                f_val = Ff_max;
+                frictionDir = 1;
+                directionStr = "M1 Up / m2 Down";
+            } else {
+                Fnet = diff + Ff_max; 
+                f_val = Ff_max;
+                frictionDir = -1;
+                directionStr = "M1 Down / m2 Up";
+            }
+            
+            a = Fnet / (config.m1 + config.m2);
+            let T = config.m2 * (g - a);
+
+            document.getElementById('math-forces').innerHTML = 
+                `<span class="step">M1 Gravity ($F_{gx}$):</span> ${F_pull_down.toFixed(1)} N (Down Ramp)<br>` +
+                `<span class="step">m2 Weight ($F_{g2}$):</span> ${F_pull_up.toFixed(1)} N (Pulls Up)<br>` +
+                `<span class="step">Difference:</span> ${(F_pull_up - F_pull_down).toFixed(1)} N`;
+
+            document.getElementById('math-net').innerHTML = 
+                `<span class="step">Max Friction:</span> ${Ff_max.toFixed(1)} N<br>` +
+                `<span class="step">State:</span> <b style="color:#3b82f6">${directionStr}</b><br>` +
+                `<span class="step">Net Force:</span> <span class="result">${Math.abs(Fnet).toFixed(1)} N</span>`;
+
+            document.getElementById('math-res').innerHTML = 
+                `<span class="step">Accel ($a$):</span> <span class="result">${a.toFixed(2)} m/s²</span><br>` +
+                `<span class="step">Tension ($T$):</span> <span class="result" style="color:#f43f5e">${T.toFixed(1)} N</span>`;
+
+            return { a, directionStr, f_val, frictionDir, T };
+        }
+
+        function startSim() {
+            if(sys.moving) return;
+            let phys = updateMath();
+            
+            if(Math.abs(phys.a) > 0.01) {
+                sys.moving = true;
+                isPaused = false;
+                document.getElementById('pause-overlay').style.display = 'none';
+                logData(phys.directionStr, phys.a);
+                switchTab('data');
+                animate();
+            } else {
+                alert("System is in equilibrium (Static Friction holds it). Change Mass or Angle.");
+                logData("Static", 0);
+            }
+        }
+
+        function togglePause() {
+            if(!sys.moving) return;
+            isPaused = !isPaused;
+            const btn = document.getElementById('btn-pause');
+            const overlay = document.getElementById('pause-overlay');
+            if(isPaused) {
+                btn.innerText = "▶ RESUME"; overlay.style.display = 'block';
+            } else {
+                btn.innerText = "⏸ PAUSE"; overlay.style.display = 'none';
+            }
+        }
+
+        function animate() {
+            if(!sys.moving) return;
+            if(!isPaused) {
+                let phys = updateMath();
+                let dt = 1/60;
+                sys.v += phys.a * dt;
+                sys.pos += sys.v * dt * PIXELS_PER_METER;
+                
+                let maxPos = 400; let minPos = -200;
+                if(sys.pos > maxPos || sys.pos < minPos) {
+                    sys.moving = false;
+                }
+            }
+            draw();
+            if(sys.moving) requestAnimationFrame(animate);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, width, height);
+            const rad = config.angle * Math.PI / 180;
+
+            let pulleyX = width - 100; let pulleyY = 100; let rampLen = 600; 
+            let startX = pulleyX - rampLen * Math.cos(rad);
+            let startY = pulleyY + rampLen * Math.sin(rad);
+
+            // Ramp
+            ctx.fillStyle = "#334155";
+            ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(pulleyX, pulleyY); ctx.lineTo(pulleyX, startY); ctx.fill();
+            ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(pulleyX, pulleyY); ctx.stroke();
+
+            // Pulley
+            ctx.beginPath(); ctx.arc(pulleyX, pulleyY, 20, 0, Math.PI*2);
+            ctx.fillStyle = "#475569"; ctx.fill(); ctx.stroke();
+
+            // M1 (Box)
+            let startDist = 100; 
+            let currentDistFromBottom = startDist + sys.pos;
+            let m1cx = startX + currentDistFromBottom * Math.cos(rad);
+            let m1cy = startY - currentDistFromBottom * Math.sin(rad);
+            let s1 = 30 + config.m1; if(s1>60) s1=60;
+            
+            ctx.save();
+            ctx.translate(m1cx, m1cy);
+            ctx.rotate(-rad); 
+            ctx.fillStyle = "#3b82f6";
+            ctx.fillRect(-s1/2, -s1, s1, s1); 
+            ctx.strokeStyle = "#fff"; ctx.lineWidth=2; ctx.strokeRect(-s1/2, -s1, s1, s1);
+            ctx.fillStyle = "#fff"; ctx.fillText("M1", -8, -s1/2);
+            ctx.restore();
+
+            // M2 (Hanging)
+            let m2x = pulleyX + 20; 
+            let m2y = pulleyY + 50 + sys.pos; 
+            let s2 = 20 + config.m2*2; if(s2>50) s2=50;
+            
+            ctx.fillStyle = "#ef4444";
+            ctx.fillRect(m2x - s2/2, m2y, s2, s2);
+            ctx.strokeRect(m2x - s2/2, m2y, s2, s2);
+            ctx.fillStyle = "#fff"; ctx.fillText("m2", m2x-8, m2y+15);
+
+            // String
+            ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(m1cx, m1cy - s1/2); ctx.lineTo(pulleyX, pulleyY); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(pulleyX+20, pulleyY); ctx.lineTo(m2x, m2y); ctx.stroke();
+
+            // --- VECTORS ---
+            let phys = updateMath();
+            let vScale = 1.5;
+            let m1CenterY = m1cy - s1/2; 
+
+            // M1 Vectors
+            // 1. Gravity (Purple) - Straight Down
+            drawArrow(m1cx, m1CenterY, config.m1*g*vScale, Math.PI/2, "#8b5cf6", "Fg");
+
+            // 2. Normal (Blue) - Perpendicular Up (-rad - 90deg)
+            drawArrow(m1cx, m1CenterY, config.m1*g*Math.cos(rad)*vScale, -rad - Math.PI/2, "#0ea5e9", "FN");
+
+            // 3. Tension (Pink) - Up Ramp (-rad)
+            drawArrow(m1cx, m1CenterY, phys.T*vScale, -rad, "#f43f5e", "T");
+            
+            // 4. Friction (Orange) - Opposes Motion
+            if(phys.f_val > 0.1) {
+                let fAng = (phys.frictionDir === 1) ? -rad + Math.PI : -rad; 
+                drawArrow(m1cx, m1CenterY, phys.f_val*vScale, fAng, "#f59e0b", "f");
+            }
+            
+            // M2 Vectors
+            let m2cy = m2y + s2/2;
+            // 5. Tension (Up)
+            drawArrow(m2x, m2y, phys.T*vScale, -Math.PI/2, "#f43f5e", "T");
+            // 6. Gravity (Down)
+            drawArrow(m2x, m2cy, config.m2*g*vScale, Math.PI/2, "#8b5cf6", "mg");
+        }
+
+        function drawArrow(x, y, len, angle, color, label) {
+            if (len < 10) return;
+            let ex = x + len * Math.cos(angle);
+            let ey = y + len * Math.sin(angle);
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey);
+            ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke();
+            
+            let h = 8;
+            ctx.beginPath(); ctx.moveTo(ex, ey);
+            ctx.lineTo(ex - h*Math.cos(angle-Math.PI/6), ey - h*Math.sin(angle-Math.PI/6));
+            ctx.lineTo(ex - h*Math.cos(angle+Math.PI/6), ey - h*Math.sin(angle+Math.PI/6));
+            ctx.fillStyle = color; ctx.fill();
+            
+            if(label) { ctx.fillStyle = color; ctx.font = "bold 12px Arial"; ctx.fillText(label, ex+10, ey); }
+        }
+
+        function logData(dir, a) {
+            trialCount++;
+            const tbody = document.getElementById('table-body');
+            if(trialCount === 1) tbody.innerHTML = "";
+            const row = document.createElement('tr');
+            row.innerHTML = `<td>${trialCount}</td><td>${config.m1}</td><td>${config.m2}</td><td>${dir}</td><td>${a.toFixed(2)}</td>`;
+            tbody.insertBefore(row, tbody.firstChild);
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.panel-content').forEach(p => p.classList.remove('active'));
+            if(tab==='manual') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('content-manual').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('content-data').classList.add('active');
+            }
+        }
+
+        function resetSim() {
+            sys.moving = false; sys.pos = 0; sys.v = 0;
+            updateConfig();
+            switchTab('manual');
+        }
+
+        function copyData() {
+            let text = "Trial,M1,m2,Dir,Accel\n";
+            const rows = document.querySelectorAll('#table-body tr');
+            for(let i=rows.length-1; i>=0; i--) {
+                const cols = rows[i].querySelectorAll('td');
+                if(cols.length>0) {
+                    let line = []; cols.forEach(c => line.push(c.innerText)); text += line.join(",") + "\n";
+                }
+            }
+            navigator.clipboard.writeText(text).then(()=>alert("Copied!"));
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Bernoulli's Principle Simulator</title>
+    <style>
+        :root { --ml-blue: #1e3a8a; --ml-gold: #fbbf24; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-blue); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1350px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 420px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow-y: auto;}
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: flex; justify-content: space-between; font-weight: bold; color: #475569; margin-bottom: 8px; font-size: 0.95rem; }
+        .control-group select, .control-group input[type="range"] { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer;}
+
+        /* 动态计算黑板样式 */
+        .calc-board { background: #0f172a; color: #38bdf8; padding: 20px; border-radius: 8px; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.9rem; line-height: 1.6; margin-top: 15px; border: 3px solid #334155; box-shadow: inset 0 0 15px rgba(0,0,0,0.8);}
+        .calc-title { color: #f59e0b; font-weight: bold; border-bottom: 1px dashed #475569; padding-bottom: 5px; margin-bottom: 10px;}
+        .calc-step { margin-bottom: 12px; }
+        .calc-highlight { color: #22c55e; font-weight: bold;}
+        .calc-warn { color: #ef4444; font-weight: bold;}
+
+        .visual-container { display: flex; flex-direction: column; gap: 15px; }
+        .canvas-box { background: #e2e8f0; border-radius: 12px; border: 4px solid #cbd5e1; overflow: hidden; position: relative; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 0 20px rgba(0,0,0,0.1); height: 100%; min-height: 500px;}
+        canvas { width: 100%; height: 100%; }
+
+        /* 虚拟仪表盘 */
+        .gauge-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+        .gauge-box { background: #1e293b; color: white; padding: 15px; border-radius: 8px; text-align: center; border: 2px solid #475569;}
+        .gauge-val { display: block; font-size: 1.4rem; font-weight: bold; color: #22c55e; font-family: monospace; margin-top: 5px;}
+        .gauge-val.pressure { color: #ef4444; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit1.html" class="back-link">⬅ Back to Unit 1</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 2: Bernoulli's Principle & Venturi Tube</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Physics</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>1. Fluid & Pipe Controls</h3>
+            
+            <div class="control-group">
+                <label>Fluid Type (Density &rho;):</label>
+                <select id="fluid-sel" onchange="updatePhysics()">
+                    <option value="water">Water (&rho; = 1000 kg/m&sup3;)</option>
+                    <option value="oil">Oil (&rho; = 800 kg/m&sup3;)</option>
+                    <option value="honey">Honey (&rho; = 1400 kg/m&sup3;)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Inlet Velocity (v&sub1;): <span id="v1-val" style="color:var(--ml-blue);">2.0 m/s</span></label>
+                <input type="range" id="v1-slider" min="0.5" max="5.0" step="0.1" value="2.0" oninput="updatePhysics()">
+            </div>
+
+            <div class="control-group" style="margin-top: 25px;">
+                <label>Middle Section Radius (r&sub2;): <span id="r2-val" style="color:#ef4444;">0.5 m</span></label>
+                <input type="range" id="r2-slider" min="0.2" max="1.0" step="0.1" value="0.5" oninput="updatePhysics()">
+                <small style="color:#64748b; display:block; margin-top:5px;">Note: Inlet radius (r&sub1;) is fixed at 1.0 m.</small>
+            </div>
+
+            <h3>2. Live Calculation Board</h3>
+            <div class="calc-board" id="calc-board">
+                </div>
+            
+            <div class="gauge-container">
+                <div class="gauge-box">
+                    Constriction Velocity (v&sub2;)
+                    <span class="gauge-val" id="gauge-v2">0.0 m/s</span>
+                </div>
+                <div class="gauge-box">
+                    Constriction Pressure (P&sub2;)
+                    <span class="gauge-val pressure" id="gauge-p2">0 kPa</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box">
+                <canvas id="labCanvas" width="800" height="600"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('labCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        // 物理变量
+        let density = 1000; // kg/m^3
+        let v1 = 2.0; // m/s
+        let r1 = 1.0; // m (fixed)
+        let r2 = 0.5; // m
+        
+        let a1 = 0, a2 = 0;
+        let v2 = 0; // m/s
+        let p1 = 150000; // 入口基础压强 150 kPa (高于大气压)
+        let p2 = 0; // Pa
+        
+        let time = 0;
+        let particles = [];
+        
+        const fluids = {
+            'water': { rho: 1000, color: 'rgba(56, 189, 248, 0.4)', pColor: '#0284c7' },
+            'oil':   { rho: 800,  color: 'rgba(250, 204, 21, 0.4)', pColor: '#ca8a04' },
+            'honey': { rho: 1400, color: 'rgba(217, 119, 6, 0.5)', pColor: '#92400e' }
+        };
+        let currentFluid = 'water';
+
+        // 初始化粒子
+        for(let i=0; i<200; i++) {
+            particles.push({
+                x: Math.random() * 800,
+                y: Math.random() * 200 - 100, // 相对于管中心线的Y
+                offsetRatio: (Math.random() - 0.5) // -0.5 到 0.5 的比例，用来适应管径缩放
+            });
+        }
+
+        function updatePhysics() {
+            currentFluid = document.getElementById('fluid-sel').value;
+            density = fluids[currentFluid].rho;
+            v1 = parseFloat(document.getElementById('v1-slider').value);
+            r2 = parseFloat(document.getElementById('r2-slider').value);
+            
+            document.getElementById('v1-val').innerText = v1.toFixed(1) + ' m/s';
+            document.getElementById('r2-val').innerText = r2.toFixed(1) + ' m';
+
+            // --- 物理引擎核心计算 ---
+            
+            // 1. 连续性方程 (Continuity Equation): A1 * v1 = A2 * v2
+            a1 = Math.PI * Math.pow(r1, 2);
+            a2 = Math.PI * Math.pow(r2, 2);
+            v2 = v1 * (a1 / a2);
+            
+            // 2. 伯努利方程 (Bernoulli's Equation): P1 + 0.5*rho*v1^2 = P2 + 0.5*rho*v2^2 (h 相同)
+            // 推出 P2 = P1 + 0.5 * rho * (v1^2 - v2^2)
+            let dynamicDiff = 0.5 * density * (Math.pow(v1, 2) - Math.pow(v2, 2));
+            p2 = p1 + dynamicDiff;
+
+            // 更新仪表盘
+            document.getElementById('gauge-v2').innerText = v2.toFixed(1) + ' m/s';
+            document.getElementById('gauge-p2').innerText = (p2 / 1000).toFixed(1) + ' kPa';
+
+            updateCalcBoard(dynamicDiff);
+        }
+
+        function updateCalcBoard(dynamicDiff) {
+            let board = document.getElementById('calc-board');
+            let p1_kpa = p1 / 1000;
+            let p2_kpa = p2 / 1000;
+
+            let warning = "";
+            if(p2 < 0) {
+                warning = `<br><span class="calc-warn">⚠️ Cavitation Warning: Pressure dropped below 0 Pa!</span>`;
+            }
+
+            board.innerHTML = `
+                <div class="calc-title">Calculation Steps:</div>
+                <div class="calc-step">
+                    <b>1. Continuity Eq:</b> A<sub>1</sub>v<sub>1</sub> = A<sub>2</sub>v<sub>2</sub><br>
+                    (&pi;&middot;${r1.toFixed(1)}&sup2;) &times; ${v1.toFixed(1)} = (&pi;&middot;${r2.toFixed(1)}&sup2;) &times; v<sub>2</sub><br>
+                    v<sub>2</sub> = ${v1.toFixed(1)} &times; (${r1.toFixed(1)} / ${r2.toFixed(1)})&sup2; = <span class="calc-highlight">${v2.toFixed(2)} m/s</span>
+                </div>
+                <div class="calc-step">
+                    <b>2. Bernoulli's Eq:</b> P<sub>1</sub> + &frac12;&rho;v<sub>1</sub>&sup2; = P<sub>2</sub> + &frac12;&rho;v<sub>2</sub>&sup2;<br>
+                    P<sub>2</sub> = P<sub>1</sub> + &frac12;&rho;(v<sub>1</sub>&sup2; - v<sub>2</sub>&sup2;)<br>
+                    P<sub>2</sub> = ${p1} + &frac12;(${density})(${v1.toFixed(1)}&sup2; - ${v2.toFixed(2)}&sup2;)<br>
+                    P<sub>2</sub> = ${p1} + (${dynamicDiff.toFixed(0)}) = <span style="color:#ef4444; font-weight:bold;">${(p2).toFixed(0)} Pa</span>
+                    ${warning}
+                </div>
+            `;
+        }
+
+        // 计算当前X坐标下的管径半径 (用于渲染和粒子计算)
+        function getRadiusAtX(x) {
+            if(x <= 200 || x >= 600) return r1 * 80; // 宽管区，比例放大80倍
+            if(x >= 350 && x <= 450) return r2 * 80; // 窄管中心区
+            // 渐变过渡区 (余弦平滑)
+            if(x > 200 && x < 350) {
+                let t = (x - 200) / 150;
+                return (r2*80) + (r1*80 - r2*80) * (0.5 + 0.5*Math.cos(t * Math.PI));
+            }
+            if(x > 450 && x < 600) {
+                let t = (x - 450) / 150;
+                return (r1*80) + (r2*80 - r1*80) * (0.5 + 0.5*Math.cos(t * Math.PI));
+            }
+        }
+
+        function drawLab() {
+            // 背景
+            ctx.fillStyle = '#f1f5f9'; ctx.fillRect(0,0,800,600);
+
+            let centerY = 400;
+
+            // --- 1. 绘制流体内部 ---
+            ctx.fillStyle = fluids[currentFluid].color;
+            ctx.beginPath();
+            for(let x=0; x<=800; x+=10) { ctx.lineTo(x, centerY - getRadiusAtX(x)); }
+            for(let x=800; x>=0; x-=10) { ctx.lineTo(x, centerY + getRadiusAtX(x)); }
+            ctx.closePath();
+            ctx.fill();
+
+            // --- 2. 绘制上下管壁 ---
+            ctx.strokeStyle = '#475569'; ctx.lineWidth = 6;
+            ctx.beginPath(); for(let x=0; x<=800; x+=10) ctx.lineTo(x, centerY - getRadiusAtX(x)); ctx.stroke();
+            ctx.beginPath(); for(let x=0; x<=800; x+=10) ctx.lineTo(x, centerY + getRadiusAtX(x)); ctx.stroke();
+
+            // --- 3. 绘制立式测压管 (Manometers) ---
+            // 管1 (左侧宽管)
+            let h1 = (p1 / 150000) * 150; // 最大显示高度 150px
+            ctx.fillStyle = fluids[currentFluid].color;
+            ctx.fillRect(135, centerY - getRadiusAtX(150) - h1, 30, h1);
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(135, centerY - getRadiusAtX(150)); ctx.lineTo(135, centerY - 250); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(165, centerY - getRadiusAtX(150)); ctx.lineTo(165, centerY - 250); ctx.stroke();
+            ctx.fillStyle = '#ef4444'; ctx.font='bold 14px Arial'; ctx.fillText("P1: " + (p1/1000).toFixed(1) + " kPa", 115, centerY - 260);
+
+            // 管2 (中间窄管)
+            let h2 = (p2 / 150000) * 150; 
+            if(h2 < 0) h2 = 0; // 防止负数画出管底
+            ctx.fillStyle = fluids[currentFluid].color;
+            ctx.fillRect(385, centerY - getRadiusAtX(400) - h2, 30, h2);
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(385, centerY - getRadiusAtX(400)); ctx.lineTo(385, centerY - 250); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(415, centerY - getRadiusAtX(400)); ctx.lineTo(415, centerY - 250); ctx.stroke();
+            ctx.fillStyle = '#ef4444'; ctx.font='bold 14px Arial'; ctx.fillText("P2: " + (p2/1000).toFixed(1) + " kPa", 365, centerY - 260);
+
+            // --- 4. 动态粒子模拟水流 ---
+            ctx.fillStyle = fluids[currentFluid].pColor;
+            for(let i=0; i<particles.length; i++) {
+                let p = particles[i];
+                
+                // 计算当前位置的流速 (与截面积成反比)
+                let currentR = getRadiusAtX(p.x);
+                let baseR = r1 * 80;
+                let currentV = v1 * Math.pow(baseR / currentR, 2);
+                
+                // 移动粒子 (视觉速度 = 实际速度 * 缩放系数)
+                p.x += currentV * 1.5; 
+                
+                // 粒子垂直位置必须随管径自适应，以保持层流效果
+                let renderY = centerY + (p.offsetRatio * currentR * 2);
+
+                ctx.beginPath(); ctx.arc(p.x, renderY, 3, 0, Math.PI*2); ctx.fill();
+
+                // 循环粒子
+                if(p.x > 800) {
+                    p.x = 0;
+                    p.offsetRatio = (Math.random() - 0.5);
+                }
+            }
+        }
+
+        function animate() {
+            time += 0.05;
+            drawLab();
+            requestAnimationFrame(animate);
+        }
+
+        // 初始化
+        updatePhysics();
+        animate();
+    </script>
+</body>
+</html>

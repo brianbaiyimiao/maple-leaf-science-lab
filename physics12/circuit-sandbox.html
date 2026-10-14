@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Circuit Sandbox Pro Simulator</title>
+    <style>
+        :root { --ml-blue: #1e3a8a; --ml-gold: #fbbf24; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; overflow: hidden;}
+        .nav { background: var(--ml-blue); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; display: flex; width: 100%; box-sizing: border-box; position: relative;}
+        
+        /* 左侧工具栏 */
+        .toolbar { width: 260px; background: white; padding: 20px; box-shadow: 2px 0 10px rgba(0,0,0,0.1); z-index: 10; display: flex; flex-direction: column; overflow-y: auto;}
+        .toolbar h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; font-size: 1.1rem;}
+        
+        .tool-btn { display: flex; align-items: center; gap: 10px; padding: 12px; margin-bottom: 10px; border: 2px solid #cbd5e1; background: #f8fafc; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; color: #475569; text-align: left;}
+        .tool-btn:hover { background: #e2e8f0; }
+        .tool-btn.active { border-color: var(--ml-blue); background: #eff6ff; color: var(--ml-blue); box-shadow: 0 4px 6px rgba(30, 58, 138, 0.15);}
+        .tool-icon { font-size: 1.5rem; }
+
+        .info-panel { margin-top: auto; background: #f0f9ff; border-left: 4px solid var(--ml-blue); padding: 15px; font-size: 0.85rem; color: #0f172a; border-radius: 0 8px 8px 0; line-height: 1.5;}
+
+        /* 右侧画布 */
+        .canvas-area { flex: 1; background: #e2e8f0; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; padding: 20px;}
+        .canvas-wrapper { background: #1e293b; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); overflow: hidden; position: relative; border: 4px solid #475569;}
+        canvas { display: block; cursor: crosshair; }
+
+        .hint-box { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.7); color: white; padding: 10px 15px; border-radius: 6px; font-size: 0.85rem; pointer-events: none;}
+        .warning-box { position: absolute; top: 20px; right: 20px; background: rgba(239, 68, 68, 0.9); color: white; padding: 10px 15px; border-radius: 6px; font-size: 0.9rem; font-weight: bold; display: none; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);}
+
+        /* 悬浮编辑面板 (Floating Editor) */
+        .floating-editor { position: absolute; background: rgba(15, 23, 42, 0.95); border: 2px solid var(--ml-gold); color: white; padding: 15px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: none; z-index: 100; min-width: 220px; transform: translate(-50%, -120%); transition: opacity 0.2s;}
+        .float-title { font-weight: bold; color: var(--ml-gold); margin-bottom: 10px; border-bottom: 1px dashed #475569; padding-bottom: 5px; text-transform: uppercase; font-size: 0.95rem;}
+        .float-val { font-family: monospace; font-size: 1.4rem; color: #22c55e; display: block; margin: 10px 0; text-align: center; font-weight: bold;}
+        .float-slider { width: 100%; cursor: pointer;}
+        .float-readout { font-family: monospace; font-size: 0.95rem; color: #38bdf8; margin-top: 10px; background: #1e293b; padding: 10px; border-radius: 6px; line-height: 1.6;}
+        .close-btn { position: absolute; top: 5px; right: 10px; cursor: pointer; color: #94a3b8; font-weight: bold; font-size: 1.2rem;}
+        .close-btn:hover { color: #ef4444; }
+        .math-eq { color: #fcd34d; font-size: 0.85rem; margin-top: 8px; border-top: 1px solid #475569; padding-top: 8px;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit2.html" class="back-link">⬅ Back to Unit 2</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 7: Circuit Sandbox Pro (Free Build)</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Physics</span>
+    </div>
+
+    <div class="workspace">
+        <div class="toolbar">
+            <h3>Build Tools</h3>
+            <button class="tool-btn active" onclick="setTool('select')"><span class="tool-icon">👆</span> Select / Edit</button>
+            <button class="tool-btn" onclick="setTool('wire')"><span class="tool-icon">➖</span> Wire</button>
+            <button class="tool-btn" onclick="setTool('resistor')"><span class="tool-icon">〰️</span> Resistor</button>
+            <button class="tool-btn" onclick="setTool('battery')"><span class="tool-icon">🔋</span> Battery</button>
+            <button class="tool-btn" onclick="setTool('voltmeter')"><span class="tool-icon">Ⓥ</span> Voltmeter</button>
+            <button class="tool-btn" onclick="setTool('ammeter')"><span class="tool-icon">Ⓐ</span> Ammeter</button>
+            <button class="tool-btn" onclick="setTool('delete')" style="color: #ef4444;"><span class="tool-icon">🗑️</span> Delete Tool</button>
+            
+            <button class="tool-btn" onclick="clearAll()" style="margin-top: 20px; justify-content: center; background: #fee2e2; border-color: #ef4444; color: #b91c1c;">Clear Board</button>
+
+            <div class="info-panel">
+                <b>Pro Tips:</b><br><br>
+                💡 <b>Auto-Cut:</b> Placing a component <i>over</i> an existing wire will automatically cut the wire to insert the component!<br><br>
+                💡 <b>Calculation:</b> Use the <b>Select / Edit</b> tool on any Resistor to see the Ohm's Law (I=V/R) breakdown.
+            </div>
+        </div>
+
+        <div class="canvas-area">
+            <div class="canvas-wrapper" id="canvas-wrapper">
+                <canvas id="circuitCanvas" width="1000" height="700"></canvas>
+                <div class="hint-box">Drag between grid dots. Draw components over wires to auto-splice them!</div>
+                <div class="warning-box" id="warning-box">⚠️ HIGH CURRENT / SHORT CIRCUIT DETECTED!</div>
+                
+                <div class="floating-editor" id="float-editor">
+                    <div class="close-btn" onclick="closeEditor()">&times;</div>
+                    <div class="float-title" id="float-name">Component</div>
+                    <div id="float-controls">
+                        <span class="float-val" id="float-value-text">10 &Omega;</span>
+                        <input type="range" class="float-slider" id="float-slider" min="1" max="100" step="1" oninput="updateComponentValue()">
+                    </div>
+                    <div class="float-readout" id="float-readout">
+                        I: 0.00 A<br>V: 0.00 V
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('circuitCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        const GRID_SIZE = 50; 
+        let cols = Math.floor(cvs.width / GRID_SIZE);
+        let rows = Math.floor(cvs.height / GRID_SIZE);
+
+        let currentTool = 'select';
+        let components = []; 
+        let selectedComp = null; 
+        
+        let isDragging = false;
+        let dragStartNode = null;
+        let mouseNode = null;
+
+        let time = 0;
+
+        function setTool(tool) {
+            currentTool = tool;
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            if(tool !== 'select') closeEditor();
+        }
+
+        function clearAll() {
+            components = [];
+            closeEditor();
+            solveCircuit();
+        }
+
+        function getGridNode(x, y) {
+            let c = Math.round(x / GRID_SIZE);
+            let r = Math.round(y / GRID_SIZE);
+            if(c < 1) c = 1; if(c >= cols) c = cols - 1;
+            if(r < 1) r = 1; if(r >= rows) r = rows - 1;
+            return {c, r, id: c + r * 1000};
+        }
+
+        cvs.addEventListener('mousedown', (e) => {
+            const rect = cvs.getBoundingClientRect();
+            let x = e.clientX - rect.left;
+            let y = e.clientY - rect.top;
+            
+            if (currentTool === 'select') {
+                let found = findComponentNear(x, y);
+                if(found) {
+                    selectedComp = found;
+                    openEditor(x, y);
+                } else {
+                    closeEditor();
+                }
+            } else if (currentTool === 'delete') {
+                let comp = findComponentNear(x, y);
+                if(comp) {
+                    components = components.filter(c => c !== comp);
+                    closeEditor();
+                    solveCircuit();
+                }
+            } else {
+                dragStartNode = getGridNode(x, y);
+                mouseNode = {x: x, y: y};
+                isDragging = true;
+                closeEditor();
+            }
+        });
+
+        cvs.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const rect = cvs.getBoundingClientRect();
+                mouseNode = {x: e.clientX - rect.left, y: e.clientY - rect.top};
+            }
+        });
+
+        cvs.addEventListener('mouseup', (e) => {
+            if (isDragging && dragStartNode) {
+                const rect = cvs.getBoundingClientRect();
+                let endNode = getGridNode(e.clientX - rect.left, e.clientY - rect.top);
+                
+                if (dragStartNode.id !== endNode.id) {
+                    if (currentTool === 'wire') {
+                        createWireSegments(dragStartNode, endNode);
+                    } else {
+                        if (!componentExists(dragStartNode, endNode)) {
+                            let defaultVal = currentTool === 'resistor' ? 10 : (currentTool === 'battery' ? 12 : 0);
+                            
+                            let newComp = {
+                                type: currentTool,
+                                n1: dragStartNode,
+                                n2: endNode,
+                                val: defaultVal,
+                                I: 0, Vdrop: 0
+                            };
+                            
+                            // 核心修复：剪断被覆盖的导线 (Auto-Cut wires)
+                            removeOverlappingWires(newComp);
+                            components.push(newComp);
+                        }
+                    }
+                    solveCircuit(); 
+                }
+                isDragging = false;
+                dragStartNode = null;
+            }
+        });
+
+        function createWireSegments(n1, n2) {
+            let dc = n2.c - n1.c;
+            let dr = n2.r - n1.r;
+            let steps = Math.max(Math.abs(dc), Math.abs(dr));
+            if(steps === 0) return;
+
+            let stepC = dc / steps;
+            let stepR = dr / steps;
+
+            for(let i=0; i<steps; i++) {
+                let sn1 = {c: Math.round(n1.c + i*stepC), r: Math.round(n1.r + i*stepR)};
+                sn1.id = sn1.c + sn1.r*1000;
+                let sn2 = {c: Math.round(n1.c + (i+1)*stepC), r: Math.round(n1.r + (i+1)*stepR)};
+                sn2.id = sn2.c + sn2.r*1000;
+
+                if(sn1.id !== sn2.id && !componentExists(sn1, sn2)) {
+                    components.push({ type: 'wire', n1: sn1, n2: sn2, val: 0, I: 0, Vdrop: 0 });
+                }
+            }
+        }
+
+        // 核心剪线算法：如果新元件压在已有导线上，删除该导线避免短路！
+        function removeOverlappingWires(newComp) {
+            let x1 = newComp.n1.c, y1 = newComp.n1.r;
+            let x2 = newComp.n2.c, y2 = newComp.n2.r;
+            
+            function isCollinearAndBetween(c, r) {
+                let cross = (c - x1) * (y2 - y1) - (r - y1) * (x2 - x1);
+                if (Math.abs(cross) > 0.01) return false; 
+                let dot = (c - x1) * (x2 - x1) + (r - y1) * (y2 - y1);
+                if (dot < 0) return false; 
+                let sqLen = (x2 - x1)*(x2 - x1) + (y2 - y1)*(y2 - y1);
+                if (dot > sqLen) return false; 
+                return true;
+            }
+
+            components = components.filter(c => {
+                if (c.type !== 'wire') return true; 
+                if (isCollinearAndBetween(c.n1.c, c.n1.r) && isCollinearAndBetween(c.n2.c, c.n2.r)) {
+                    return false; // 删除被压住的导线
+                }
+                return true;
+            });
+        }
+
+        function findComponentNear(x, y) {
+            for(let c of components) {
+                let x1 = c.n1.c * GRID_SIZE, y1 = c.n1.r * GRID_SIZE;
+                let x2 = c.n2.c * GRID_SIZE, y2 = c.n2.r * GRID_SIZE;
+                
+                let l2 = Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2);
+                if(l2 === 0) continue;
+                let t = Math.max(0, Math.min(1, ((x-x1)*(x2-x1) + (y-y1)*(y2-y1)) / l2));
+                let px = x1 + t * (x2 - x1);
+                let py = y1 + t * (y2 - y1);
+                
+                if(Math.hypot(x - px, y - py) < 15) return c;
+            }
+            return null;
+        }
+
+        function componentExists(n1, n2) {
+            return components.some(c => 
+                (c.n1.id === n1.id && c.n2.id === n2.id) || 
+                (c.n1.id === n2.id && c.n2.id === n1.id)
+            );
+        }
+
+        // --- 悬浮编辑器 ---
+        function openEditor(x, y) {
+            let editor = document.getElementById('float-editor');
+            editor.style.display = 'block';
+            editor.style.left = x + 'px';
+            editor.style.top = (y - 20) + 'px'; 
+            
+            let slider = document.getElementById('float-slider');
+            let valTxt = document.getElementById('float-value-text');
+            let controls = document.getElementById('float-controls');
+            
+            if(selectedComp.type === 'resistor') {
+                controls.style.display = 'block';
+                document.getElementById('float-name').innerText = 'Resistor';
+                slider.min = 1; slider.max = 100; slider.step = 1;
+                slider.value = selectedComp.val;
+                valTxt.innerHTML = selectedComp.val + ' &Omega;';
+            } else if(selectedComp.type === 'battery') {
+                controls.style.display = 'block';
+                document.getElementById('float-name').innerText = 'Battery';
+                slider.min = 1; slider.max = 50; slider.step = 1;
+                slider.value = selectedComp.val;
+                valTxt.innerText = selectedComp.val + ' V';
+            } else {
+                controls.style.display = 'none'; 
+                document.getElementById('float-name').innerText = selectedComp.type.toUpperCase();
+            }
+            updateEditorReadout();
+        }
+
+        function closeEditor() {
+            document.getElementById('float-editor').style.display = 'none';
+            selectedComp = null;
+        }
+
+        function updateComponentValue() {
+            if(selectedComp) {
+                selectedComp.val = parseFloat(document.getElementById('float-slider').value);
+                if(selectedComp.type === 'resistor') {
+                    document.getElementById('float-value-text').innerHTML = selectedComp.val + ' &Omega;';
+                } else {
+                    document.getElementById('float-value-text').innerText = selectedComp.val + ' V';
+                }
+                solveCircuit(); 
+                updateEditorReadout();
+            }
+        }
+
+        function updateEditorReadout() {
+            if(selectedComp) {
+                let html = `Current (I): ${Math.abs(selectedComp.I).toFixed(3)} A<br>Voltage (V): ${Math.abs(selectedComp.Vdrop).toFixed(2)} V`;
+                
+                // 增加物理公式分解计算过程
+                if(selectedComp.type === 'resistor') {
+                    let vStr = Math.abs(selectedComp.Vdrop).toFixed(2);
+                    let iStr = Math.abs(selectedComp.I).toFixed(3);
+                    html += `<div class="math-eq"><b>Ohm's Law (I = V/R)</b><br>I = ${vStr} / ${selectedComp.val} = ${iStr} A</div>`;
+                }
+                document.getElementById('float-readout').innerHTML = html;
+            }
+        }
+
+        // =========================================================
+        // 核心引擎：节点分析法矩阵求解 (Nodal Analysis Solver)
+        // =========================================================
+        function solveCircuit() {
+            document.getElementById('warning-box').style.display = 'none';
+
+            let uniqueNodes = new Set();
+            components.forEach(c => { uniqueNodes.add(c.n1.id); uniqueNodes.add(c.n2.id); });
+            let nodeArray = Array.from(uniqueNodes);
+            let N = nodeArray.length;
+            
+            if (N < 2) {
+                components.forEach(c => { c.I = 0; c.Vdrop = 0; });
+                return;
+            }
+
+            let nodeMap = {};
+            nodeArray.forEach((id, idx) => nodeMap[id] = idx);
+
+            let A = Array(N).fill().map(() => Array(N).fill(0));
+            let Z = Array(N).fill(0);
+
+            components.forEach(c => {
+                let idx1 = nodeMap[c.n1.id];
+                let idx2 = nodeMap[c.n2.id];
+                let G = 0, I_norton = 0;
+
+                if (c.type === 'wire' || c.type === 'ammeter') G = 100; // 0.01 Ohms
+                else if (c.type === 'voltmeter') G = 1e-7; // 10M Ohms
+                else if (c.type === 'resistor') G = 1.0 / Math.max(c.val, 0.001);
+                else if (c.type === 'battery') { G = 100; I_norton = c.val * G; }
+
+                A[idx1][idx1] += G; A[idx2][idx2] += G;
+                A[idx1][idx2] -= G; A[idx2][idx1] -= G;
+
+                if (c.type === 'battery') { Z[idx1] += I_norton; Z[idx2] -= I_norton; }
+            });
+
+            // 以 Node 0 作为 GND
+            let reducedA = []; let reducedZ = [];
+            for(let i = 1; i < N; i++) {
+                let row = [];
+                for(let j = 1; j < N; j++) row.push(A[i][j] + (i===j ? 1e-9 : 0));
+                reducedA.push(row); reducedZ.push(Z[i]);
+            }
+
+            let X = N === 2 ? [reducedZ[0] / reducedA[0][0]] : gaussianElimination(reducedA, reducedZ);
+
+            if(!X) {
+                components.forEach(c => { c.I = 0; c.Vdrop = 0; });
+                return;
+            }
+
+            let nodeVoltages = [0]; 
+            for (let i = 0; i < N - 1; i++) nodeVoltages.push(X[i]);
+
+            let maxCurrent = 0;
+            components.forEach(c => {
+                let v1 = nodeVoltages[nodeMap[c.n1.id]];
+                let v2 = nodeVoltages[nodeMap[c.n2.id]];
+                c.Vdrop = v1 - v2;
+
+                if (c.type === 'battery') c.I = (c.val - c.Vdrop) * 100; 
+                else {
+                    let R = (c.type === 'wire' || c.type==='ammeter') ? 0.01 : (c.type === 'voltmeter' ? 1e7 : c.val);
+                    c.I = c.Vdrop / R; 
+                }
+
+                if(Math.abs(c.I) < 1e-3) c.I = 0;
+                if(Math.abs(c.Vdrop) < 1e-3) c.Vdrop = 0;
+                if(Math.abs(c.I) > maxCurrent && c.type === 'wire') maxCurrent = Math.abs(c.I);
+            });
+
+            // 超大电流警报 (短路)
+            if(maxCurrent > 30) document.getElementById('warning-box').style.display = 'block';
+            if(selectedComp) updateEditorReadout();
+        }
+
+        function gaussianElimination(A, Z) {
+            let n = Z.length; let M = [];
+            for (let i = 0; i < n; i++) M.push([...A[i], Z[i]]); 
+
+            for (let i = 0; i < n; i++) {
+                let maxEl = Math.abs(M[i][i]), maxRow = i;
+                for (let k = i + 1; k < n; k++) {
+                    if (Math.abs(M[k][i]) > maxEl) { maxEl = Math.abs(M[k][i]); maxRow = k; }
+                }
+                if (maxEl < 1e-12) return null; 
+
+                for (let k = i; k < n + 1; k++) {
+                    let tmp = M[maxRow][k]; M[maxRow][k] = M[i][k]; M[i][k] = tmp;
+                }
+
+                for (let k = i + 1; k < n; k++) {
+                    let c = -M[k][i] / M[i][i];
+                    for (let j = i; j < n + 1; j++) {
+                        if (i === j) M[k][j] = 0; else M[k][j] += c * M[i][j];
+                    }
+                }
+            }
+            let x = new Array(n).fill(0);
+            for (let i = n - 1; i >= 0; i--) {
+                x[i] = M[i][n];
+                for (let j = i + 1; j < n; j++) x[i] -= M[i][j] * x[j];
+                x[i] = x[i] / M[i][i];
+            }
+            return x;
+        }
+
+        // --- 渲染引擎 ---
+        function drawComponent(c) {
+            let x1 = c.n1.c * GRID_SIZE, y1 = c.n1.r * GRID_SIZE;
+            let x2 = c.n2.c * GRID_SIZE, y2 = c.n2.r * GRID_SIZE;
+            let cx = (x1 + x2)/2, cy = (y1 + y2)/2;
+            let angle = Math.atan2(y2 - y1, x2 - x1);
+            let dist = Math.hypot(x2 - x1, y2 - y1);
+
+            ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle);
+
+            ctx.strokeStyle = c === selectedComp ? '#38bdf8' : '#94a3b8';
+            ctx.lineWidth = 4;
+            if(c === selectedComp) { ctx.shadowBlur = 15; ctx.shadowColor = '#38bdf8'; }
+
+            if(c.type === 'wire') {
+                ctx.beginPath(); ctx.moveTo(-dist/2, 0); ctx.lineTo(dist/2, 0); ctx.stroke();
+            } 
+            else if(c.type === 'resistor') {
+                ctx.beginPath(); ctx.moveTo(-dist/2, 0); ctx.lineTo(-20, 0);
+                ctx.lineTo(-15, -12); ctx.lineTo(-5, 12); ctx.lineTo(5, -12); 
+                ctx.lineTo(15, 12); ctx.lineTo(20, 0); ctx.lineTo(dist/2, 0); ctx.stroke();
+                
+                ctx.restore(); ctx.save(); ctx.translate(cx, cy);
+                ctx.fillStyle = c === selectedComp ? '#38bdf8' : 'white'; ctx.font='bold 14px Arial'; ctx.textAlign='center';
+                ctx.fillText(c.val + " \u03A9", 0, -20);
+            }
+            else if(c.type === 'battery') {
+                ctx.beginPath(); ctx.moveTo(-dist/2, 0); ctx.lineTo(-10, 0); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(dist/2, 0); ctx.stroke();
+                
+                ctx.strokeStyle = c === selectedComp ? '#38bdf8' : '#ef4444'; 
+                ctx.beginPath(); ctx.moveTo(-10, -18); ctx.lineTo(-10, 18); ctx.stroke();
+                ctx.strokeStyle = c === selectedComp ? '#38bdf8' : '#334155'; 
+                ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(10, -10); ctx.lineTo(10, 10); ctx.stroke();
+
+                ctx.restore(); ctx.save(); ctx.translate(cx, cy);
+                ctx.fillStyle = c === selectedComp ? '#38bdf8' : 'white'; ctx.font='bold 14px Arial'; ctx.textAlign='center';
+                ctx.fillText(c.val + " V", 0, -25);
+            }
+            else if(c.type === 'ammeter' || c.type === 'voltmeter') {
+                ctx.beginPath(); ctx.moveTo(-dist/2, 0); ctx.lineTo(-16, 0); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(dist/2, 0); ctx.stroke();
+                
+                ctx.fillStyle = '#1e293b';
+                ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                
+                ctx.restore(); ctx.save(); ctx.translate(cx, cy);
+                ctx.fillStyle = c.type === 'ammeter' ? '#ef4444' : '#22c55e'; 
+                ctx.font='bold 16px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.fillText(c.type === 'ammeter' ? "A" : "V", 0, 0);
+                
+                ctx.fillStyle = '#cbd5e1'; ctx.font='13px Consolas';
+                let measureText = c.type === 'ammeter' ? Math.abs(c.I).toFixed(2) + "A" : Math.abs(c.Vdrop).toFixed(1) + "V";
+                ctx.fillText(measureText, 0, -25);
+            }
+
+            ctx.restore();
+
+            // 动态电子流动动画 (自适应流速)
+            if(Math.abs(c.I) > 0.05) {
+                let direction = c.I > 0 ? 1 : -1;
+                let speed = Math.min(Math.abs(c.I) * 1.5, 10); 
+                let offset = (time * speed * direction) % dist;
+                if (offset < 0) offset += dist;
+
+                let numElectrons = Math.max(1, Math.floor(dist / 25));
+                for(let k=0; k<numElectrons; k++) {
+                    let particleOffset = (offset + k * (dist/numElectrons)) % dist;
+                    let px = x1 + Math.cos(angle) * particleOffset;
+                    let py = y1 + Math.sin(angle) * particleOffset;
+
+                    ctx.fillStyle = '#fcd34d'; 
+                    ctx.shadowBlur = 5; ctx.shadowColor = '#fcd34d';
+                    ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI*2); ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+            }
+        }
+
+        function drawLab() {
+            ctx.fillStyle = '#0f172a'; ctx.fillRect(0,0,1000,700);
+
+            ctx.fillStyle = 'rgba(255,255,255,0.1)';
+            for(let r=1; r<rows; r++) {
+                for(let c=1; c<cols; c++) {
+                    ctx.beginPath(); ctx.arc(c * GRID_SIZE, r * GRID_SIZE, 2, 0, Math.PI*2); ctx.fill();
+                }
+            }
+
+            components.forEach(c => drawComponent(c));
+
+            if(isDragging && dragStartNode) {
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+                ctx.lineWidth = 4; ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(dragStartNode.c * GRID_SIZE, dragStartNode.r * GRID_SIZE);
+                ctx.lineTo(mouseNode.x, mouseNode.y);
+                ctx.stroke(); ctx.setLineDash([]);
+            }
+        }
+
+        function animate() {
+            time += 0.5;
+            drawLab();
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>

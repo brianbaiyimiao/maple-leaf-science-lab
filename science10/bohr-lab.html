@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bohr & Ion Lab</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --accent-cyan: #22d3ee;
+            --accent-pink: #f472b6;
+            --accent-ion-pos: #f87171; /* Red for Cation */
+            --accent-ion-neg: #60a5fa; /* Blue for Anion */
+            --accent-stable: #4ade80;  /* Green for Stable */
+            --text-main: #f8fafc;
+        }
+
+        body {
+            margin: 0; background-color: var(--bg-color); color: var(--text-main);
+            font-family: 'Segoe UI', monospace; display: flex; height: 100vh; overflow: hidden;
+        }
+
+        /* 左侧控制栏 */
+        .sidebar {
+            width: 340px; background: var(--panel-bg); padding: 20px;
+            border-right: 1px solid #334155; display: flex; flex-direction: column;
+            overflow-y: auto; z-index: 10;
+        }
+
+        .header-nav { border-bottom: 1px solid #334155; padding-bottom: 15px; margin-bottom: 20px; }
+        .back-link { color: #94a3b8; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: white; }
+        h2 { margin: 5px 0 0 0; color: var(--accent-cyan); }
+
+        /* 元素周期表网格 */
+        .periodic-grid {
+            display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 20px;
+        }
+        
+        .element-btn {
+            background: #334155; border: 1px solid #475569; color: white;
+            padding: 5px; border-radius: 4px; cursor: pointer;
+            display: flex; flex-direction: column; align-items: center;
+            transition: all 0.1s; min-height: 45px;
+        }
+        .element-btn:hover { background: #475569; transform: scale(1.05); }
+        .element-btn.active { background: var(--accent-cyan); color: #0f172a; border-color: var(--accent-cyan); font-weight: bold; }
+        
+        .atomic-num { font-size: 0.6rem; opacity: 0.7; }
+        .symbol { font-size: 1rem; font-weight: bold; }
+
+        /* 离子控制区 */
+        .ion-control {
+            background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid #334155;
+            margin-top: auto; /* 推到底部 */
+        }
+        .ion-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .charge-badge {
+            padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.9rem;
+            background: #334155; color: #ccc;
+        }
+        
+        .btn-group { display: flex; gap: 10px; }
+        .btn-ion {
+            flex: 1; padding: 10px; border: none; border-radius: 6px;
+            font-weight: bold; cursor: pointer; transition: filter 0.2s;
+            font-family: monospace;
+        }
+        .btn-lose { background: var(--accent-ion-pos); color: #fff; } /* Lose e- -> Positive */
+        .btn-gain { background: var(--accent-ion-neg); color: #fff; } /* Gain e- -> Negative */
+        .btn-reset { background: #475569; color: #fff; width: 100%; margin-top: 10px; }
+        
+        .btn-ion:hover { filter: brightness(1.1); }
+        .btn-ion:active { transform: scale(0.95); }
+
+        /* 信息行 */
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem; color: #94a3b8; }
+        .val { color: white; font-weight: bold; }
+        .highlight { color: var(--accent-cyan); }
+
+        /* 右侧视图 */
+        .main-view { flex: 1; position: relative; display: flex; }
+
+        /* 波尔模型 */
+        .bohr-container {
+            flex: 2; position: relative;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            overflow: hidden; display: flex; justify-content: center; align-items: center;
+            border-right: 1px solid #334155;
+        }
+        #bohr-canvas { position: absolute; }
+        
+        /* 状态提示 (Stable!) */
+        #stable-badge {
+            position: absolute; top: 20px; right: 20px;
+            background: var(--accent-stable); color: #064e3b;
+            padding: 8px 15px; border-radius: 20px; font-weight: bold;
+            box-shadow: 0 0 15px rgba(74, 222, 128, 0.4);
+            display: none; animation: popIn 0.3s;
+        }
+
+        /* 路易斯结构 */
+        .lewis-container {
+            flex: 1; background: #1e293b; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+        }
+        .lewis-box {
+            width: 180px; height: 180px; background: #0f172a; border-radius: 12px;
+            border: 2px solid #475569; display: flex; justify-content: center; align-items: center;
+            position: relative; font-size: 3.5rem; font-weight: bold; color: var(--accent-pink);
+        }
+        .dot {
+            width: 14px; height: 14px; background: var(--accent-cyan); border-radius: 50%;
+            position: absolute; box-shadow: 0 0 8px var(--accent-cyan);
+        }
+        /* Lewis Charge bracket styling */
+        .bracket-l { position: absolute; left: -10px; top: -10px; bottom: -10px; width: 20px; border-left: 4px solid #64748b; border-top: 4px solid #64748b; border-bottom: 4px solid #64748b; border-radius: 10px 0 0 10px; }
+        .bracket-r { position: absolute; right: -10px; top: -10px; bottom: -10px; width: 20px; border-right: 4px solid #64748b; border-top: 4px solid #64748b; border-bottom: 4px solid #64748b; border-radius: 0 10px 10px 0; }
+        .lewis-charge { position: absolute; top: -15px; right: -25px; font-size: 1.5rem; color: #fff; }
+
+        /* Lewis dots positions */
+        .p-t1 { top: 15px; left: 40%; } .p-t2 { top: 15px; right: 40%; }
+        .p-r1 { top: 40%; right: 15px; } .p-r2 { bottom: 40%; right: 15px; }
+        .p-b1 { bottom: 15px; right: 40%; } .p-b2 { bottom: 15px; left: 40%; }
+        .p-l1 { bottom: 40%; left: 15px; } .p-l2 { top: 40%; left: 15px; }
+
+        @keyframes popIn { 0% { transform: scale(0); } 80% { transform: scale(1.1); } 100% { transform: scale(1); } }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="header-nav">
+            <a href="unit-chemistry.html" class="back-link">⬅ Back to Chemistry</a>
+            <h2>⚛️ Atomic Builder</h2>
+            <p style="font-size:0.8rem; color:#94a3b8;">Protons, Electrons & Ions</p>
+        </div>
+
+        <div style="margin-bottom:5px; font-size:0.8rem; color:#cbd5e1;">Select Element:</div>
+        <div class="periodic-grid" id="element-grid"></div>
+
+        <div style="margin-bottom:15px;">
+            <h3 id="el-name" style="margin:0 0 5px 0; color:white;">Hydrogen</h3>
+            <div class="info-row"><span>Protons (p⁺):</span><span id="val-p" class="val">1</span></div>
+            <div class="info-row"><span>Neutrons (n⁰):</span><span id="val-n" class="val">0</span></div>
+            <div class="info-row"><span>Electrons (e⁻):</span><span id="val-e" class="highlight">1</span></div>
+            <div class="info-row"><span>Config:</span><span id="val-config" class="val">1</span></div>
+        </div>
+
+        <div class="ion-control">
+            <div class="ion-header">
+                <span style="font-weight:bold; color:#fff;">Ionization</span>
+                <span id="charge-badge" class="charge-badge">Neutral</span>
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn-ion btn-lose" onclick="modifyElectron(-1)">- Lose e⁻</button>
+                <button class="btn-ion btn-gain" onclick="modifyElectron(1)">+ Gain e⁻</button>
+            </div>
+            <button class="btn-ion btn-reset" onclick="resetElectron()">Reset to Neutral</button>
+            
+            <div style="margin-top:10px; font-size:0.8rem; color:#64748b; text-align:center; line-height:1.4;">
+                Goal: Try to make the valence shell full (8 or 2).
+            </div>
+        </div>
+    </div>
+
+    <div class="main-view">
+        <div class="bohr-container" id="bohr-view">
+            <canvas id="bohr-canvas"></canvas>
+            <div id="stable-badge">✨ STABLE OCTET!</div>
+        </div>
+
+        <div class="lewis-container">
+            <div style="margin-bottom:20px; font-weight:bold; color:#94a3b8;">Lewis Diagram</div>
+            <div class="lewis-box" id="lewis-box">
+                <div id="l-bracket-l" class="bracket-l" style="display:none;"></div>
+                <div id="l-bracket-r" class="bracket-r" style="display:none;"></div>
+                <div id="l-charge" class="lewis-charge"></div>
+                
+                <span id="lewis-symbol">H</span>
+                </div>
+            <div style="margin-top:20px; text-align:center; font-size:0.85rem; color:#64748b; padding:0 20px;">
+                Shows Valence Electrons.<br>Ions get brackets [ ]
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const elements = [
+            { z: 1, s: 'H', n: 'Hydrogen', m: 1 }, { z: 2, s: 'He', n: 'Helium', m: 4 },
+            { z: 3, s: 'Li', n: 'Lithium', m: 7 }, { z: 4, s: 'Be', n: 'Beryllium', m: 9 },
+            { z: 5, s: 'B', n: 'Boron', m: 11 }, { z: 6, s: 'C', n: 'Carbon', m: 12 },
+            { z: 7, s: 'N', n: 'Nitrogen', m: 14 }, { z: 8, s: 'O', n: 'Oxygen', m: 16 },
+            { z: 9, s: 'F', n: 'Fluorine', m: 19 }, { z: 10, s: 'Ne', n: 'Neon', m: 20 },
+            { z: 11, s: 'Na', n: 'Sodium', m: 23 }, { z: 12, s: 'Mg', n: 'Magnesium', m: 24 },
+            { z: 13, s: 'Al', n: 'Aluminum', m: 27 }, { z: 14, s: 'Si', n: 'Silicon', m: 28 },
+            { z: 15, s: 'P', n: 'Phosphorus', m: 31 }, { z: 16, s: 'S', n: 'Sulfur', m: 32 },
+            { z: 17, s: 'Cl', n: 'Chlorine', m: 35 }, { z: 18, s: 'Ar', n: 'Argon', m: 40 },
+            { z: 19, s: 'K', n: 'Potassium', m: 39 }, { z: 20, s: 'Ca', n: 'Calcium', m: 40 }
+        ];
+
+        let currentEl = elements[0];
+        let currentElectrons = 1;
+        
+        const canvas = document.getElementById('bohr-canvas');
+        const ctx = canvas.getContext('2d');
+        let animationId;
+        let time = 0;
+
+        window.onload = function() {
+            createGrid();
+            selectElement(0);
+            resize();
+            animate();
+        };
+        window.onresize = resize;
+
+        function resize() {
+            const container = document.getElementById('bohr-view');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+
+        function createGrid() {
+            const grid = document.getElementById('element-grid');
+            elements.forEach((el, idx) => {
+                let btn = document.createElement('div');
+                btn.className = 'element-btn';
+                btn.innerHTML = `<span class="atomic-num">${el.z}</span><span class="symbol">${el.s}</span>`;
+                btn.onclick = () => selectElement(idx);
+                btn.id = `btn-${idx}`;
+                grid.appendChild(btn);
+            });
+        }
+
+        function selectElement(idx) {
+            currentEl = elements[idx];
+            currentElectrons = currentEl.z; // 重置为中性
+            
+            document.querySelectorAll('.element-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-${idx}`).classList.add('active');
+
+            updateUI();
+        }
+
+        function modifyElectron(delta) {
+            let newCount = currentElectrons + delta;
+            // 限制范围：最多失去所有价电子，或最多填满到18个(模拟)
+            if (newCount < 0) return; 
+            if (newCount > 20) return; 
+            
+            currentElectrons = newCount;
+            updateUI();
+        }
+
+        function resetElectron() {
+            currentElectrons = currentEl.z;
+            updateUI();
+        }
+
+        function updateUI() {
+            // Info Panel
+            const neutrons = Math.round(currentEl.m - currentEl.z);
+            document.getElementById('el-name').innerText = currentEl.n;
+            document.getElementById('val-p').innerText = currentEl.z;
+            document.getElementById('val-n').innerText = neutrons;
+            document.getElementById('val-e').innerText = currentElectrons;
+
+            let shells = calculateConfig(currentElectrons);
+            document.getElementById('val-config').innerText = shells.join(' - ');
+
+            // Ion Status
+            let charge = currentEl.z - currentElectrons; // p - e
+            let badge = document.getElementById('charge-badge');
+            let chargeText = "";
+            
+            if (charge === 0) {
+                badge.innerText = "Neutral";
+                badge.style.background = "#334155";
+                badge.style.color = "#ccc";
+                chargeText = "";
+            } else if (charge > 0) {
+                badge.innerText = `Cation (+${charge})`;
+                badge.style.background = "#f87171";
+                badge.style.color = "#fff";
+                chargeText = `+${charge}`;
+                if(charge===1) chargeText="+";
+            } else {
+                badge.innerText = `Anion (${charge})`;
+                badge.style.background = "#60a5fa";
+                badge.style.color = "#fff";
+                chargeText = `${charge}`;
+                if(charge===-1) chargeText="-";
+            }
+
+            // Stability Check (Octet Rule)
+            // Stable if valence is full (2 for 1st shell, 8 for others)
+            let valence = shells[shells.length-1];
+            let isStable = false;
+            if (shells.length === 1 && valence === 2) isStable = true; // He config
+            else if (shells.length > 1 && valence === 8) isStable = true; // Octet
+            else if (currentElectrons === 0) isStable = false; // H+ is unique
+
+            document.getElementById('stable-badge').style.display = isStable ? 'block' : 'none';
+
+            // Update Lewis
+            updateLewis(currentEl.s, valence, charge, chargeText);
+        }
+
+        function calculateConfig(e) {
+            let shells = [];
+            if (e > 0) { shells.push(Math.min(e, 2)); e -= 2; }
+            if (e > 0) { shells.push(Math.min(e, 8)); e -= 8; }
+            if (e > 0) { shells.push(Math.min(e, 8)); e -= 8; }
+            if (e > 0) { shells.push(Math.min(e, 2)); }
+            return shells;
+        }
+
+        function updateLewis(symbol, valence, charge, chargeStr) {
+            const box = document.getElementById('lewis-box');
+            document.getElementById('lewis-symbol').innerText = symbol;
+            
+            // Remove dots
+            box.querySelectorAll('.dot').forEach(d => d.remove());
+
+            // Draw Dots
+            const positions = ['p-t1', 'p-r1', 'p-b1', 'p-l1', 'p-t2', 'p-r2', 'p-b2', 'p-l2'];
+            let order = [];
+            
+            // Special case for Helium neutral
+            if (symbol === 'He' && charge === 0) order = ['p-t1', 'p-t2'];
+            else order = positions.slice(0, valence);
+
+            order.forEach(pos => {
+                let d = document.createElement('div');
+                d.className = `dot ${pos}`;
+                box.appendChild(d);
+            });
+
+            // Brackets for Ions
+            let showBracket = charge !== 0;
+            document.getElementById('l-bracket-l').style.display = showBracket ? 'block' : 'none';
+            document.getElementById('l-bracket-r').style.display = showBracket ? 'block' : 'none';
+            document.getElementById('l-charge').innerText = chargeStr;
+        }
+
+        // --- Animation ---
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            // Nucleus
+            ctx.beginPath(); ctx.arc(cx, cy, 12, 0, Math.PI*2); ctx.fillStyle = "#f8fafc"; ctx.fill();
+            ctx.fillStyle = "#0f172a"; ctx.font = "10px Arial"; ctx.textAlign = "center"; 
+            
+            // Show symbol + charge in center (e.g., Na+)
+            let charge = currentEl.z - currentElectrons;
+            let chargeLabel = "";
+            if(charge > 0) chargeLabel = `+${charge}`;
+            if(charge < 0) chargeLabel = `${charge}`;
+            if(Math.abs(charge)===1) chargeLabel = charge > 0 ? "+" : "-";
+            if(charge===0) chargeLabel = "";
+            
+            ctx.fillText(currentEl.s + chargeLabel, cx, cy+4);
+
+            // Orbitals
+            let shells = calculateConfig(currentElectrons);
+            let baseR = 35; let gap = 30;
+
+            shells.forEach((count, i) => {
+                let r = baseR + i * gap;
+                // Draw ring
+                ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); 
+                ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.lineWidth = 1; ctx.stroke();
+
+                // Electrons
+                let speed = 0.002 + (i * 0.001);
+                let offset = time * (i%2===0 ? 1 : -1) * speed;
+
+                for(let j=0; j<count; j++) {
+                    let a = (Math.PI*2/count)*j + offset;
+                    let x = cx + Math.cos(a)*r;
+                    let y = cy + Math.sin(a)*r;
+                    
+                    ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI*2); 
+                    ctx.fillStyle = "#22d3ee"; ctx.fill();
+                }
+            });
+
+            time += 10;
+            animationId = requestAnimationFrame(animate);
+        }
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ideal Gas Law Simulator</title>
+    <style>
+        :root { --ml-blue: #1e3a8a; --ml-gold: #fbbf24; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-blue); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1350px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 420px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow-y: auto;}
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: flex; justify-content: space-between; font-weight: bold; color: #475569; margin-bottom: 8px; font-size: 0.95rem; }
+        .control-group input[type="range"] { width: 100%; padding: 8px; cursor: pointer;}
+        
+        .btn { background: var(--ml-blue); color: white; border: none; padding: 12px; border-radius: 8px; font-size: 1rem; cursor: pointer; font-weight: bold; transition: 0.2s; width: 100%; margin-top: 10px;}
+        .btn:hover { background: #1e40af; }
+        .btn-clear { background: #ef4444; margin-top: 10px;}
+        .btn-clear:hover { background: #b91c1c; }
+
+        /* 动态计算黑板样式 */
+        .calc-board { background: #0f172a; color: #38bdf8; padding: 20px; border-radius: 8px; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.9rem; line-height: 1.6; margin-top: 15px; border: 3px solid #334155; box-shadow: inset 0 0 15px rgba(0,0,0,0.8);}
+        .calc-title { color: #f59e0b; font-weight: bold; border-bottom: 1px dashed #475569; padding-bottom: 5px; margin-bottom: 10px;}
+        .calc-highlight { color: #22c55e; font-weight: bold; font-size: 1.1rem;}
+
+        /* 数据记录表样式 */
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; text-align: center;}
+        .data-table th, .data-table td { border: 1px solid #cbd5e1; padding: 8px; }
+        .data-table th { background: #f1f5f9; color: #334155; }
+        .data-table tr:nth-child(even) { background: #f8fafc; }
+
+        .visual-container { display: flex; flex-direction: column; gap: 15px; }
+        .canvas-box { background: #e2e8f0; border-radius: 12px; border: 4px solid #cbd5e1; overflow: hidden; position: relative; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 0 20px rgba(0,0,0,0.1); height: 100%; min-height: 500px;}
+        canvas { width: 100%; height: 100%; }
+
+        /* 虚拟气压计 */
+        .pressure-gauge { position: absolute; top: 20px; right: 20px; background: white; padding: 15px; border-radius: 50%; width: 120px; height: 120px; border: 8px solid #334155; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 10px 15px rgba(0,0,0,0.2); z-index: 10;}
+        .gauge-val { font-size: 1.6rem; font-weight: bold; color: #ef4444; font-family: monospace;}
+        .gauge-label { font-size: 0.75rem; color: #64748b; font-weight: bold; text-transform: uppercase;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit1.html" class="back-link">⬅ Back to Unit 1</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 3: Ideal Gas Law (PV = nRT)</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Physics</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>1. Chamber Controls</h3>
+            
+            <div class="control-group">
+                <label>Volume (V): <span id="vol-val" style="color:var(--ml-blue);">50.0 L</span></label>
+                <input type="range" id="vol-slider" min="10" max="100" step="1" value="50" oninput="updatePhysics()">
+            </div>
+
+            <div class="control-group">
+                <label>Temperature (T): <span id="temp-val" style="color:#ef4444;">300 K</span></label>
+                <input type="range" id="temp-slider" min="100" max="1000" step="10" value="300" oninput="updatePhysics()">
+            </div>
+
+            <div class="control-group">
+                <label>Amount of Gas (n): <span id="mol-val" style="color:#d97706;">1.0 mol</span></label>
+                <input type="range" id="mol-slider" min="0.1" max="5.0" step="0.1" value="1.0" oninput="updatePhysics()">
+            </div>
+
+            <h3>2. Live Calculation Board</h3>
+            <div class="calc-board" id="calc-board">
+                </div>
+
+            <h3 style="margin-top: 20px;">3. Data Notebook</h3>
+            <button class="btn" onclick="recordData()">Record Current Data</button>
+            <table class="data-table" id="data-table">
+                <tr>
+                    <th>Vol (L)</th>
+                    <th>Temp (K)</th>
+                    <th>Moles (n)</th>
+                    <th>Pressure (kPa)</th>
+                </tr>
+            </table>
+            <button class="btn btn-clear" onclick="clearData()">Clear Table</button>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box">
+                <div class="pressure-gauge">
+                    <span class="gauge-val" id="gauge-val">0</span>
+                    <span class="gauge-label">kPa (Pressure)</span>
+                </div>
+                <canvas id="labCanvas" width="800" height="600"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('labCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        // 物理变量
+        let volume_L = 50.0; // L
+        let temp_K = 300;    // K
+        let moles = 1.0;     // mol
+        let pressure_kPa = 0; // kPa
+        
+        const R = 8.314; // J/(mol*K) 理想气体常数 (当P为kPa, V为L时, R = 8.314 kPa*L/(mol*K))
+
+        // 动画变量
+        let particles = [];
+        let maxParticles = 500;
+
+        function updatePhysics() {
+            volume_L = parseFloat(document.getElementById('vol-slider').value);
+            temp_K = parseFloat(document.getElementById('temp-slider').value);
+            moles = parseFloat(document.getElementById('mol-slider').value);
+            
+            document.getElementById('vol-val').innerText = volume_L.toFixed(1) + ' L';
+            document.getElementById('temp-val').innerText = temp_K + ' K';
+            document.getElementById('mol-val').innerText = moles.toFixed(1) + ' mol';
+
+            // --- 物理引擎核心计算 PV = nRT => P = (nRT) / V ---
+            pressure_kPa = (moles * R * temp_K) / volume_L;
+
+            // 更新圆形仪表盘
+            document.getElementById('gauge-val').innerText = pressure_kPa.toFixed(0);
+
+            // 更新计算黑板 (防乱码 HTML 实体)
+            let board = document.getElementById('calc-board');
+            board.innerHTML = `
+                <div class="calc-title">Ideal Gas Law: P &times; V = n &times; R &times; T</div>
+                <div><b>Constant (R):</b> 8.314 kPa&middot;L/(mol&middot;K)</div>
+                <br>
+                <div><b>P = (n &times; R &times; T) &divide; V</b></div>
+                <div>P = (${moles.toFixed(1)} &times; 8.314 &times; ${temp_K}) &divide; ${volume_L.toFixed(1)}</div>
+                <div>P = ${(moles * R * temp_K).toFixed(1)} &divide; ${volume_L.toFixed(1)}</div>
+                <div style="margin-top: 10px;">Pressure (P) = <span class="calc-highlight">${pressure_kPa.toFixed(1)} kPa</span></div>
+            `;
+
+            adjustParticles();
+        }
+
+        // 调整粒子数量以匹配摩尔数 (1 mol = 100 粒子 纯视觉效果)
+        function adjustParticles() {
+            let targetCount = Math.floor(moles * 100);
+            if (targetCount > maxParticles) targetCount = maxParticles;
+
+            while(particles.length < targetCount) {
+                particles.push({
+                    x: 300 + Math.random() * 200, 
+                    y: 300 + Math.random() * 100,
+                    vx: (Math.random() - 0.5),
+                    vy: (Math.random() - 0.5)
+                });
+            }
+            while(particles.length > targetCount) {
+                particles.pop();
+            }
+        }
+
+        function recordData() {
+            let table = document.getElementById('data-table');
+            let row = table.insertRow(-1);
+            row.insertCell(0).innerText = volume_L.toFixed(1);
+            row.insertCell(1).innerText = temp_K;
+            row.insertCell(2).innerText = moles.toFixed(1);
+            row.insertCell(3).innerHTML = "<b>" + pressure_kPa.toFixed(1) + "</b>";
+        }
+
+        function clearData() {
+            let table = document.getElementById('data-table');
+            while(table.rows.length > 1) { table.deleteRow(1); }
+        }
+
+        function drawLab() {
+            // 背景
+            ctx.fillStyle = '#f1f5f9'; ctx.fillRect(0,0,800,600);
+
+            // 计算气缸边界 (根据 Volume 视觉缩放)
+            // Volume 10L 到 100L，对应宽度 100 到 400
+            let cylinderWidth = 100 + (volume_L / 100) * 300; 
+            let cylinderHeight = 300;
+            let cx = 400; // 屏幕中心
+            let leftX = cx - cylinderWidth / 2;
+            let rightX = cx + cylinderWidth / 2;
+            let topY = 200;
+            let bottomY = 500;
+
+            // 绘制气缸底部和侧壁
+            ctx.strokeStyle = '#475569'; ctx.lineWidth = 10; ctx.lineCap = 'square';
+            ctx.beginPath(); 
+            ctx.moveTo(leftX, topY - 20); 
+            ctx.lineTo(leftX, bottomY); 
+            ctx.lineTo(rightX, bottomY); 
+            ctx.lineTo(rightX, topY - 20); 
+            ctx.stroke();
+
+            // 根据温度改变气缸内部颜色 (模拟热量)
+            // 100K 蓝色 -> 1000K 红色
+            let heatRatio = (temp_K - 100) / 900;
+            let r = Math.floor(100 + 155 * heatRatio);
+            let b = Math.floor(255 - 155 * heatRatio);
+            ctx.fillStyle = `rgba(${r}, 50, ${b}, 0.1)`;
+            ctx.fillRect(leftX + 5, topY, cylinderWidth - 10, cylinderHeight - 5);
+
+            // 绘制活塞 (Piston) - 随体积缩放
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillRect(leftX + 5, topY - 20, cylinderWidth - 10, 20); // 活塞头
+            ctx.fillRect(cx - 10, topY - 150, 20, 130); // 活塞杆
+            // 活塞把手
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(cx - 40, topY - 160, 80, 10);
+
+            // 温度计指示器 (附着在侧壁)
+            ctx.fillStyle = 'white'; ctx.fillRect(leftX - 40, 250, 15, 200);
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2; ctx.strokeRect(leftX - 40, 250, 15, 200);
+            let tempHeight = (temp_K / 1000) * 200;
+            ctx.fillStyle = '#ef4444'; ctx.fillRect(leftX - 38, 450 - tempHeight, 11, tempHeight);
+            ctx.beginPath(); ctx.arc(leftX - 32.5, 460, 15, 0, Math.PI*2); ctx.fill();
+
+            // 更新并绘制粒子 (气体分子)
+            // 粒子的运动速度与温度的平方根成正比 (分子运动论: vrms ∝ sqrt(T))
+            let speedMultiplier = Math.sqrt(temp_K) / 10; 
+            ctx.fillStyle = '#3b82f6';
+
+            for(let i=0; i<particles.length; i++) {
+                let p = particles[i];
+                
+                p.x += p.vx * speedMultiplier;
+                p.y += p.vy * speedMultiplier;
+
+                // 墙壁碰撞检测
+                if(p.x <= leftX + 10) { p.x = leftX + 10; p.vx *= -1; }
+                if(p.x >= rightX - 10) { p.x = rightX - 10; p.vx *= -1; }
+                if(p.y <= topY + 10) { p.y = topY + 10; p.vy *= -1; }
+                if(p.y >= bottomY - 10) { p.y = bottomY - 10; p.vy *= -1; }
+
+                ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2); ctx.fill();
+            }
+        }
+
+        function animate() {
+            drawLab();
+            requestAnimationFrame(animate);
+        }
+
+        // 初始化
+        updatePhysics();
+        animate();
+    </script>
+</body>
+</html>

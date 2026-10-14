@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Balancing Lab</title>
+    <style>
+        :root {
+            --bg-color: #181825;
+            --panel-bg: #1e1e2e;
+            --input-bg: #313244;
+            --text-main: #cdd6f4;
+            --accent-blue: #89b4fa;
+            --accent-green: #a6e3a1;
+            --accent-red: #f38ba8;
+            --border-color: #45475a;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* 顶部导航 */
+        .nav-bar {
+            width: 100%; padding: 15px 30px; background: var(--panel-bg);
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .back-btn { text-decoration: none; color: var(--accent-blue); border: 1px solid var(--accent-blue); padding: 5px 15px; border-radius: 5px; }
+        .back-btn:hover { background: var(--accent-blue); color: var(--bg-color); }
+
+        /* 主容器 */
+        .container { width: 95%; max-width: 1000px; margin-top: 30px; display: flex; flex-direction: column; gap: 20px; }
+
+        /* 1. 输入区域 (Custom Input) */
+        .input-panel {
+            background: var(--panel-bg); padding: 25px; border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2); border: 1px solid var(--border-color);
+        }
+        
+        .input-group { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+        .chem-input {
+            flex: 1; background: var(--input-bg); border: 2px solid var(--border-color);
+            color: white; padding: 12px; border-radius: 8px; font-size: 1.1rem; font-family: monospace;
+        }
+        .chem-input:focus { outline: none; border-color: var(--accent-blue); }
+        .arrow-icon { font-size: 1.5rem; color: #6c7086; }
+        
+        .btn-generate {
+            background: var(--accent-blue); color: #111; border: none; padding: 12px 25px;
+            border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem;
+        }
+        .btn-generate:hover { background: #b4befe; }
+
+        .preset-tags { margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap; }
+        .tag {
+            background: #313244; color: #a6adc8; padding: 5px 12px; border-radius: 15px;
+            font-size: 0.85rem; cursor: pointer; border: 1px solid transparent;
+        }
+        .tag:hover { border-color: var(--accent-blue); color: white; }
+
+        /* 2. 配平工作台 */
+        .workbench {
+            background: var(--panel-bg); padding: 30px; border-radius: 15px;
+            display: none; /* 默认隐藏，点击生成后显示 */
+            flex-direction: column; align-items: center; gap: 30px;
+            border: 1px solid var(--border-color);
+        }
+
+        .equation-display {
+            display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; align-items: center;
+        }
+
+        /* 分子盒子 */
+        .molecule-box {
+            background: rgba(255,255,255,0.03); padding: 10px 15px; border-radius: 10px;
+            display: flex; flex-direction: column; align-items: center; gap: 5px;
+            border: 1px solid transparent; transition: all 0.2s;
+        }
+        .molecule-box:hover { background: rgba(255,255,255,0.08); }
+
+        .coeff-control { display: flex; align-items: center; gap: 5px; }
+        .coeff-display { font-size: 1.5rem; font-weight: bold; color: var(--accent-blue); width: 30px; text-align: center; }
+        .btn-adj {
+            width: 24px; height: 24px; background: #45475a; color: white; border: none;
+            border-radius: 4px; cursor: pointer; font-weight: bold;
+        }
+        .btn-adj:hover { background: #585b70; }
+
+        .formula-text { font-size: 1.3rem; font-family: 'Times New Roman', serif; }
+
+        /* 3. 柱状图可视化 */
+        .visualizer {
+            display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; width: 100%;
+            padding-top: 20px; border-top: 1px solid var(--border-color);
+        }
+        
+        .bar-group { display: flex; flex-direction: column; align-items: center; width: 50px; }
+        .bar-track {
+            width: 40px; height: 120px; background: #313244; border-radius: 5px;
+            position: relative; display: flex; align-items: flex-end; overflow: hidden;
+        }
+        .bar-l { width: 50%; background: var(--accent-blue); transition: height 0.3s; }
+        .bar-r { width: 50%; background: var(--accent-red); transition: height 0.3s; }
+        
+        .balanced .bar-l, .balanced .bar-r { background: var(--accent-green) !important; }
+
+        .atom-name { margin-top: 5px; font-weight: bold; }
+        .atom-count { font-size: 0.8rem; color: #a6adc8; }
+
+        /* 状态提示 */
+        .status-msg {
+            padding: 10px 20px; border-radius: 20px; font-weight: bold; display: none;
+        }
+        .status-success { background: var(--accent-green); color: #111; animation: pop 0.5s; }
+        .status-error { background: var(--accent-red); color: #111; margin-top: 10px; text-align: center; display: none; }
+
+        @keyframes pop { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+    </style>
+</head>
+<body>
+
+    <div class="nav-bar">
+        <a href="index.html" class="back-btn">⬅ Back to Menu</a>
+        <h1>⚖️ Universal Balancing Lab</h1>
+    </div>
+
+    <div class="container">
+        
+        <div class="input-panel">
+            <h3 style="margin:0; color:#a6adc8;">Step 1: Define Reaction</h3>
+            <p style="font-size:0.9rem; color:#6c7086; margin-bottom:15px;">
+                Enter formulas separated by '+' (e.g. <b>H2 + O2</b>). Use brackets like <b>Ca(NO3)2</b>.
+            </p>
+            
+            <div class="input-group">
+                <input type="text" id="input-reactants" class="chem-input" placeholder="Reactants (Left side)" value="H2 + O2">
+                <div class="arrow-icon">➝</div>
+                <input type="text" id="input-products" class="chem-input" placeholder="Products (Right side)" value="H2O">
+                <button class="btn-generate" onclick="generateLab()">Start Balancing</button>
+            </div>
+
+            <div class="status-error" id="error-msg"></div>
+
+            <div class="preset-tags">
+                <span style="color:#6c7086; font-size:0.85rem; align-self:center;">Practice Presets:</span>
+                <div class="tag" onclick="loadPreset('CH4 + O2', 'CO2 + H2O')">Methane Combustion</div>
+                <div class="tag" onclick="loadPreset('N2 + H2', 'NH3')">Ammonia</div>
+                <div class="tag" onclick="loadPreset('Fe + O2', 'Fe2O3')">Rusting</div>
+                <div class="tag" onclick="loadPreset('Al + CuCl2', 'AlCl3 + Cu')">Single Replacement</div>
+                <div class="tag" onclick="loadPreset('Pb(NO3)2 + KI', 'PbI2 + KNO3')">Double Replacement (Hard)</div>
+            </div>
+        </div>
+
+        <div class="workbench" id="workbench">
+            <div class="equation-display" id="equation-area"></div>
+            
+            <div class="status-msg status-success" id="success-banner">🎉 BALANCED! Excellent Work! 🎉</div>
+            
+            <div class="visualizer" id="visualizer-area"></div>
+        </div>
+
+    </div>
+
+    <script>
+        /* --- 全局状态 --- */
+        let currentReaction = {
+            reactants: [], // [{ formula: "H2O", atoms: {H:2, O:1}, coeff: 1 }]
+            products: []
+        };
+
+        /* --- 1. 核心解析器：将化学式字符串解析为原子对象 --- */
+        // 输入 "Ca(NO3)2" -> 输出 { Ca: 1, N: 2, O: 6 }
+        function parseFormula(formula) {
+            const atoms = {};
+            // 正则匹配：元素(A/Ae) | 左括号 | 右括号 | 数字
+            const regex = /([A-Z][a-z]*)|(\()|(\))|(\d+)/g;
+            let tokens = formula.match(regex);
+            if (!tokens) return null;
+
+            let stack = [1]; // 乘数栈，用于处理括号
+            let i = 0;
+            
+            // 简单的递归解析太复杂，我们用倒序扫描法（从右往左）处理乘数
+            // 例如 Ca(NO3)2 -> 2 作用于 ) 到 ( 之间
+            
+            // 这里为了稳健，使用正序+栈的方法解析
+            // 1. 先把整个式子展开成平铺的列表 (Ca, 1, (, N, 1, O, 3, ), 2)
+            // 简化版解析：适用高中常见化学式
+            
+            let tempStack = [];
+            let currentAtoms = {};
+
+            // 预处理：补全所有省略的'1'，并处理括号
+            // 这是一个难点。为了保证教学代码的稳定性，我们使用一个稍简单的逻辑：
+            // 查找括号，把括号内的数字乘上外面的倍数。
+            
+            try {
+                // 递归函数来统计
+                function countAtoms(str, multiplier) {
+                    // 匹配括号外的部分: Ca...
+                    // 匹配括号组: (NO3)2
+                    let cursor = 0;
+                    while (cursor < str.length) {
+                        if (str[cursor] === '(') {
+                            // 找到匹配的右括号
+                            let open = 1;
+                            let closeIndex = -1;
+                            for(let j=cursor+1; j<str.length; j++) {
+                                if(str[j] === '(') open++;
+                                if(str[j] === ')') open--;
+                                if(open === 0) { closeIndex = j; break; }
+                            }
+                            if(closeIndex === -1) throw "Unmatched brackets";
+
+                            // 括号内容
+                            let innerContent = str.substring(cursor+1, closeIndex);
+                            
+                            // 查找括号后的数字
+                            let nextPart = str.substring(closeIndex+1);
+                            let numMatch = nextPart.match(/^(\d+)/);
+                            let groupMult = numMatch ? parseInt(numMatch[1]) : 1;
+                            
+                            // 递归处理括号内部
+                            countAtoms(innerContent, multiplier * groupMult);
+                            
+                            // 移动光标
+                            cursor = closeIndex + 1 + (numMatch ? numMatch[0].length : 0);
+                        } else {
+                            // 匹配元素
+                            let rest = str.substring(cursor);
+                            let match = rest.match(/^([A-Z][a-z]*)(\d*)/);
+                            if (match) {
+                                let element = match[1];
+                                let count = match[2] ? parseInt(match[2]) : 1;
+                                if (!currentAtoms[element]) currentAtoms[element] = 0;
+                                currentAtoms[element] += count * multiplier;
+                                cursor += match[0].length;
+                            } else {
+                                cursor++; // 跳过无法识别的字符
+                            }
+                        }
+                    }
+                }
+                countAtoms(formula, 1);
+                return currentAtoms;
+            } catch (e) {
+                console.error(e);
+                return null;
+            }
+        }
+
+        /* --- 2. 界面交互逻辑 --- */
+        
+        function loadPreset(r, p) {
+            document.getElementById('input-reactants').value = r;
+            document.getElementById('input-products').value = p;
+            generateLab();
+        }
+
+        function generateLab() {
+            const rStr = document.getElementById('input-reactants').value.trim();
+            const pStr = document.getElementById('input-products').value.trim();
+            const errorBox = document.getElementById('error-msg');
+            
+            errorBox.style.display = 'none';
+
+            if(!rStr || !pStr) {
+                showError("Please enter both Reactants and Products.");
+                return;
+            }
+
+            // 解析字符串 -> 数组
+            // Split by '+' and remove spaces
+            let rList = rStr.split('+').map(s => s.trim()).filter(s => s);
+            let pList = pStr.split('+').map(s => s.trim()).filter(s => s);
+
+            let reactantsData = [];
+            let productsData = [];
+            let allElements = new Set();
+
+            // 解析每个分子
+            for(let f of rList) {
+                let atoms = parseFormula(f);
+                if(!atoms || Object.keys(atoms).length === 0) { showError(`Invalid formula: ${f}`); return; }
+                reactantsData.push({ formula: f, atoms: atoms, coeff: 1 });
+                Object.keys(atoms).forEach(e => allElements.add(e));
+            }
+
+            for(let f of pList) {
+                let atoms = parseFormula(f);
+                if(!atoms || Object.keys(atoms).length === 0) { showError(`Invalid formula: ${f}`); return; }
+                productsData.push({ formula: f, atoms: atoms, coeff: 1 });
+                Object.keys(atoms).forEach(e => {
+                    if(!allElements.has(e)) { showError(`Element ${e} appears in products but not reactants!`); return; }
+                });
+            }
+
+            // 更新全局状态
+            currentReaction = { reactants: reactantsData, products: productsData };
+
+            // 渲染界面
+            document.getElementById('workbench').style.display = 'flex';
+            renderEquation();
+            updateCharts();
+        }
+
+        function showError(msg) {
+            const box = document.getElementById('error-msg');
+            box.innerText = msg;
+            box.style.display = 'block';
+        }
+
+        /* --- 3. 渲染方程式 UI --- */
+        function renderEquation() {
+            const container = document.getElementById('equation-area');
+            container.innerHTML = "";
+
+            // 渲染 Reactants
+            currentReaction.reactants.forEach((mol, idx) => {
+                if(idx > 0) container.innerHTML += `<div style="font-size:2rem; color:#6c7086;">+</div>`;
+                container.appendChild(createMolBox(mol, 'reactants', idx));
+            });
+
+            // 箭头
+            container.innerHTML += `<div style="font-size:2.5rem; color:#89b4fa; margin:0 15px;">➝</div>`;
+
+            // 渲染 Products
+            currentReaction.products.forEach((mol, idx) => {
+                if(idx > 0) container.innerHTML += `<div style="font-size:2rem; color:#6c7086;">+</div>`;
+                container.appendChild(createMolBox(mol, 'products', idx));
+            });
+        }
+
+        function createMolBox(mol, side, idx) {
+            let box = document.createElement('div');
+            box.className = 'molecule-box';
+            
+            // 格式化化学式 (H2O -> H<sub>2</sub>O)
+            let formattedFormula = mol.formula.replace(/(\d+)/g, "<sub>$1</sub>");
+
+            box.innerHTML = `
+                <div class="coeff-control">
+                    <button class="btn-adj" onclick="adjustCoeff('${side}', ${idx}, -1)">-</button>
+                    <div class="coeff-display" id="${side}-coeff-${idx}">${mol.coeff}</div>
+                    <button class="btn-adj" onclick="adjustCoeff('${side}', ${idx}, 1)">+</button>
+                </div>
+                <div class="formula-text">${formattedFormula}</div>
+            `;
+            return box;
+        }
+
+        function adjustCoeff(side, idx, delta) {
+            let target = side === 'reactants' ? currentReaction.reactants[idx] : currentReaction.products[idx];
+            let newVal = target.coeff + delta;
+            if(newVal < 1) newVal = 1;
+            if(newVal > 20) newVal = 20;
+            
+            target.coeff = newVal;
+            document.getElementById(`${side}-coeff-${idx}`).innerText = newVal;
+            
+            updateCharts();
+        }
+
+        /* --- 4. 实时图表更新与平衡检测 --- */
+        function updateCharts() {
+            const container = document.getElementById('visualizer-area');
+            container.innerHTML = "";
+
+            let leftCounts = {};
+            let rightCounts = {};
+            let allElements = new Set();
+
+            // 统计 Reactants
+            currentReaction.reactants.forEach(mol => {
+                for(let [el, count] of Object.entries(mol.atoms)) {
+                    if(!leftCounts[el]) leftCounts[el] = 0;
+                    leftCounts[el] += count * mol.coeff;
+                    allElements.add(el);
+                }
+            });
+
+            // 统计 Products
+            currentReaction.products.forEach(mol => {
+                for(let [el, count] of Object.entries(mol.atoms)) {
+                    if(!rightCounts[el]) rightCounts[el] = 0;
+                    rightCounts[el] += count * mol.coeff;
+                    allElements.add(el);
+                }
+            });
+
+            let isBalanced = true;
+
+            // 绘制
+            allElements.forEach(el => {
+                let l = leftCounts[el] || 0;
+                let r = rightCounts[el] || 0;
+                if(l !== r) isBalanced = false;
+
+                // 计算高度比例
+                let maxVal = Math.max(l, r, 5); // 最小基准5，避免太高
+                let hL = (l / maxVal) * 100 + "%";
+                let hR = (r / maxVal) * 100 + "%";
+                
+                let balancedClass = (l === r) ? 'balanced' : '';
+
+                let group = document.createElement('div');
+                group.className = `bar-group ${balancedClass}`;
+                group.innerHTML = `
+                    <div class="bar-track">
+                        <div class="bar-l" style="height: ${hL}"></div>
+                        <div class="bar-r" style="height: ${hR}"></div>
+                    </div>
+                    <div class="atom-name">${el}</div>
+                    <div class="atom-count">${l} | ${r}</div>
+                `;
+                container.appendChild(group);
+            });
+
+            // 胜利提示
+            let banner = document.getElementById('success-banner');
+            banner.style.display = isBalanced ? 'block' : 'none';
+        }
+
+    </script>
+</body>
+</html>

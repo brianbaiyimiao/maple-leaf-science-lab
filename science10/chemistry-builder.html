@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Chemical Builder</title>
+    <style>
+        :root { --bg-color: #0f172a; --panel-bg: #1e293b; --border-color: #334155; --text-primary: #f1f5f9; --text-secondary: #94a3b8; --accent-blue: #3b82f6; --accent-purple: #8b5cf6; --accent-green: #10b981; --accent-red: #ef4444; --accent-yellow: #f59e0b; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-primary); text-align: center; padding: 20px; margin: 0; }
+        h1 { color: var(--accent-yellow); margin-bottom: 5px; letter-spacing: 1px; }
+        p { color: var(--text-secondary); margin-bottom: 25px; }
+        .result-container { background: #000; border: 2px solid var(--border-color); border-radius: 16px; padding: 20px; width: 90%; max-width: 800px; margin: 0 auto 30px auto; position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 140px; }
+        #formula-display { font-size: 3.5rem; font-family: 'Times New Roman', serif; margin-bottom: 5px; line-height: 1; }
+        #name-display { font-size: 1.8rem; color: var(--accent-blue); font-weight: 500; }
+        .badge { position: absolute; top: 15px; right: 15px; padding: 5px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; display: none; }
+        .workbench { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
+        .panel { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 12px; width: 45%; min-width: 350px; max-width: 500px; padding: 15px; display: flex; flex-direction: column; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
+        .panel-title { font-weight: bold; color: var(--text-secondary); }
+        .filter-group { display: flex; gap: 5px; }
+        .filter-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; }
+        .filter-btn.active { background: var(--border-color); color: white; }
+        .grid-scroll { display: grid; grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)); gap: 8px; max-height: 500px; overflow-y: auto; padding-right: 5px; }
+        .grid-scroll::-webkit-scrollbar { width: 6px; }
+        .grid-scroll::-webkit-scrollbar-track { background: var(--bg-color); }
+        .grid-scroll::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+        .chem-btn { background: #273548; border: 1px solid var(--border-color); border-radius: 8px; height: 70px; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: transform 0.1s, background 0.2s; }
+        .chem-btn:hover { background: #334155; transform: translateY(-2px); }
+        .chem-symbol { font-size: 1.3rem; font-weight: bold; color: white; }
+        .chem-charge { font-size: 0.7rem; color: var(--accent-yellow); vertical-align: super; }
+        .chem-name { font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px; text-align: center; }
+        .dot { width: 6px; height: 6px; border-radius: 50%; position: absolute; top: 6px; right: 6px; }
+        .dot-m { background: var(--accent-green); box-shadow: 0 0 5px var(--accent-green); }
+        .dot-nm { background: var(--accent-blue); box-shadow: 0 0 5px var(--accent-blue); }
+        .dot-r { background: var(--accent-red); box-shadow: 0 0 5px var(--accent-red); }
+        .dot-multi { border: 1px solid var(--accent-yellow); background: transparent; }
+        .selected { border-color: var(--accent-yellow) !important; background: #3d3525 !important; }
+        .clear-btn { margin-top: 15px; background: #333; color: white; border: none; padding: 8px 20px; border-radius: 20px; cursor: pointer; }
+        .clear-btn:hover { background: #444; }
+        /* 返回按钮样式 */
+        .nav-header { text-align: left; margin-bottom: 20px; }
+        .back-link { color: #aaa; text-decoration: none; font-size: 1.1rem; border: 1px solid #444; padding: 5px 15px; border-radius: 5px; }
+        .back-link:hover { color: white; border-color: white; background: #333; }
+    </style>
+</head>
+<body>
+
+    <div class="nav-header">
+        <a href="index.html" class="back-link">⬅ Back to Science 10</a>
+    </div>
+
+    <h1>🧪 Universal Chemical Synthesizer</h1>
+    <p>Select components to build Ionic or Covalent compounds.</p>
+
+    <div class="result-container">
+        <div class="badge" id="type-badge">IONIC</div>
+        <div id="formula-display">---</div>
+        <div id="name-display">Select Element & Radical...</div>
+        <button class="clear-btn" onclick="resetLab()">Reset Workbench</button>
+    </div>
+
+    <div class="workbench">
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title">1. Cations / Metals</span>
+                <div class="filter-group">
+                    <button class="filter-btn active" onclick="filterLeft('all')">All</button>
+                    <button class="filter-btn" onclick="filterLeft('multi')">Multivalent</button>
+                    <button class="filter-btn" onclick="filterLeft('nm')">Non-Metals</button>
+                </div>
+            </div>
+            <div class="grid-scroll" id="left-grid"></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title">2. Anions / Radicals</span>
+                <div class="filter-group">
+                    <button class="filter-btn active" onclick="filterRight('all')">All</button>
+                    <button class="filter-btn" onclick="filterRight('root')">Polyatomic</button>
+                    <button class="filter-btn" onclick="filterRight('simple')">Simple</button>
+                </div>
+            </div>
+            <div class="grid-scroll" id="right-grid"></div>
+        </div>
+    </div>
+
+    <script>
+        const leftData = [
+            { s: "H", n: "Hydrogen", type: "nm", val: 1 }, { s: "Li", n: "Lithium", type: "m", val: 1 }, { s: "Na", n: "Sodium", type: "m", val: 1 }, { s: "K", n: "Potassium", type: "m", val: 1 }, { s: "Mg", n: "Magnesium", type: "m", val: 2 }, { s: "Ca", n: "Calcium", type: "m", val: 2 }, { s: "Ba", n: "Barium", type: "m", val: 2 }, { s: "Al", n: "Aluminum", type: "m", val: 3 }, { s: "Zn", n: "Zinc", type: "m", val: 2 }, { s: "Ag", n: "Silver", type: "m", val: 1 }, { s: "NH₄", n: "Ammonium", type: "root", val: 1 },
+            { s: "Fe", n: "Iron(II)", type: "mv", val: 2 }, { s: "Fe", n: "Iron(III)", type: "mv", val: 3 }, { s: "Cu", n: "Copper(I)", type: "mv", val: 1 }, { s: "Cu", n: "Copper(II)", type: "mv", val: 2 }, { s: "Pb", n: "Lead(II)", type: "mv", val: 2 }, { s: "Pb", n: "Lead(IV)", type: "mv", val: 4 }, { s: "Sn", n: "Tin(II)", type: "mv", val: 2 }, { s: "Sn", n: "Tin(IV)", type: "mv", val: 4 }, { s: "Au", n: "Gold(I)", type: "mv", val: 1 }, { s: "Au", n: "Gold(III)", type: "mv", val: 3 }, { s: "Hg", n: "Mercury(II)", type: "mv", val: 2 },
+            { s: "C", n: "Carbon", type: "nm", val: 4 }, { s: "N", n: "Nitrogen", type: "nm", val: 3 }, { s: "P", n: "Phosphorus", type: "nm", val: 3 }, { s: "S", n: "Sulfur", type: "nm", val: 2 }
+        ];
+        const rightData = [
+            { s: "F", n: "Fluorine", rootName: "Fluoride", type: "s", val: 1 }, { s: "Cl", n: "Chlorine", rootName: "Chloride", type: "s", val: 1 }, { s: "Br", n: "Bromine", rootName: "Bromide", type: "s", val: 1 }, { s: "I", n: "Iodine", rootName: "Iodide", type: "s", val: 1 }, { s: "O", n: "Oxygen", rootName: "Oxide", type: "s", val: 2 }, { s: "S", n: "Sulfur", rootName: "Sulfide", type: "s", val: 2 }, { s: "N", n: "Nitrogen", rootName: "Nitride", type: "s", val: 3 }, { s: "P", n: "Phosphorus", rootName: "Phosphide", type: "s", val: 3 },
+            { s: "OH", n: "Hydroxide", rootName: "Hydroxide", type: "r", val: 1 }, { s: "NO₃", n: "Nitrate", rootName: "Nitrate", type: "r", val: 1 }, { s: "NO₂", n: "Nitrite", rootName: "Nitrite", type: "r", val: 1 }, { s: "SO₄", n: "Sulfate", rootName: "Sulfate", type: "r", val: 2 }, { s: "SO₃", n: "Sulfite", rootName: "Sulfite", type: "r", val: 2 }, { s: "CO₃", n: "Carbonate", rootName: "Carbonate", type: "r", val: 2 }, { s: "HCO₃", n: "Bicarbonate", rootName: "Bicarbonate", type: "r", val: 1 }, { s: "PO₄", n: "Phosphate", rootName: "Phosphate", type: "r", val: 3 }, { s: "PO₃", n: "Phosphite", rootName: "Phosphite", type: "r", val: 3 }, { s: "CH₃COO", n: "Acetate", rootName: "Acetate", type: "r", val: 1 }, { s: "CN", n: "Cyanide", rootName: "Cyanide", type: "r", val: 1 }, { s: "ClO₃", n: "Chlorate", rootName: "Chlorate", type: "r", val: 1 }, { s: "ClO₂", n: "Chlorite", rootName: "Chlorite", type: "r", val: 1 }, { s: "ClO", n: "Hypochlorite", rootName: "Hypochlorite", type: "r", val: 1 }, { s: "ClO₄", n: "Perchlorate", rootName: "Perchlorate", type: "r", val: 1 }, { s: "MnO₄", n: "Permanganate", rootName: "Permanganate", type: "r", val: 1 }, { s: "CrO₄", n: "Chromate", rootName: "Chromate", type: "r", val: 2 }, { s: "Cr₂O₇", n: "Dichromate", rootName: "Dichromate", type: "r", val: 2 }, { s: "C₂O₄", n: "Oxalate", rootName: "Oxalate", type: "r", val: 2 }, { s: "S₂O₃", n: "Thiosulfate", rootName: "Thiosulfate", type: "r", val: 2 }
+        ];
+
+        let selLeft = null; let selRight = null;
+        window.onload = function() { filterLeft('all'); filterRight('all'); };
+
+        function renderGrid(containerId, data, side) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = "";
+            data.forEach(item => {
+                let btn = document.createElement('div');
+                btn.className = 'chem-btn';
+                let dotClass = "";
+                if(item.type === 'm') dotClass = "dot-m"; if(item.type === 'mv') dotClass = "dot-multi"; if(item.type === 'nm' || item.type === 's') dotClass = "dot-nm"; if(item.type === 'r' || item.type === 'root') dotClass = "dot-r";
+                let chargeText = side === 'left' ? item.val + "+" : item.val + "-";
+                btn.innerHTML = `<div class="dot ${dotClass}"></div><div class="chem-symbol">${formatHtml(item.s)} <span class="chem-charge">${chargeText}</span></div><div class="chem-name">${item.n}</div>`;
+                btn.onclick = () => selectItem(item, btn, side);
+                container.appendChild(btn);
+            });
+        }
+        function filterLeft(mode) {
+            let filtered = leftData;
+            if (mode === 'multi') filtered = leftData.filter(i => i.type === 'mv'); if (mode === 'nm') filtered = leftData.filter(i => i.type === 'nm');
+            updateBtns('left', mode); renderGrid('left-grid', filtered, 'left');
+        }
+        function filterRight(mode) {
+            let filtered = rightData;
+            if (mode === 'root') filtered = rightData.filter(i => i.type === 'r'); if (mode === 'simple') filtered = rightData.filter(i => i.type === 's');
+            updateBtns('right', mode); renderGrid('right-grid', filtered, 'right');
+        }
+        function updateBtns(side, mode) {
+            let parent = side === 'left' ? document.querySelectorAll('.filter-group')[0] : document.querySelectorAll('.filter-group')[1];
+            let btns = parent.querySelectorAll('button');
+            btns.forEach(b => b.classList.remove('active'));
+            if(mode==='all') btns[0].classList.add('active'); else if(mode==='multi' || mode==='root') btns[1].classList.add('active'); else btns[2].classList.add('active');
+        }
+        function selectItem(item, btnElement, side) {
+            let gridId = side === 'left' ? 'left-grid' : 'right-grid';
+            document.getElementById(gridId).querySelectorAll('.chem-btn').forEach(b => b.classList.remove('selected'));
+            btnElement.classList.add('selected');
+            if (side === 'left') selLeft = item; if (side === 'right') selRight = item;
+            calculateCompound();
+        }
+        function calculateCompound() {
+            const fDisplay = document.getElementById('formula-display'); const nDisplay = document.getElementById('name-display'); const badge = document.getElementById('type-badge');
+            if (!selLeft || !selRight) return;
+            if ((selLeft.type === 'm' || selLeft.type === 'mv') && selRight.type === 'm') { fDisplay.innerHTML = "🚫"; nDisplay.innerText = "No Reaction"; badge.style.display = 'none'; return; }
+            let bondType = "IONIC"; let color = "#10b981";
+            if (selLeft.type === 'nm' && (selRight.type === 's' || selRight.type === 'nm')) { bondType = "COVALENT"; color = "#3b82f6"; } else if (selLeft.s === 'H' && (selRight.type === 's' || selRight.type === 'r')) { bondType = "ACID"; color = "#ef4444"; }
+            let v1 = selLeft.val; let v2 = selRight.val; let num1 = v2; let num2 = v1;
+            if (num1 % 2 === 0 && num2 % 2 === 0) { num1 /= 2; num2 /= 2; } else if (num1 % 3 === 0 && num2 % 3 === 0) { num1 /= 3; num2 /= 3; } else if (num1 % 4 === 0 && num2 % 4 === 0) { num1 /= 4; num2 /= 4; }
+            let html = ""; let leftPart = formatHtml(selLeft.s); if (selLeft.type === 'root' && num1 > 1) leftPart = `(${leftPart})`; html += leftPart + (num1 > 1 ? `<sub>${num1}</sub>` : "");
+            let rightPart = formatHtml(selRight.s); if (selRight.type === 'r' && num2 > 1) rightPart = `(${rightPart})`; html += rightPart + (num2 > 1 ? `<sub>${num2}</sub>` : "");
+            let finalName = "";
+            if (bondType === "COVALENT") {
+                let p1 = getPrefix(num1, true); let p2 = getPrefix(num2, false);
+                let root = selRight.rootName.toLowerCase();
+                if (p2.endsWith('o') && root.startsWith('o')) p2 = p2.slice(0, -1); if (p2.endsWith('a') && root.startsWith('o')) p2 = p2.slice(0, -1);
+                finalName = `${p1}${selLeft.n} ${p2}${root}`; finalName = finalName.charAt(0).toUpperCase() + finalName.slice(1);
+            } else if (bondType === "ACID") {
+                if (selRight.type === 's') { finalName = `Hydro${selRight.rootName.replace('ide', 'ic')} Acid`; if(selRight.s === 'S') finalName = "Hydrosulfuric Acid"; } 
+                else { let rName = selRight.rootName; if (rName.endsWith("ate")) finalName = rName.replace("ate", "ic") + " Acid"; else if (rName.endsWith("ite")) finalName = rName.replace("ite", "ous") + " Acid"; else finalName = `Hydrogen ${rName}`; if(rName === "Sulfate") finalName = "Sulfuric Acid"; if(rName === "Phosphate") finalName = "Phosphoric Acid"; }
+            } else { finalName = `${selLeft.n} ${selRight.rootName}`; }
+            fDisplay.innerHTML = html; nDisplay.innerText = finalName; badge.innerText = bondType; badge.style.display = 'block'; badge.style.backgroundColor = color; badge.style.color = 'white';
+        }
+        function getPrefix(n, omitMono) { if (n === 1) return omitMono ? "" : "mono"; if (n === 2) return "di"; if (n === 3) return "tri"; if (n === 4) return "tetra"; if (n === 5) return "penta"; return ""; }
+        function formatHtml(str) { return str.replace(/(\d)/g, "<sub>$1</sub>"); }
+        function resetLab() { selLeft = null; selRight = null; document.querySelectorAll('.chem-btn').forEach(b => b.classList.remove('selected')); document.getElementById('formula-display').innerHTML = "---"; document.getElementById('name-display').innerText = "Select Element & Radical..."; document.getElementById('type-badge').style.display = "none"; }
+    </script>
+</body>
+</html>

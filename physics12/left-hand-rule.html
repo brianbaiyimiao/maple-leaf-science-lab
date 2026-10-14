@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Left-Hand Rule & Motor Effect</title>
+    <style>
+        :root { --ml-blue: #1e3a8a; --ml-gold: #fbbf24; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-blue); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1400px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 420px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow-y: auto;}
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: flex; justify-content: space-between; font-weight: bold; color: #475569; margin-bottom: 8px; font-size: 0.95rem; }
+        .control-group input[type="range"] { width: 100%; padding: 8px; cursor: pointer;}
+        
+        .btn { background: var(--ml-blue); color: white; border: none; padding: 12px; border-radius: 8px; font-size: 1rem; cursor: pointer; font-weight: bold; transition: 0.2s; width: 100%; margin-top: 10px;}
+        .btn:hover { background: #1e40af; }
+        .btn-clear { background: #ef4444; margin-top: 10px;}
+        .btn-clear:hover { background: #b91c1c; }
+
+        /* 计算推导黑板 */
+        .calc-board { background: #0f172a; color: #38bdf8; padding: 20px; border-radius: 8px; font-family: 'Consolas', monospace; font-size: 0.9rem; line-height: 1.6; margin-top: 15px; border: 3px solid #334155;}
+        .calc-title { color: #f59e0b; font-weight: bold; border-bottom: 1px dashed #475569; padding-bottom: 5px; margin-bottom: 10px;}
+        .math-res { color: #22c55e; font-weight: bold; font-size: 1.1rem;}
+
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; text-align: center;}
+        .data-table th, .data-table td { border: 1px solid #cbd5e1; padding: 8px; }
+        .data-table th { background: #f1f5f9; color: #334155;}
+        .data-table tr:nth-child(even) { background: #f8fafc; }
+
+        .visual-container { display: flex; flex-direction: column; gap: 15px; }
+        .canvas-box { background: #1e293b; border-radius: 12px; border: 4px solid #cbd5e1; overflow: hidden; position: relative; box-shadow: inset 0 0 50px rgba(0,0,0,1); height: 100%; min-height: 550px;}
+        canvas { width: 100%; height: 100%; }
+
+        .legend-box { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.8); color: white; padding: 15px; border-radius: 8px; border: 2px solid #475569; font-size: 0.9rem; font-weight: bold;}
+        .leg-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+        .leg-color { width: 16px; height: 4px; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit3.html" class="back-link">⬅ Back to Unit 3</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 10: Fleming's Left-Hand Rule</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Physics</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>1. 3D Vector Controls</h3>
+            
+            <div class="control-group">
+                <label>Current (I): <span id="i-val" style="color:#fbbf24;">5.0 A</span></label>
+                <input type="range" id="i-slider" min="-10" max="10" step="0.5" value="5" oninput="updatePhysics()">
+                <small style="color:#64748b;">Middle Finger: Positive = Right, Negative = Left</small>
+            </div>
+
+            <div class="control-group">
+                <label>Magnetic Field (B): <span id="b-val" style="color:#38bdf8;">0.50 T</span></label>
+                <input type="range" id="b-slider" min="-2.0" max="2.0" step="0.1" value="0.5" oninput="updatePhysics()">
+                <small style="color:#64748b;">Index Finger: Positive = Down, Negative = Up</small>
+            </div>
+
+            <div class="control-group">
+                <label>Wire Length in B-field (L): <span id="l-val" style="color:#e2e8f0;">0.20 m</span></label>
+                <input type="range" id="l-slider" min="0.1" max="0.5" step="0.05" value="0.2" oninput="updatePhysics()">
+            </div>
+
+            <h3>2. Ampere's Force Calculation</h3>
+            <div class="calc-board" id="calc-board">
+                </div>
+
+            <h3 style="margin-top: 20px;">3. Data Notebook</h3>
+            <button class="btn" onclick="recordData()">Record Vector Data</button>
+            <table class="data-table" id="data-table">
+                <tr>
+                    <th>I (A)</th>
+                    <th>B (T)</th>
+                    <th>L (m)</th>
+                    <th>Force (N)</th>
+                    <th>Direction (Thumb)</th>
+                </tr>
+            </table>
+            <button class="btn btn-clear" onclick="clearData()">Clear Table</button>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box">
+                <div class="legend-box">
+                    <div style="color: #fbbf24; margin-bottom: 8px; border-bottom: 1px solid #475569; padding-bottom: 5px;">Fleming's Left-Hand Rule</div>
+                    <div class="leg-item"><div class="leg-color" style="background:#22c55e;"></div> Thumb = Force (F)</div>
+                    <div class="leg-item"><div class="leg-color" style="background:#38bdf8;"></div> Index = B-Field (B)</div>
+                    <div class="leg-item"><div class="leg-color" style="background:#ef4444;"></div> Middle = Current (I)</div>
+                </div>
+                <canvas id="vectorCanvas" width="900" height="600"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('vectorCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        let I = 5.0; // Amps
+        let B = 0.5; // Tesla
+        let L = 0.2; // meters
+        let F = 0;   // Newtons
+        let F_dir = "None"; // Into/Out of page
+
+        let time = 0;
+
+        function updatePhysics() {
+            I = parseFloat(document.getElementById('i-slider').value);
+            B = parseFloat(document.getElementById('b-slider').value);
+            L = parseFloat(document.getElementById('l-slider').value);
+            
+            document.getElementById('i-val').innerText = I.toFixed(1) + " A";
+            document.getElementById('b-val').innerText = B.toFixed(2) + " T";
+            document.getElementById('l-val').innerText = L.toFixed(2) + " m";
+
+            // F = BIL (Since angle is 90 degrees, sin90 = 1)
+            F = I * B * L;
+
+            // 测算三维力方向 (Left Hand Rule)
+            // 假设: +I 是向右 (X), -I 是向左 (-X)
+            // 假设: +B 是向下 (Y), -B 是向上 (-Y)
+            // X cross Y = Z (Right hand rule) -> But electron flow vs conventional current
+            // By left hand rule: I (+x) and B (+y down), Thumb points OUT OF PAGE (+z)
+            // Wait, let's strictly do cross product: F = I x B. 
+            // Vector I = (I, 0, 0), Vector B = (0, B, 0).
+            // Cross product: Fz = Ix * By - Iy * Bx = I * B.
+            // So +Z is Out of Page (Towards viewer). -Z is Into Page (Away from viewer).
+            
+            if (Math.abs(F) < 0.01) {
+                F_dir = "No Force";
+            } else if (F > 0) {
+                F_dir = "Out of Page (Towards you)";
+            } else {
+                F_dir = "Into Page (Away from you)";
+            }
+
+            let board = document.getElementById('calc-board');
+            board.innerHTML = `
+                <div class="calc-title">F = B &middot; I &middot; L &middot; sin(&theta;)</div>
+                <div>Since the wire is perpendicular to the B-field, &theta; = 90&deg; and sin(90&deg;) = 1.</div>
+                <br>
+                <div>F = |${B.toFixed(2)}| &times; |${I.toFixed(1)}| &times; ${L.toFixed(2)}</div>
+                <div>F = <span class="math-res">${Math.abs(F).toFixed(3)} N</span></div>
+                <div style="margin-top:10px; color:#fcd34d; font-weight:bold;">Thumb Direction: <br>${F_dir}</div>
+            `;
+        }
+
+        function recordData() {
+            let table = document.getElementById('data-table');
+            let row = table.insertRow(-1);
+            row.insertCell(0).innerText = I.toFixed(1);
+            row.insertCell(1).innerText = B.toFixed(2);
+            row.insertCell(2).innerText = L.toFixed(2);
+            row.insertCell(3).innerHTML = "<b>" + Math.abs(F).toFixed(3) + "</b>";
+            row.insertCell(4).innerText = F_dir.split(" ")[0]; // Just "Out" or "Into" or "No"
+        }
+
+        function clearData() {
+            let table = document.getElementById('data-table');
+            while(table.rows.length > 1) { table.deleteRow(1); }
+        }
+
+        // 简易 3D 等距投影引擎 (Isometric 3D Projection)
+        // X: 右，Y: 下，Z: 出纸面(左下)
+        function iso(x, y, z) {
+            let screenX = 450 + x - z * 0.707;
+            let screenY = 300 + y + z * 0.4;
+            return {x: screenX, y: screenY};
+        }
+
+        function drawLine3D(x1, y1, z1, x2, y2, z2, color, width) {
+            let p1 = iso(x1, y1, z1);
+            let p2 = iso(x2, y2, z2);
+            ctx.strokeStyle = color; ctx.lineWidth = width;
+            ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+        }
+
+        function drawArrow3D(x, y, z, dx, dy, dz, color, label) {
+            let start = iso(x, y, z);
+            let end = iso(x+dx, y+dy, z+dz);
+            ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(start.x, start.y); ctx.lineTo(end.x, end.y); ctx.stroke();
+            
+            // 2D 箭头头部
+            let angle = Math.atan2(end.y - start.y, end.x - start.x);
+            ctx.beginPath(); ctx.moveTo(end.x, end.y);
+            ctx.lineTo(end.x - 15 * Math.cos(angle - Math.PI/6), end.y - 15 * Math.sin(angle - Math.PI/6));
+            ctx.lineTo(end.x - 15 * Math.cos(angle + Math.PI/6), end.y - 15 * Math.sin(angle + Math.PI/6));
+            ctx.fill();
+
+            ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center';
+            ctx.fillText(label, end.x + 15*Math.cos(angle), end.y + 15*Math.sin(angle) + 5);
+        }
+
+        function drawLab() {
+            ctx.fillStyle = '#0f172a'; ctx.fillRect(0,0,900,600);
+
+            // 背景辅助坐标系
+            ctx.strokeStyle = '#334155'; ctx.lineWidth = 1; ctx.setLineDash([5, 5]);
+            drawLine3D(-300, 0, 0, 300, 0, 0, '#334155', 2); // X axis
+            drawLine3D(0, -250, 0, 0, 250, 0, '#334155', 2); // Y axis
+            drawLine3D(0, 0, -200, 0, 0, 200, '#334155', 2); // Z axis
+            ctx.setLineDash([]);
+
+            // 绘制马蹄形磁铁的两极
+            let poleWidth = L * 300; // 根据 L 滑块调整磁铁宽度
+            
+            // 北极和南极位置由 B 的正负决定 (+B 是向下，北极在上)
+            let isBDown = B >= 0;
+            let topColor = isBDown ? '#ef4444' : '#1e3a8a'; // Red(N) if B down
+            let botColor = isBDown ? '#1e3a8a' : '#ef4444'; // Blue(S) if B down
+            let topLabel = isBDown ? "N" : "S";
+            let botLabel = isBDown ? "S" : "N";
+
+            if (Math.abs(B) > 0.01) {
+                // Top Pole
+                let t1 = iso(-poleWidth/2, -150, -50), t2 = iso(poleWidth/2, -150, -50), t3 = iso(poleWidth/2, -150, 50), t4 = iso(-poleWidth/2, -150, 50);
+                ctx.fillStyle = topColor; ctx.globalAlpha = 0.8;
+                ctx.beginPath(); ctx.moveTo(t1.x, t1.y); ctx.lineTo(t2.x, t2.y); ctx.lineTo(t3.x, t3.y); ctx.lineTo(t4.x, t4.y); ctx.fill();
+                ctx.fillStyle = 'white'; ctx.font = 'bold 24px Arial'; ctx.fillText(topLabel, iso(0, -150, 0).x, iso(0, -150, 0).y + 8);
+
+                // Bottom Pole
+                let b1 = iso(-poleWidth/2, 150, -50), b2 = iso(poleWidth/2, 150, -50), b3 = iso(poleWidth/2, 150, 50), b4 = iso(-poleWidth/2, 150, 50);
+                ctx.fillStyle = botColor; ctx.beginPath(); ctx.moveTo(b1.x, b1.y); ctx.lineTo(b2.x, b2.y); ctx.lineTo(b3.x, b3.y); ctx.lineTo(b4.x, b4.y); ctx.fill();
+                ctx.fillStyle = 'white'; ctx.fillText(botLabel, iso(0, 150, 0).x, iso(0, 150, 0).y + 8);
+                ctx.globalAlpha = 1.0;
+
+                // 绘制磁感线 B (绿色箭头)
+                let bDir = isBDown ? 1 : -1;
+                for(let vx = -poleWidth/3; vx <= poleWidth/3; vx += poleWidth/3) {
+                    drawArrow3D(vx, -100 * bDir, 0, 0, 200 * bDir, 0, 'rgba(56, 189, 248, 0.5)', '');
+                }
+            }
+
+            // 导线悬挂偏移计算 (F导致Z轴偏转)
+            let swingZ = F * 20; // 放大的视觉偏转
+
+            // 绘制悬挂弹簧/细线
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2;
+            drawLine3D(-200, -250, 0, -200, 0, swingZ, '#94a3b8', 2);
+            drawLine3D(200, -250, 0, 200, 0, swingZ, '#94a3b8', 2);
+
+            // 绘制中心导线 (铜色)
+            drawLine3D(-250, 0, swingZ, 250, 0, swingZ, '#f59e0b', 8);
+
+            // 绘制电流动画粒子
+            if (Math.abs(I) > 0.01) {
+                let dir = I > 0 ? 1 : -1;
+                let offset = (time * 10 * dir) % 500;
+                if (offset < 0) offset += 500;
+                
+                for(let k=0; k<5; k++) {
+                    let px = -250 + ((offset + k * 100) % 500);
+                    let pt = iso(px, 0, swingZ);
+                    ctx.fillStyle = '#ef4444';
+                    ctx.beginPath(); ctx.arc(pt.x, pt.y, 4, 0, Math.PI*2); ctx.fill();
+                }
+            }
+
+            // --- 绘制左手法则 3D 矢量系 (Visualizing Fleming's Left Hand) ---
+            // 在原点展示三个物理量的向量关系
+            
+            // 1. Current I (Red)
+            if (Math.abs(I) > 0.1) {
+                let iDir = I > 0 ? 150 : -150;
+                drawArrow3D(0, 0, swingZ, iDir, 0, 0, '#ef4444', 'I');
+            }
+
+            // 2. Magnetic Field B (Blue)
+            if (Math.abs(B) > 0.01) {
+                let bDir = B > 0 ? 100 : -100;
+                drawArrow3D(0, 0, swingZ, 0, bDir, 0, '#38bdf8', 'B');
+            }
+
+            // 3. Force F (Green)
+            if (Math.abs(F) > 0.01) {
+                let fDir = F > 0 ? 120 : -120; // +Z is out, -Z is in
+                drawArrow3D(0, 0, swingZ, 0, 0, fDir, '#22c55e', 'F');
+            }
+        }
+
+        function animate() {
+            time += 0.5;
+            drawLab();
+            requestAnimationFrame(animate);
+        }
+
+        updatePhysics();
+        animate();
+    </script>
+</body>
+</html>

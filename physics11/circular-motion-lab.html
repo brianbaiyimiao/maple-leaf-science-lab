@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Circular Motion Lab - Maple Leaf Science</title>
+    <style>
+        :root { --primary: #ec4899; --dark: #0f172a; --blue: #3b82f6; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f8fafc; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        .nav { background: var(--dark); color: white; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .back-btn { color: white; text-decoration: none; border: 1px solid #444; padding: 6px 15px; border-radius: 5px; font-size: 13px; }
+
+        .workspace { display: grid; grid-template-columns: 320px 1fr 380px; gap: 15px; padding: 15px; flex: 1; overflow: hidden; }
+        .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; display: flex; flex-direction: column; }
+        h3 { margin: 0 0 15px 0; border-left: 5px solid var(--primary); padding-left: 12px; font-size: 17px; }
+
+        .control-group { margin-bottom: 18px; }
+        label { display: block; font-size: 12px; font-weight: bold; color: #64748b; margin-bottom: 8px; text-transform: uppercase; }
+        input[type="range"] { width: 100%; cursor: pointer; accent-color: var(--primary); }
+        .val-span { float: right; color: var(--primary); font-family: monospace; font-size: 14px; }
+        
+        .btn { border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 10px; transition: 0.2s; }
+        .btn-start { background: var(--primary); color: white; }
+        .btn-record { background: #10b981; color: white; }
+
+        .sim-box { position: relative; background: #fff; border: 1px solid #e2e8f0; overflow: hidden; }
+        canvas { width: 100%; height: 100%; }
+
+        .table-wrap { flex: 1; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; text-align: center; }
+        th { background: #f8fafc; padding: 10px; position: sticky; top: 0; border-bottom: 2px solid #edf2f7; }
+        td { padding: 8px; border-bottom: 1px solid #f8fafc; font-family: monospace; }
+
+        .data-panel { background: var(--dark); color: #38bdf8; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 13px; margin-top: auto; line-height: 1.6; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit6.html" class="back-btn">⬅ Back to Unit 6</a>
+        <h2 style="margin:0; font-size: 18px;">Physics 11: Uniform Circular Motion Lab</h2>
+        <span style="font-size: 12px; opacity: 0.8;">Student Virtual Laboratory</span>
+    </div>
+
+    <div class="workspace">
+        <div class="card">
+            <h3>Variables Control</h3>
+            
+            <div class="control-group">
+                <label>Mass ($m$) <span class="val-span" id="m-val">1.0 kg</span></label>
+                <input type="range" id="input-m" min="0.5" max="5.0" step="0.1" value="1.0">
+            </div>
+
+            <div class="control-group">
+                <label>Radius ($r$) <span class="val-span" id="r-val">100 m</span></label>
+                <input type="range" id="input-r" min="50" max="200" step="5" value="100">
+            </div>
+
+            <div class="control-group">
+                <label>Velocity ($v$) <span class="val-span" id="v-val">50 m/s</span></label>
+                <input type="range" id="input-v" min="10" max="150" step="5" value="50">
+            </div>
+
+            <button class="btn btn-start" id="btn-pause">PAUSE / RESUME</button>
+            <button class="btn btn-record" id="btn-record">RECORD DATA POINT</button>
+
+            <div class="data-panel" id="live-data">
+                Centripetal Force ($F_c$): 25.0 N<br>
+                Period ($T$): 12.57 s<br>
+                Centripetal Accel ($a_c$): 25.0 m/s²
+            </div>
+        </div>
+
+        <div class="card sim-box">
+            <canvas id="circleCanvas"></canvas>
+            <div style="position:absolute; top:15px; left:20px; font-size:12px; color:#94a3b8; line-height:1.4;">
+                <b style="color:var(--primary);">Pink Arrow:</b> Centripetal Force ($F_c$)<br>
+                <b style="color:var(--blue);">Blue Arrow:</b> Velocity ($v$)
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Experimental Observations</h3>
+            <div class="table-wrap">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>Trial</th>
+                            <th>$m$(kg)</th>
+                            <th>$r$(m)</th>
+                            <th>$v$(m/s)</th>
+                            <th>$F_c$(N)</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <p style="font-size:10px; color:#94a3b8; margin-top:10px;">
+                *Calculated using $F_c = \frac{mv^2}{r}$
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('circleCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let mass = 1.0, radius = 100, velocity = 50;
+        let angle = 0, isPaused = false, trialCount = 0;
+
+        // Fix sticky mouse
+        window.addEventListener('mouseup', () => { 
+            document.querySelectorAll('input').forEach(i => i.blur());
+        });
+
+        function resize() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight - 60;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Control Inputs
+        document.getElementById('input-m').oninput = (e) => { mass = parseFloat(e.target.value); document.getElementById('m-val').innerText = mass.toFixed(1) + " kg"; updateStats(); };
+        document.getElementById('input-r').oninput = (e) => { radius = parseInt(e.target.value); document.getElementById('r-val').innerText = radius + " m"; updateStats(); };
+        document.getElementById('input-v').oninput = (e) => { velocity = parseInt(e.target.value); document.getElementById('v-val').innerText = velocity + " m/s"; updateStats(); };
+        
+        document.getElementById('btn-pause').onclick = () => { isPaused = !isPaused; };
+
+        function updateStats() {
+            const fc = (mass * velocity * velocity) / radius;
+            const ac = (velocity * velocity) / radius;
+            const T = (2 * Math.PI * radius) / velocity;
+            document.getElementById('live-data').innerHTML = `
+                Centripetal Force ($F_c$): ${fc.toFixed(1)} N<br>
+                Period ($T$): ${T.toFixed(2)} s<br>
+                Centripetal Accel ($a_c$): ${ac.toFixed(1)} m/s²
+            `;
+        }
+
+        document.getElementById('btn-record').onclick = () => {
+            trialCount++;
+            const fc = (mass * velocity * velocity) / radius;
+            const tbody = document.querySelector('#dataTable tbody');
+            const row = `<tr><td>#${trialCount}</td><td>${mass.toFixed(1)}</td><td>${radius}</td><td>${velocity}</td><td>${fc.toFixed(1)}</td></tr>`;
+            tbody.innerHTML = row + tbody.innerHTML;
+        };
+
+        function draw() {
+            if (!isPaused) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const cx = canvas.width / 2;
+                const cy = canvas.height / 2;
+
+                // 1. 绘制轨道
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                ctx.strokeStyle = "#f1f5f9";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // 2. 计算位置 (Polar to Cartesian)
+                const x = cx + radius * Math.cos(angle);
+                const y = cy + radius * Math.sin(angle);
+
+                // 3. 绘制力矢量 (向心力 - 指向圆心)
+                ctx.beginPath();
+                ctx.strokeStyle = "#ec4899"; ctx.lineWidth = 3;
+                ctx.moveTo(x, y);
+                ctx.lineTo(cx + (radius - 50) * Math.cos(angle), cy + (radius - 50) * Math.sin(angle));
+                ctx.stroke();
+
+                // 4. 绘制速度矢量 (切线方向)
+                ctx.beginPath();
+                ctx.strokeStyle = "#3b82f6"; ctx.lineWidth = 3;
+                ctx.moveTo(x, y);
+                // 切线方向是角度 + 90度
+                const tx = x + 50 * Math.cos(angle + Math.PI/2);
+                const ty = y + 50 * Math.sin(angle + Math.PI/2);
+                ctx.lineTo(tx, ty);
+                ctx.stroke();
+
+                // 5. 绘制物体
+                ctx.beginPath();
+                ctx.arc(x, y, 10 + mass * 2, 0, Math.PI * 2);
+                ctx.fillStyle = "#1e293b";
+                ctx.fill();
+
+                // 更新角度: omega = v/r
+                const omega = velocity / radius;
+                angle += omega * 0.05; 
+            }
+            requestAnimationFrame(draw);
+        }
+
+        updateStats();
+        draw();
+    </script>
+</body>
+</html>

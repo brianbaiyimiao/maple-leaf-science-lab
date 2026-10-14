@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics 11: Universal 2D Momentum</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --text-color: #e2e8f0;
+            --accent: #f59e0b;
+            --border: #334155;
+            --math-font: 'Segoe UI', sans-serif; /* 更好的阅读体验 */
+            
+            /* Dynamic Colors */
+            --c0: #ef4444; --c1: #3b82f6; --c2: #10b981; --c3: #8b5cf6; --c4: #ec4899; --c-res: #ffffff;
+        }
+
+        body {
+            margin: 0; background-color: var(--bg-color); color: var(--text-color);
+            font-family: 'Segoe UI', monospace; display: flex; height: 100vh; overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 400px; background: var(--panel-bg); padding: 20px;
+            border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 10;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+        }
+
+        .header-nav { padding-bottom: 10px; border-bottom: 1px solid var(--border); margin-bottom: 15px; }
+        .back-link { color: #94a3b8; text-decoration: none; font-size: 0.85rem; display: flex; align-items: center; gap: 5px; }
+        .back-link:hover { color: white; }
+        h2 { margin: 5px 0 0 0; color: var(--accent); font-size: 1.4rem; }
+
+        /* Top Settings */
+        .top-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        select { width: 100%; padding: 8px; background: #111; color: white; border: 1px solid #475569; border-radius: 4px; cursor: pointer; }
+        label { font-size: 0.75rem; color: #94a3b8; display: block; margin-bottom: 4px; }
+
+        /* Scroll Area */
+        .scroll-inputs { flex: 1; overflow-y: auto; padding-right: 5px; margin-bottom: 10px; }
+
+        /* Input Cards */
+        .obj-card {
+            background: #0f172a; border: 1px solid var(--border); border-radius: 8px;
+            padding: 10px; margin-bottom: 10px; border-left: 5px solid #ccc;
+        }
+        .card-header { font-weight: bold; font-size: 0.9rem; margin-bottom: 5px; color: #fff; display:flex; justify-content:space-between;}
+        .input-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+        .field input { 
+            width: 100%; padding: 5px; background: #1e293b; color: white; 
+            border: 1px solid #475569; border-radius: 4px; text-align: center; font-weight: bold; font-size: 0.85rem;
+        }
+        .field input:focus { border-color: var(--accent); outline: none; }
+        .field label { font-size: 0.7rem; margin-bottom: 2px; display:block; }
+
+        .fw-card { border: 1px dashed var(--accent); background: rgba(245, 158, 11, 0.05); }
+
+        /* Buttons */
+        .btn-group { display: flex; gap: 10px; margin-top: auto; }
+        .btn-solve {
+            flex: 2; padding: 12px; font-size: 1rem; font-weight: bold;
+            border: none; border-radius: 6px; cursor: pointer;
+            background: #10b981; color: #0f172a; transition: filter 0.2s;
+        }
+        .btn-solve:hover { filter: brightness(1.1); }
+        
+        .btn-pause { flex: 1; background: #f59e0b; color: white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;}
+        .btn-pause.paused { background: #ef4444; animation: pulse 1.5s infinite; }
+        
+        .btn-reset { width:100%; margin-top:10px; padding:10px; background:#334155; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;}
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+
+        /* Center View */
+        .center-view {
+            flex: 1; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border);
+        }
+        .sim-container {
+            flex: 3; position: relative; background: #111827;
+            overflow: hidden; border-bottom: 2px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+        }
+        /* Grid */
+        .sim-container::before {
+            content: ''; position: absolute; top:0; left:0; width:100%; height:100%;
+            background-image: radial-gradient(#334155 1px, transparent 1px);
+            background-size: 40px 40px; opacity: 0.3; pointer-events: none;
+        }
+        canvas { position: relative; z-index: 2; }
+        
+        #pause-overlay {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(245, 158, 11, 0.9); color: #000;
+            padding: 5px 15px; border-radius: 20px; font-weight: bold;
+            display: none; pointer-events: none; z-index: 50;
+        }
+
+        .anim-controls {
+            position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 15px; background: rgba(0,0,0,0.8); padding: 8px 15px; border-radius: 20px; z-index: 20; align-items: center;
+        }
+        .speed-slider { width: 100px; cursor: pointer; }
+
+        /* Right Panel */
+        .right-panel { width: 380px; background: #111; display: flex; flex-direction: column; }
+        .panel-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--panel-bg); }
+        .tab-btn {
+            flex: 1; padding: 12px; text-align: center; cursor: pointer; color: #94a3b8; font-weight: bold;
+            border-bottom: 3px solid transparent; transition: all 0.2s; font-size: 0.9rem;
+        }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: #182235; }
+        .panel-content { flex: 1; overflow-y: auto; display: none; padding: 0; }
+        .panel-content.active { display: block; }
+
+        /* Guide & Calc Box */
+        .guide-box { padding: 20px; line-height: 1.6; color: #ccc; font-size: 0.9rem; }
+        .guide-box h3 { color: #fff; margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        
+        .sol-step { margin-bottom: 15px; border-bottom: 1px dashed #333; padding-bottom: 10px; font-size: 0.9rem; font-family: var(--math-font); }
+        .sol-title { color: #94a3b8; font-weight: bold; margin-bottom: 5px; font-family: 'Segoe UI', sans-serif; }
+        .highlight { color: var(--accent); font-weight: bold; background: rgba(245, 158, 11, 0.1); padding: 2px 6px; border-radius: 4px;}
+
+        /* Data Log */
+        textarea { width: 100%; height: 100%; background: #111; color: #ccc; border: none; padding: 15px; font-family: monospace; font-size: 0.8rem; resize: none; }
+
+        /* Colors */
+        .c-0 { border-left-color: var(--c0); } .t-0 { color: var(--c0); }
+        .c-1 { border-left-color: var(--c1); } .t-1 { color: var(--c1); }
+        .c-2 { border-left-color: var(--c2); } .t-2 { color: var(--c2); }
+        .c-3 { border-left-color: var(--c3); } .t-3 { color: var(--c3); }
+        .c-4 { border-left-color: var(--c4); } .t-4 { color: var(--c4); }
+        .c-main { border-left-color: #fff; } .t-main { color: #fff; }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="header-nav">
+            <a href="unit3.html" class="back-link">⬅ Back to Unit 3</a>
+            <h2>🎱 Momentum Solver</h2>
+        </div>
+
+        <div class="top-settings">
+            <div>
+                <label>Mode</label>
+                <select id="mode-select" onchange="updateUI()">
+                    <option value="collision">Collision (Stick)</option>
+                    <option value="explosion">Explosion</option>
+                </select>
+            </div>
+            <div>
+                <label>Count (2-5)</label>
+                <select id="count-select" onchange="updateUI()">
+                    <option value="2">2 Objects</option>
+                    <option value="3">3 Objects</option>
+                    <option value="4">4 Objects</option>
+                    <option value="5">5 Objects</option>
+                </select>
+            </div>
+        </div>
+        
+        <div style="margin-bottom:10px;" id="fw-toggle-container">
+            <label style="display:flex; align-items:center; gap:8px; color:#e2e8f0; font-size:0.9rem; cursor:pointer;">
+                <input type="checkbox" id="fw-check" onchange="updateUI()"> 🚀 Fireworks Mode
+            </label>
+        </div>
+
+        <div class="scroll-inputs" id="input-container">
+            </div>
+
+        <div class="btn-group">
+            <button class="btn-solve" onclick="solve()">🧮 CALCULATE & PLAY</button>
+            <button class="btn-pause" id="btn-pause" onclick="togglePause()">⏸</button>
+        </div>
+        <button class="btn-reset" onclick="resetSim()">Reset</button>
+    </div>
+
+    <div class="center-view">
+        <div class="sim-container">
+            <canvas id="simCanvas" width="800" height="500"></canvas>
+            <div id="pause-overlay" style="display:none;">PAUSED</div>
+            
+            <div class="anim-controls">
+                <span style="color:#ccc; font-size:0.8rem;">Speed: <span id="speed-val">1.0x</span></span>
+                <input type="range" class="speed-slider" id="sim-speed" min="0.1" max="2.0" step="0.1" value="1.0" oninput="updateSpeed()">
+            </div>
+        </div>
+
+        <div class="solution-panel" id="calc-panel">
+             <div style="text-align:center; color:#666; padding-top:30px;">
+                Step-by-step calculations will appear here.
+            </div>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div class="panel-tabs">
+            <div class="tab-btn active" onclick="switchTab('manual')">📖 Manual</div>
+            <div class="tab-btn" onclick="switchTab('data')">📊 Data Log</div>
+        </div>
+
+        <div id="content-manual" class="panel-content active">
+            <div class="guide-box">
+                <h3>Lab: Multi-Body Momentum</h3>
+                
+                <h4>1. Collision (Inelastic)</h4>
+                <p>Simulates <b>N</b> objects colliding at the center and sticking together.</p>
+                <p><b>Formula:</b> <b>v</b><sub>final</sub> = (&Sigma; m<sub>i</sub><b>v</b><sub>i</sub>) / &Sigma; m<sub>i</sub></p>
+
+                <h4>2. Explosion</h4>
+                <p>An object breaks into <b>N</b> fragments. You enter data for <b>N-1</b> fragments, the system calculates the last one.</p>
+                <p><b>Formula:</b> <b>P</b><sub>initial</sub> = &Sigma; <b>P</b><sub>final</sub></p>
+
+                <h4>3. Fireworks Mode</h4>
+                <p>The object launches as a projectile. The velocity at the time of explosion (<b>v</b><sub>top</sub>) becomes the initial momentum for the fragments.</p>
+                <p><i>Physics Note: Angles are standard (0&deg; = Right, 90&deg; = Up).</i></p>
+            </div>
+        </div>
+
+        <div id="content-data" class="panel-content">
+            <div style="padding:15px;">
+                <textarea id="data-log" style="width:100%; height:300px; background:#111; color:#ccc; border:1px solid #333; font-family:monospace; font-size:0.8rem;" readonly>Data will appear here...</textarea>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const COLORS = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6']; // Red, Blue, Green, Orange, Purple
+        const g = 9.8;
+
+        // State
+        let mode = 'collision';
+        let count = 2;
+        let isFireworks = false;
+        let simSpeed = 1.0;
+        
+        let running = false;
+        let isPaused = false;
+        let animTime = 0;
+        let IMPACT_TIME = 2.0; // Time until collision/explosion
+        let PIXEL_SCALE = 20;  // Auto-adjusted
+
+        // Objects Data
+        let simObjects = []; // For animation
+        let launchObj = {}; // For fireworks launch
+
+        window.onload = function() {
+            updateUI();
+            drawScene(0);
+        };
+
+        function updateSpeed() {
+            simSpeed = parseFloat(document.getElementById('sim-speed').value);
+            document.getElementById('speed-val').innerText = simSpeed + "x";
+        }
+
+        function switchTab(t) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.panel-content').forEach(p => p.classList.remove('active'));
+            if(t==='manual') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('content-manual').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('content-data').classList.add('active');
+            }
+        }
+
+        function updateUI() {
+            mode = document.getElementById('mode-select').value;
+            count = parseInt(document.getElementById('count-select').value);
+            isFireworks = document.getElementById('fw-check').checked;
+            
+            document.getElementById('fw-toggle-container').style.display = (mode === 'explosion') ? 'block' : 'none';
+
+            const container = document.getElementById('input-container');
+            container.innerHTML = "";
+
+            // 1. Global Settings
+            if (mode === 'explosion') {
+                if (isFireworks) {
+                    container.innerHTML += `
+                    <div class="obj-card fw-card">
+                        <div class="card-header" style="color:var(--accent)">🚀 Launch Settings</div>
+                        <div class="input-grid">
+                            <div class="field"><label>Speed (m/s)</label><input type="number" id="fw-v" value="40"></div>
+                            <div class="field"><label>Angle (&deg;)</label><input type="number" id="fw-a" value="75"></div>
+                            <div class="field"><label>Time (s)</label><input type="number" id="fw-t" value="3.0"></div>
+                        </div>
+                        <div class="input-grid" style="margin-top:5px; grid-template-columns: 1fr;">
+                            <div class="field"><label>Total Mass (kg)</label><input type="number" id="m-tot" value="10"></div>
+                        </div>
+                    </div>`;
+                } else {
+                    container.innerHTML += `
+                    <div class="obj-card c-main">
+                        <div class="card-header t-main">Initial Object</div>
+                        <div class="input-grid">
+                            <div class="field"><label>Total Mass</label><input type="number" id="m-tot" value="10"></div>
+                            <div class="field"><label>Vel (m/s)</label><input type="number" id="v-init" value="0"></div>
+                            <div class="field"><label>Ang (&deg;)</label><input type="number" id="a-init" value="0"></div>
+                        </div>
+                    </div>`;
+                }
+            }
+
+            // 2. Object Inputs
+            for(let i=0; i<count; i++) {
+                let title = mode === 'collision' ? `Object ${i+1}` : `Fragment ${i+1}`;
+                let isUnknown = (mode === 'explosion' && i === count-1);
+                if (isUnknown) title += " (Unknown)";
+                
+                let disabled = isUnknown ? "disabled style='opacity:0.5; background:#111;'" : "";
+                // Default values
+                let defM = 2, defV = 10, defA = i*(360/count);
+                if(mode === 'explosion' && isUnknown) { defM = ""; defV = ""; defA = ""; }
+
+                container.innerHTML += `
+                <div class="obj-card c-${i}">
+                    <div class="card-header t-${i}">${title}</div>
+                    <div class="input-grid">
+                        <div class="field"><label>Mass (kg)</label><input type="number" id="m-${i}" value="${defM}" ${isUnknown?'disabled':''}></div>
+                        <div class="field"><label>Vel (m/s)</label><input type="number" id="v-${i}" value="${defV}" ${disabled}></div>
+                        <div class="field"><label>Ang (&deg;)</label><input type="number" id="a-${i}" value="${defA}" ${disabled}></div>
+                    </div>
+                </div>`;
+            }
+            
+            resetSim();
+        }
+
+        function toRad(deg) { return deg * Math.PI / 180; }
+        function toDeg(rad) { return rad * 180 / Math.PI; }
+
+        // --- SOLVER ENGINE ---
+        function solve() {
+            running = true;
+            isPaused = false;
+            document.getElementById('btn-pause').innerText = "⏸";
+            document.getElementById('pause-overlay').style.display = 'none';
+            animTime = 0;
+            simObjects = [];
+            let logText = "";
+            let calcHTML = "";
+            
+            let maxV = 0;
+
+            if (mode === 'collision') {
+                let Ptx = 0, Pty = 0, Mtot = 0;
+                
+                for(let i=0; i<count; i++) {
+                    let m = parseFloat(document.getElementById(`m-${i}`).value);
+                    let v = parseFloat(document.getElementById(`v-${i}`).value);
+                    let a = parseFloat(document.getElementById(`a-${i}`).value);
+                    
+                    if(v > maxV) maxV = v;
+
+                    let vx = v * Math.cos(toRad(a));
+                    let vy = v * Math.sin(toRad(a));
+                    
+                    Ptx += m*vx; Pty += m*vy; Mtot += m;
+                    
+                    simObjects.push({
+                        type: 'obj', m: m, color: COLORS[i],
+                        vx: vx, vy: vy,
+                        active: true
+                    });
+                    logData.push({name:`Obj ${i+1}`, m, v, a});
+                }
+                
+                let vfx = Ptx / Mtot; 
+                let vfy = Pty / Mtot;
+                let vf = Math.sqrt(vfx**2 + vfy**2);
+                let af = toDeg(Math.atan2(vfy, vfx));
+
+                simObjects.push({
+                    type: 'final', m: Mtot, color: '#fff',
+                    vx: vfx, vy: vfy,
+                    active: false 
+                });
+                
+                logData.push({name:`Result`, m:Mtot, v:vf, a:af});
+
+                calcHTML += `<div class="sol-step"><div class="sol-title">Total Momentum</div>P<sub>x</sub>=${Ptx.toFixed(1)}, P<sub>y</sub>=${Pty.toFixed(1)}</div>`;
+                calcHTML += `<div class="sol-step"><div class="sol-title">Final Velocity</div><span class="highlight">${vf.toFixed(2)} m/s @ ${af.toFixed(1)}&deg;</span></div>`;
+                
+                if(maxV < 1) maxV = 1;
+                PIXEL_SCALE = 250 / (maxV * 3.0); 
+                IMPACT_TIME = 3.0;
+                
+                // Backtrack
+                let cx = canvas.width/2; let cy = canvas.height/2;
+                simObjects.forEach(obj => {
+                    if(obj.type === 'obj') {
+                        obj.x = cx - obj.vx * PIXEL_SCALE * IMPACT_TIME;
+                        obj.y = cy + obj.vy * PIXEL_SCALE * IMPACT_TIME; // Canvas Y Inverted
+                    } else {
+                        obj.x = cx; obj.y = cy;
+                    }
+                });
+
+            } else {
+                // Explosion
+                let M = parseFloat(document.getElementById('m-tot').value);
+                let Pix=0, Piy=0;
+                
+                if (isFireworks) {
+                    let v0 = parseFloat(document.getElementById('fw-v').value);
+                    let a0 = parseFloat(document.getElementById('fw-a').value);
+                    let tExp = parseFloat(document.getElementById('fw-t').value);
+                    
+                    if(v0 > maxV) maxV = v0;
+                    IMPACT_TIME = tExp;
+
+                    let rad = toRad(a0);
+                    let vx0 = v0 * Math.cos(rad);
+                    let vy0 = v0 * Math.sin(rad);
+                    
+                    // Velocity at explosion (Physics Y is Up)
+                    let v_exp_x = vx0;
+                    let v_exp_y = vy0 - g * tExp; 
+                    
+                    Pix = M * v_exp_x; Piy = M * v_exp_y;
+                    
+                    launchObj = { vx0, vy0, m: M };
+                    simObjects.push({ type: 'projectile', ...launchObj });
+
+                    calcHTML += `<div class="sol-step"><div class="sol-title">Launch (t=${tExp}s)</div>V<sub>y</sub> = ${vy0.toFixed(1)} - 9.8(${tExp}) = ${v_exp_y.toFixed(1)} m/s</div>`;
+                } else {
+                    let v = parseFloat(document.getElementById('v-init').value);
+                    let a = parseFloat(document.getElementById('a-init').value);
+                    Pix = M * v * Math.cos(toRad(a));
+                    Piy = M * v * Math.sin(toRad(a));
+                    IMPACT_TIME = 1.0; 
+                    if(v > maxV) maxV = v;
+                    
+                    simObjects.push({ type: 'static', vx: Pix/M, vy: Piy/M, m:M });
+                }
+
+                let P_frags_x = 0; let P_frags_y = 0; let m_frags = 0;
+
+                for(let i=0; i<count-1; i++) {
+                    let m = parseFloat(document.getElementById(`m-${i}`).value);
+                    let v = parseFloat(document.getElementById(`v-${i}`).value);
+                    let a = parseFloat(document.getElementById(`a-${i}`).value);
+                    
+                    if(v > maxV) maxV = v;
+
+                    let vx = v * Math.cos(toRad(a));
+                    let vy = v * Math.sin(toRad(a));
+                    
+                    P_frags_x += m*vx; P_frags_y += m*vy; m_frags += m;
+                    
+                    simObjects.push({ type: 'frag', m: m, color: COLORS[i], vx: vx, vy: vy });
+                }
+
+                let mLast = M - m_frags;
+                if(mLast <= 0) { alert("Error: Fragments mass > Total!"); return; }
+                
+                let Px_last = Pix - P_frags_x;
+                let Py_last = Piy - P_frags_y;
+                
+                let vx_last = Px_last / mLast;
+                let vy_last = Py_last / mLast;
+                
+                let v_last = Math.sqrt(vx_last**2 + vy_last**2);
+                let a_last = toDeg(Math.atan2(vy_last, vx_last));
+                
+                if(v_last > maxV) maxV = v_last;
+
+                // Update UI
+                document.getElementById(`m-${count-1}`).value = mLast.toFixed(2);
+                document.getElementById(`v-${count-1}`).value = v_last.toFixed(2);
+                document.getElementById(`a-${count-1}`).value = a_last.toFixed(1);
+                
+                simObjects.push({ type: 'frag', m: mLast, color: COLORS[count-1], vx: vx_last, vy: vy_last });
+
+                calcHTML += `<div class="sol-step"><div class="sol-title">Result: Fragment ${count}</div>Mass: ${mLast.toFixed(1)}kg<br>Vel: <span class="highlight">${v_last.toFixed(2)} m/s @ ${a_last.toFixed(1)}&deg;</span></div>`;
+                
+                if(maxV < 1) maxV = 1;
+                PIXEL_SCALE = 250 / (maxV * 3.0); 
+                
+                let cx = canvas.width/2; let cy = canvas.height/2;
+
+                if(isFireworks) {
+                    // Backtrack launch start
+                    let rad = toRad(parseFloat(document.getElementById('fw-a').value));
+                    let v0 = parseFloat(document.getElementById('fw-v').value);
+                    // Physics Dy at exp
+                    let dy_phys = v0*Math.sin(rad)*IMPACT_TIME - 0.5*g*IMPACT_TIME*IMPACT_TIME;
+                    let dx_phys = v0*Math.cos(rad)*IMPACT_TIME;
+                    
+                    let sx = cx - dx_phys * PIXEL_SCALE;
+                    let sy = cy + dy_phys * PIXEL_SCALE; // Canvas Y Up-Down fix
+                    
+                    simObjects[0].x = sx; simObjects[0].y = sy;
+                } else {
+                    simObjects[0].x = cx; simObjects[0].y = cy;
+                }
+
+                simObjects.forEach(obj => {
+                    if(obj.type === 'frag') { obj.x = cx; obj.y = cy; }
+                });
+            }
+
+            document.getElementById('calc-panel').innerHTML = calcHTML;
+            
+            // Log
+            let txt = "";
+            simObjects.forEach((o, i) => {
+                if(o.type === 'obj' || o.type === 'frag') {
+                    let v = Math.sqrt(o.vx**2 + o.vy**2);
+                    txt += `${o.type} ${i}: m=${o.m}, v=${v.toFixed(2)}\n`;
+                }
+            });
+            document.getElementById('data-log').value = txt;
+
+            requestAnimationFrame(loop);
+        }
+
+        function togglePause() {
+            if(!running) return;
+            isPaused = !isPaused;
+            const btn = document.getElementById('btn-pause');
+            const overlay = document.getElementById('pause-overlay');
+            if(isPaused) {
+                btn.innerText = "▶"; btn.classList.add('paused'); overlay.style.display = 'block';
+            } else {
+                btn.innerText = "⏸"; btn.classList.remove('paused'); overlay.style.display = 'none';
+            }
+        }
+
+        function loop() {
+            if(!running) return;
+            
+            if(!isPaused) {
+                let dt = 1/60 * simSpeed;
+                animTime += dt;
+            }
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Grid
+            ctx.strokeStyle = "#334155"; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(canvas.width/2, 0); ctx.lineTo(canvas.width/2, canvas.height); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, canvas.height/2); ctx.lineTo(canvas.width, canvas.height/2); ctx.stroke();
+
+            let cx = canvas.width/2; let cy = canvas.height/2;
+
+            if (mode === 'collision') {
+                if (animTime < IMPACT_TIME) {
+                    simObjects.forEach(obj => {
+                        if(obj.type === 'obj') {
+                            // Move
+                            let t_rel = animTime - IMPACT_TIME; 
+                            // Current Pos = ImpactPos(cx,cy) + V * t_rel (t_rel is negative)
+                            // But wait, previous logic was simpler.
+                            // Start + V*t
+                            if(!isPaused) {
+                                // Actually let's use the Start+V*t logic, easier for Pause handling
+                                // We need start pos stored.
+                                // Let's calc on fly: x = cx + vx * scale * (animTime - IMPACT_TIME)
+                                let t_diff = animTime - IMPACT_TIME;
+                                let x = cx + obj.vx * PIXEL_SCALE * t_diff;
+                                let y = cy - obj.vy * PIXEL_SCALE * t_diff; // Canvas Y
+                                drawBall(x, y, obj.color, obj.m);
+                                drawTrace(x, y, cx, cy, obj.color);
+                            } else {
+                                // Paused draw
+                                let t_diff = animTime - IMPACT_TIME;
+                                let x = cx + obj.vx * PIXEL_SCALE * t_diff;
+                                let y = cy - obj.vy * PIXEL_SCALE * t_diff;
+                                drawBall(x, y, obj.color, obj.m);
+                            }
+                        }
+                    });
+                } else {
+                    let res = simObjects.find(o => o.type === 'final');
+                    let t_diff = animTime - IMPACT_TIME;
+                    let x = cx + res.vx * PIXEL_SCALE * t_diff;
+                    let y = cy - res.vy * PIXEL_SCALE * t_diff;
+                    drawBall(x, y, res.color, res.m);
+                }
+            } else {
+                // Explosion
+                let tExp = IMPACT_TIME;
+                
+                if (animTime < tExp && isFireworks) {
+                    let proj = simObjects[0];
+                    let t = animTime;
+                    
+                    // Physics Y: y = y0 + vy0*t - 0.5gt^2
+                    // Canvas Y: cy - (phys_disp) * scale
+                    // We need relative to start
+                    // Start Y (phys) = 0 (relative). Current Y (phys) = vy0*t - 0.5gt^2.
+                    // Start Y (canvas) = proj.y
+                    
+                    let physY = proj.vy0 * t - 0.5 * g * t * t;
+                    let physX = proj.vx0 * t;
+                    
+                    let curX = proj.x + physX * PIXEL_SCALE;
+                    let curY = proj.y - physY * PIXEL_SCALE;
+                    
+                    drawBall(curX, curY, '#fff', 5);
+                    ctx.strokeStyle="#f59e0b"; ctx.beginPath(); ctx.moveTo(proj.x, proj.y); ctx.lineTo(curX, curY); ctx.stroke();
+
+                } else if (animTime >= tExp) {
+                    if(animTime - tExp < 0.2) {
+                         ctx.fillStyle=`rgba(255,255,255,0.8)`; 
+                         ctx.beginPath(); ctx.arc(cx,cy, 50, 0, 6.28); ctx.fill();
+                    }
+                    
+                    let dt = animTime - tExp;
+                    simObjects.forEach(obj => {
+                        if(obj.type === 'frag') {
+                            let curX = cx + obj.vx * PIXEL_SCALE * dt;
+                            let curY = cy - obj.vy * PIXEL_SCALE * dt;
+                            drawBall(curX, curY, obj.color, obj.m);
+                        }
+                    });
+                } else {
+                    if(!isFireworks) drawBall(cx, cy, '#fff', 10);
+                }
+            }
+
+            if(running) requestAnimationFrame(loop);
+        }
+
+        function drawBall(x, y, color, m) {
+            let r = 10 + Math.sqrt(m)*3;
+            if(r>40) r=40;
+            ctx.beginPath(); ctx.arc(x, y, r, 0, 6.28); 
+            ctx.fillStyle = color; ctx.fill();
+            ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+        }
+
+        function drawTrace(x1, y1, x2, y2, color) {
+            ctx.setLineDash([5, 5]); ctx.strokeStyle = color;
+            ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function resetSim() {
+            running = false;
+            isPaused = false;
+            document.getElementById('pause-overlay').style.display = 'none';
+            document.getElementById('btn-pause').innerText = "⏸";
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            document.getElementById('calc-panel').innerHTML = '<div style="text-align:center; color:#666; padding-top:30px;">Ready</div>';
+        }
+    </script>
+</body>
+</html>

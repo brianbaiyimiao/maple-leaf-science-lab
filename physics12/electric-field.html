@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Electric Field & Vector Mapper</title>
+    <style>
+        :root { --ml-blue: #1e3a8a; --ml-gold: #fbbf24; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-blue); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1450px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 450px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow-y: auto;}
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .btn-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        .btn-tool { flex: 1; padding: 12px; border: 2px solid #cbd5e1; background: white; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; color: #475569;}
+        .btn-tool[data-tool="pos"].active { border-color: #ef4444; background: #fee2e2; color: #b91c1c; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);}
+        .btn-tool[data-tool="neg"].active { border-color: #3b82f6; background: #eff6ff; color: #1d4ed8; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.2);}
+        .btn-tool[data-tool="probe"].active { border-color: #eab308; background: #fef08a; color: #854d0e; box-shadow: 0 4px 10px rgba(234, 179, 8, 0.2);}
+        
+        .btn { background: var(--dark); color: white; border: none; padding: 12px; border-radius: 8px; font-size: 1rem; cursor: pointer; font-weight: bold; transition: 0.2s; width: 100%; margin-top: 10px;}
+        .btn:hover { background: #334155; }
+        .btn-clear { background: #ef4444; margin-top: 10px;}
+        .btn-clear:hover { background: #b91c1c; }
+
+        /* 动态计算黑板 */
+        .calc-board { background: #0f172a; color: #e2e8f0; padding: 15px; border-radius: 8px; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.85rem; line-height: 1.5; margin-top: 15px; border: 3px solid #334155; box-shadow: inset 0 0 15px rgba(0,0,0,0.8);}
+        .calc-title { color: #fcd34d; font-weight: bold; border-bottom: 1px dashed #475569; padding-bottom: 5px; margin-bottom: 10px;}
+        .calc-highlight { color: #22c55e; font-weight: bold; font-size: 1rem;}
+
+        /* 数据记录表 */
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.8rem; text-align: center;}
+        .data-table th, .data-table td { border: 1px solid #cbd5e1; padding: 6px; }
+        .data-table th { background: #f1f5f9; color: #334155; }
+        .data-table tr:nth-child(even) { background: #f8fafc; }
+
+        .visual-container { display: flex; flex-direction: column; gap: 15px; }
+        .canvas-box { background: #000; border-radius: 12px; border: 4px solid #cbd5e1; overflow: hidden; position: relative; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 0 30px rgba(0,0,0,1); height: 100%; min-height: 550px;}
+        canvas { width: 100%; height: 100%; cursor: crosshair; }
+
+        .legend { display: flex; gap: 15px; margin-top: 15px; font-size: 0.85rem; font-weight: bold; color: #475569; flex-wrap: wrap;}
+        .leg-item { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 14px; height: 14px; border-radius: 50%; }
+        
+        .probe-info { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;}
+        .probe-box { background: #f8fafc; border: 2px solid #e2e8f0; padding: 10px; border-radius: 6px; text-align: center;}
+        .probe-val { font-size: 1.2rem; font-weight: bold; color: #eab308; display: block; margin-top: 5px; font-family: monospace;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit2.html" class="back-link">⬅ Back to Unit 2</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 5: Equipotential & Vector Mapper</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Physics</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>1. Sandbox Controls</h3>
+            
+            <div class="btn-group">
+                <button class="btn-tool active" data-tool="pos" onclick="setTool('pos')">➕ Add +1 nC</button>
+                <button class="btn-tool" data-tool="neg" onclick="setTool('neg')">➖ Add -1 nC</button>
+                <button class="btn-tool" data-tool="probe" onclick="setTool('probe')">🎯 Move Probe</button>
+            </div>
+            <button class="btn" style="background:#ef4444;" onclick="clearCanvas()">🗑️ Clear All Charges</button>
+
+            <h3 style="margin-top: 25px;">2. Sensor Probe Data</h3>
+            <div class="probe-info">
+                <div class="probe-box">
+                    Net Potential (V)
+                    <span class="probe-val" id="val-v" style="color: #3b82f6;">0.0 V</span>
+                </div>
+                <div class="probe-box">
+                    Field Magnitude |E|
+                    <span class="probe-val" id="val-e" style="color: #22c55e;">0.0 N/C</span>
+                </div>
+            </div>
+
+            <div class="calc-board" id="calc-board">
+                </div>
+
+            <h3 style="margin-top: 25px;">3. Data Notebook</h3>
+            <button class="btn" style="background:var(--ml-blue);" onclick="recordData()">Record Probe Location</button>
+            <table class="data-table" id="data-table">
+                <tr>
+                    <th>Pos (x, y)</th>
+                    <th>V (Volts)</th>
+                    <th>|E| (N/C)</th>
+                    <th>Angle (&theta;)</th>
+                </tr>
+            </table>
+            <button class="btn btn-clear" onclick="clearData()">Clear Table</button>
+
+            <div class="legend" style="margin-top: 20px;">
+                <div class="leg-item"><div class="dot" style="background: #ef4444;"></div> +V Potential</div>
+                <div class="leg-item"><div class="dot" style="background: #3b82f6;"></div> -V Potential</div>
+                <div class="leg-item"><div style="font-size:1.2rem;">&rarr;</div> E-Field Vectors</div>
+            </div>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box">
+                <canvas id="fieldCanvas" width="900" height="600"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('fieldCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        // 性能优化：用于存储静态热力图背景
+        const bgCanvas = document.createElement('canvas');
+        bgCanvas.width = 900; bgCanvas.height = 600;
+        const bgCtx = bgCanvas.getContext('2d');
+        
+        let charges = [];
+        let currentTool = 'pos';
+        const k = 9e9; // Coulomb constant
+        const scale = 100; // 100 pixels = 1 meter
+
+        // 传感器探针
+        let probe = { x: 450, y: 300, isDragging: false };
+        let currentField = { Ex: 0, Ey: 0, E_mag: 0, angle_deg: 0, V: 0 };
+
+        function setTool(tool) {
+            currentTool = tool;
+            document.querySelectorAll('.btn-tool').forEach(b => b.classList.remove('active'));
+            document.querySelector(`.btn-tool[data-tool="${tool}"]`).classList.add('active');
+            
+            if(tool === 'probe') cvs.style.cursor = 'move';
+            else cvs.style.cursor = 'crosshair';
+        }
+
+        function clearCanvas() {
+            charges = [];
+            renderBackgroundMap();
+            updateProbeData();
+            drawLab();
+        }
+
+        // --- 鼠标交互处理 ---
+        cvs.addEventListener('mousedown', function(e) {
+            const rect = cvs.getBoundingClientRect();
+            let mx = (e.clientX - rect.left) * (cvs.width / rect.width);
+            let my = (e.clientY - rect.top) * (cvs.height / rect.height);
+
+            if (currentTool === 'probe') {
+                probe.x = mx; probe.y = my;
+                probe.isDragging = true;
+                updateProbeData();
+                drawLab();
+            } else {
+                let qVal = currentTool === 'pos' ? 1e-9 : -1e-9;
+                charges.push({ x: mx, y: my, q: qVal });
+                renderBackgroundMap(); // 重新计算背景
+                updateProbeData();
+                drawLab();
+            }
+        });
+
+        cvs.addEventListener('mousemove', function(e) {
+            if (probe.isDragging && currentTool === 'probe') {
+                const rect = cvs.getBoundingClientRect();
+                probe.x = (e.clientX - rect.left) * (cvs.width / rect.width);
+                probe.y = (e.clientY - rect.top) * (cvs.height / rect.height);
+                updateProbeData();
+                drawLab(); // 拖拽时只重绘前景，不重新计算热力图，保证60fps丝滑
+            }
+        });
+
+        cvs.addEventListener('mouseup', () => { probe.isDragging = false; });
+        cvs.addEventListener('mouseleave', () => { probe.isDragging = false; });
+
+        // --- 物理计算引擎 ---
+        function calculateFieldAt(x, y) {
+            let Ex = 0, Ey = 0, V = 0;
+
+            for(let c of charges) {
+                let dx_px = x - c.x;
+                let dy_px = -(y - c.y); // Canvas Y 轴向下，物理坐标系 Y 轴向上，这里取反以符合物理直觉
+                
+                let dx_m = dx_px / scale;
+                let dy_m = dy_px / scale;
+                let r2 = dx_m*dx_m + dy_m*dy_m;
+                let r = Math.sqrt(r2);
+                
+                if (r < 0.05) continue; // 避免奇点
+
+                let E_mag = (k * c.q) / r2;
+                Ex += E_mag * (dx_m / r);
+                Ey += E_mag * (dy_m / r);
+                V += (k * c.q) / r;
+            }
+
+            let E_total = Math.sqrt(Ex*Ex + Ey*Ey);
+            let angle_rad = Math.atan2(Ey, Ex);
+            let angle_deg = angle_rad * (180 / Math.PI);
+            if(angle_deg < 0) angle_deg += 360; // 转换为 0-360 度
+
+            return { Ex, Ey, E_mag: E_total, angle_deg, V };
+        }
+
+        function updateProbeData() {
+            currentField = calculateFieldAt(probe.x, probe.y);
+            
+            document.getElementById('val-v').innerText = currentField.V.toFixed(1) + " V";
+            document.getElementById('val-e').innerText = currentField.E_mag.toFixed(1) + " N/C";
+
+            let board = document.getElementById('calc-board');
+            board.innerHTML = `
+                <div class="calc-title">Probe Vector Decomposition (x: ${(probe.x/scale).toFixed(2)}m, y: ${((600-probe.y)/scale).toFixed(2)}m)</div>
+                <div style="margin-bottom: 8px;">
+                    <b>&Sigma; E<sub>x</sub></b> = ${currentField.Ex.toFixed(2)} N/C<br>
+                    <b>&Sigma; E<sub>y</sub></b> = ${currentField.Ey.toFixed(2)} N/C
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <b>Magnitude |E|</b> = &radic;(E<sub>x</sub>&sup2; + E<sub>y</sub>&sup2;)<br>
+                    |E| = <span class="calc-highlight">${currentField.E_mag.toFixed(2)} N/C</span>
+                </div>
+                <div>
+                    <b>Direction (&theta;)</b> = arctan(E<sub>y</sub> / E<sub>x</sub>)<br>
+                    &theta; = <span style="color:#fcd34d; font-weight:bold; font-size:1rem;">${currentField.angle_deg.toFixed(1)}&deg;</span>
+                </div>
+            `;
+        }
+
+        function recordData() {
+            let table = document.getElementById('data-table');
+            let row = table.insertRow(-1);
+            let px = (probe.x / scale).toFixed(2);
+            let py = ((600 - probe.y) / scale).toFixed(2);
+            
+            row.insertCell(0).innerText = `(${px}, ${py})`;
+            row.insertCell(1).innerText = currentField.V.toFixed(1);
+            row.insertCell(2).innerHTML = "<b>" + currentField.E_mag.toFixed(1) + "</b>";
+            row.insertCell(3).innerText = currentField.angle_deg.toFixed(1) + "\xB0";
+        }
+
+        function clearData() {
+            let table = document.getElementById('data-table');
+            while(table.rows.length > 1) { table.deleteRow(1); }
+        }
+
+        // --- 渲染引擎 ---
+        
+        // 离屏渲染：只在电荷改变时计算热力图，极大地提升性能
+        function renderBackgroundMap() {
+            bgCtx.fillStyle = '#000'; bgCtx.fillRect(0, 0, 900, 600);
+            
+            if(charges.length === 0) return;
+
+            let res = 8; 
+            for(let y = 0; y < 600; y += res) {
+                for(let x = 0; x < 900; x += res) {
+                    let field = calculateFieldAt(x + res/2, y + res/2);
+                    let vLimit = 50; 
+                    let r = 0, b = 0;
+                    
+                    if(field.V > 0) r = Math.min((field.V / vLimit) * 255, 255);
+                    else if (field.V < 0) b = Math.min((Math.abs(field.V) / vLimit) * 255, 255);
+                    
+                    bgCtx.fillStyle = `rgb(${r}, 0, ${b})`;
+                    bgCtx.fillRect(x, y, res, res);
+                }
+            }
+
+            // 画网格向量箭头
+            let gridSpacing = 40; 
+            for(let y = gridSpacing/2; y < 600; y += gridSpacing) {
+                for(let x = gridSpacing/2; x < 900; x += gridSpacing) {
+                    let field = calculateFieldAt(x, y);
+                    if (field.E_mag < 0.5) continue; 
+                    
+                    // 注意：Canvas Y轴和物理 Y轴相反，绘图需要转回来
+                    let drawAngle = Math.atan2(-field.Ey, field.Ex);
+                    let visualMag = Math.min(Math.log10(field.E_mag + 1) * 6, 20); 
+                    let alpha = Math.min(field.E_mag / 20, 0.8);
+                    if(alpha < 0.1) alpha = 0.1;
+
+                    bgCtx.save();
+                    bgCtx.translate(x, y);
+                    bgCtx.rotate(drawAngle);
+                    bgCtx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+                    bgCtx.lineWidth = 1.5;
+                    bgCtx.beginPath();
+                    bgCtx.moveTo(-visualMag/2, 0); bgCtx.lineTo(visualMag/2, 0);
+                    bgCtx.lineTo(visualMag/2 - 4, -3); bgCtx.moveTo(visualMag/2, 0); bgCtx.lineTo(visualMag/2 - 4, 3);
+                    bgCtx.stroke();
+                    bgCtx.restore();
+                }
+            }
+        }
+
+        // 主渲染函数 (60 FPS)
+        function drawLab() {
+            // 1. 贴上缓存好的热力背景
+            ctx.drawImage(bgCanvas, 0, 0);
+
+            // 2. 画实体电荷
+            for(let c of charges) {
+                ctx.beginPath(); ctx.arc(c.x, c.y, 14, 0, Math.PI*2);
+                ctx.fillStyle = c.q > 0 ? '#ef4444' : '#3b82f6'; ctx.fill();
+                ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff'; ctx.stroke();
+                ctx.fillStyle = 'white'; ctx.font = 'bold 18px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(c.q > 0 ? '+' : '-', c.x, c.y);
+            }
+
+            // 3. 绘制传感器探针 (Probe)
+            ctx.strokeStyle = '#eab308'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(probe.x, probe.y, 10, 0, Math.PI*2); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(probe.x - 15, probe.y); ctx.lineTo(probe.x + 15, probe.y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(probe.x, probe.y - 15); ctx.lineTo(probe.x, probe.y + 15); ctx.stroke();
+            
+            // 探针专属的合力红色大箭头
+            if(currentField.E_mag > 0.1 && charges.length > 0) {
+                let drawAngle = Math.atan2(-currentField.Ey, currentField.Ex); // 翻转Y以适应Canvas
+                let arrowLen = Math.min(30 + Math.log10(currentField.E_mag)*10, 100);
+                
+                ctx.save();
+                ctx.translate(probe.x, probe.y);
+                ctx.rotate(drawAngle);
+                ctx.strokeStyle = '#22c55e'; ctx.fillStyle = '#22c55e'; ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(arrowLen, 0); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(arrowLen, 0); ctx.lineTo(arrowLen - 10, -6); ctx.lineTo(arrowLen - 10, 6); ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // Init
+        renderBackgroundMap();
+        updateProbeData();
+        drawLab();
+    </script>
+</body>
+</html>

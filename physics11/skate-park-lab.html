@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Energy Lab Pro - Graphing & Data</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --primary: #eab308; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f8fafc; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .nav { background: var(--dark); color: white; padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; z-index: 10; }
+        .back-btn { color: white; text-decoration: none; border: 1px solid #444; padding: 5px 12px; border-radius: 4px; font-size: 13px; }
+
+        .main-container { display: grid; grid-template-columns: 300px 1fr 350px; grid-template-rows: 1fr 250px; gap: 15px; padding: 15px; flex: 1; overflow: hidden; }
+
+        /* 通用卡片样式 */
+        .card { background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; padding: 15px; display: flex; flex-direction: column; }
+        h3 { margin-top: 0; font-size: 16px; color: var(--dark); border-bottom: 2px solid var(--primary); padding-bottom: 5px; margin-bottom: 15px; }
+
+        /* 左侧控制栏 */
+        .controls-panel { grid-row: 1 / 3; }
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-size: 12px; font-weight: bold; color: #64748b; margin-bottom: 5px; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .val-display { float: right; color: var(--primary); font-weight: bold; }
+        button { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; }
+        
+        /* 中间模拟区 */
+        .sim-panel { grid-column: 2; grid-row: 1; position: relative; overflow: hidden; }
+        canvas#simCanvas { width: 100%; height: 100%; }
+
+        /* 下方图表区 */
+        .graph-panel { grid-column: 2; grid-row: 2; }
+
+        /* 右侧数据记录区 */
+        .data-panel { grid-column: 3; grid-row: 1 / 3; }
+        .table-container { flex: 1; overflow-y: auto; margin-top: 10px; border: 1px solid #eee; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; text-align: center; }
+        th { background: #f1f5f9; padding: 8px; position: sticky; top: 0; }
+        td { padding: 6px; border-bottom: 1px solid #f1f5f9; }
+
+        /* 能量柱 */
+        .energy-bars { display: flex; gap: 10px; height: 150px; align-items: flex-end; justify-content: space-around; margin-top: 20px; }
+        .bar-box { width: 30px; background: #f1f5f9; height: 100%; position: relative; border-radius: 3px; }
+        .bar-fill { position: absolute; bottom: 0; width: 100%; transition: height 0.1s; border-radius: 2px; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit4.html" class="back-btn">⬅ Back to Unit 4</a>
+        <h2 style="margin:0; font-size: 18px;">Physics 11: Conservation of Energy & Data Analysis</h2>
+        <span style="font-size: 12px; color: var(--primary);">Maple Leaf High School Lab</span>
+    </div>
+
+    <div class="main-container">
+        
+        <div class="card controls-panel">
+            <h3>Lab Settings</h3>
+            <div class="control-group">
+                <label>Height (y) <span class="val-display" id="h-val">5.0 m</span></label>
+                <input type="range" id="input-h" min="2" max="8" step="0.5" value="5">
+            </div>
+            <div class="control-group">
+                <label>Init Velocity (v) <span class="val-display" id="v-val">0.0 m/s</span></label>
+                <input type="range" id="input-v" min="0" max="10" step="1" value="0">
+            </div>
+            <div class="control-group">
+                <label>Friction (μ) <span class="val-display" id="mu-val">0.00</span></label>
+                <input type="range" id="input-mu" min="0" max="0.2" step="0.01" value="0">
+            </div>
+            
+            <button id="btn-start">START / RESET</button>
+
+            <div class="energy-bars">
+                <div class="bar-box"><div id="ke-bar" class="bar-fill" style="background:#3b82f6;"></div><small style="position:absolute; bottom:-20px; left:5px;">KE</small></div>
+                <div class="bar-box"><div id="pe-bar" class="bar-fill" style="background:#ef4444;"></div><small style="position:absolute; bottom:-20px; left:5px;">PE</small></div>
+                <div class="bar-box"><div id="te-bar" class="bar-fill" style="background:#22c55e;"></div><small style="position:absolute; bottom:-20px; left:2px;">Total</small></div>
+            </div>
+        </div>
+
+        <div class="card sim-panel">
+            <h3>Visual Simulation</h3>
+            <canvas id="simCanvas"></canvas>
+        </div>
+
+        <div class="card graph-panel">
+            <h3>Real-time Energy Graph (J vs Time)</h3>
+            <canvas id="energyChart"></canvas>
+        </div>
+
+        <div class="card data-panel">
+            <h3>Data Table (Log Every 0.5s)</h3>
+            <div class="table-container">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>Time(s)</th>
+                            <th>H(m)</th>
+                            <th>V(m/s)</th>
+                            <th>PE(J)</th>
+                            <th>KE(J)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </div>
+            <button onclick="clearTable()" style="background:#64748b; font-size:11px; padding:5px; margin-top:10px;">Clear Data</button>
+        </div>
+
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 物理引擎变量
+        const g = 9.8, mass = 1, pxl = 40, trackA = 0.06;
+        let active = false, vel = 0, mu = 0, startH = 5, initialV = 0, curX = 0, time = 0;
+        let lastLogTime = 0;
+
+        // 图表初始化
+        const chartCtx = document.getElementById('energyChart').getContext('2d');
+        const energyChart = new Chart(chartCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    { label: 'Kinetic (KE)', borderColor: '#3b82f6', data: [], borderWidth: 2, pointRadius: 0, fill: false },
+                    { label: 'Potential (PE)', borderColor: '#ef4444', data: [], borderWidth: 2, pointRadius: 0, fill: false },
+                    { label: 'Total Energy', borderColor: '#22c55e', data: [], borderWidth: 2, pointRadius: 0, fill: false }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, scales: { x: { display: false }, y: { beginAtZero: true } } }
+        });
+
+        function resize() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight - 40;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // UI 交互
+        document.getElementById('input-h').oninput = (e) => { startH = e.target.value; document.getElementById('h-val').innerText = startH + " m"; resetSim(); };
+        document.getElementById('input-v').oninput = (e) => { initialV = e.target.value; document.getElementById('v-val').innerText = initialV + " m/s"; resetSim(); };
+        document.getElementById('input-mu').oninput = (e) => { mu = e.target.value; document.getElementById('mu-val').innerText = mu; };
+        
+        document.getElementById('btn-start').onclick = () => {
+            if(active) { resetSim(); active = false; }
+            else { active = true; }
+        };
+
+        function resetSim() {
+            curX = -Math.sqrt(startH / trackA);
+            vel = parseFloat(initialV);
+            time = 0; lastLogTime = 0;
+            energyChart.data.labels = [];
+            energyChart.data.datasets.forEach(d => d.data = []);
+            energyChart.update('none');
+        }
+
+        function clearTable() { document.querySelector('#dataTable tbody').innerHTML = ""; }
+
+        function logData(t, h, v, pe, ke) {
+            const tbody = document.querySelector('#dataTable tbody');
+            const row = `<tr><td>${t.toFixed(1)}</td><td>${h.toFixed(2)}</td><td>${v.toFixed(2)}</td><td>${pe.toFixed(1)}</td><td>${ke.toFixed(1)}</td></tr>`;
+            tbody.innerHTML = row + tbody.innerHTML;
+        }
+
+        function update() {
+            if (active) {
+                const angle = Math.atan(2 * trackA * curX);
+                const accel = (-g * Math.sin(angle)) + (-mu * g * Math.cos(angle) * Math.sign(vel));
+                vel += accel * 0.016;
+                curX += (vel * Math.cos(angle)) * 0.016;
+                time += 0.016;
+
+                const curY = trackA * curX * curX;
+                const pe = mass * g * curY;
+                const ke = 0.5 * mass * vel * vel;
+                const total = pe + ke;
+
+                // 每 0.2s 更新一次图表
+                if (Math.floor(time * 5) > Math.floor((time-0.016) * 5)) {
+                    energyChart.data.labels.push(time.toFixed(1));
+                    energyChart.data.datasets[0].data.push(ke);
+                    energyChart.data.datasets[1].data.push(pe);
+                    energyChart.data.datasets[2].data.push(total);
+                    if(energyChart.data.labels.length > 50) { 
+                        energyChart.data.labels.shift(); 
+                        energyChart.data.datasets.forEach(d => d.data.shift());
+                    }
+                    energyChart.update('none');
+                }
+
+                // 每 0.5s 记录一次表格
+                if (time - lastLogTime >= 0.5) {
+                    logData(time, curY, Math.abs(vel), pe, ke);
+                    lastLogTime = time;
+                }
+
+                // UI 能量柱
+                const maxE = (mass * g * 8) + (0.5 * mass * 100);
+                document.getElementById('pe-bar').style.height = (pe / maxE * 250) + "%";
+                document.getElementById('ke-bar').style.height = (ke / maxE * 250) + "%";
+                document.getElementById('te-bar').style.height = (total / maxE * 250) + "%";
+            }
+
+            draw();
+            requestAnimationFrame(update);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const cx = canvas.width / 2, gy = canvas.height - 40;
+
+            // 轨道
+            ctx.beginPath(); ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 4;
+            for (let x = -400; x <= 400; x += 2) {
+                const sy = gy - (trackA * Math.pow(x/pxl, 2) * pxl);
+                if (x === -400) ctx.moveTo(cx + x, sy); else ctx.lineTo(cx + x, sy);
+            }
+            ctx.stroke();
+
+            // 滑块
+            const sy = gy - (trackA * curX * curX * pxl);
+            ctx.beginPath(); ctx.arc(cx + (curX * pxl), sy - 10, 10, 0, Math.PI*2);
+            ctx.fillStyle = active ? '#eab308' : '#94a3b8'; ctx.fill(); ctx.stroke();
+        }
+
+        resetSim();
+        update();
+    </script>
+</body>
+</html>

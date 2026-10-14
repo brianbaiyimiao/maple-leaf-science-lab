@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Wave Properties Lab - Maple Leaf Science</title>
+    <style>
+        :root { --primary: #8b5cf6; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f8fafc; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        /* Navigation */
+        .nav { background: var(--dark); color: white; padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .back-btn { color: white; text-decoration: none; border: 1px solid #444; padding: 5px 12px; border-radius: 4px; font-size: 13px; }
+
+        .workspace { display: grid; grid-template-columns: 320px 1fr 380px; gap: 15px; padding: 15px; flex: 1; overflow: hidden; }
+        
+        /* Cards */
+        .card { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; display: flex; flex-direction: column; }
+        h3 { margin-top: 0; border-left: 4px solid var(--primary); padding-left: 10px; font-size: 16px; margin-bottom: 15px; }
+
+        /* Controls */
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-size: 12px; font-weight: bold; color: #64748b; margin-bottom: 5px; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .val-span { float: right; color: var(--primary); font-weight: bold; }
+        .btn-main { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 10px; }
+
+        /* Simulation Canvas */
+        .sim-box { position: relative; background: #fff; border: 1px solid #eee; overflow: hidden; }
+        canvas { width: 100%; height: 100%; background: linear-gradient(to bottom, #ffffff, #f1f5f9); }
+
+        /* Data Table */
+        .table-wrap { flex: 1; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 5px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th { background: #f8fafc; padding: 8px; position: sticky; top: 0; border-bottom: 1px solid #eee; }
+        td { padding: 8px; text-align: center; border-bottom: 1px solid #f8fafc; }
+
+        /* Explanation Box */
+        .explanation { background: #0f172a; color: #38bdf8; padding: 12px; border-radius: 8px; font-size: 12px; line-height: 1.5; margin-top: auto; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit5.html" class="back-btn">⬅ Back to Unit 5</a>
+        <h2 style="margin:0; font-size: 18px;">Unit 5: Wave Properties Interactive Lab</h2>
+        <span style="font-size: 12px; opacity: 0.8;">Physics 11 - Maple Leaf School</span>
+    </div>
+
+    <div class="workspace">
+        <div class="card">
+            <h3>Wave Parameters</h3>
+            <div class="control-group">
+                <label>Amplitude (A) <span class="val-span" id="amp-val">40 px</span></label>
+                <input type="range" id="input-amp" min="10" max="80" step="1" value="40">
+            </div>
+            <div class="control-group">
+                <label>Frequency (f) <span class="val-span" id="freq-val">1.5 Hz</span></label>
+                <input type="range" id="input-freq" min="0.5" max="4.0" step="0.1" value="1.5">
+            </div>
+            <div class="control-group">
+                <label>Wave Speed (v) <span class="val-span" id="speed-val">120 px/s</span></label>
+                <input type="range" id="input-speed" min="50" max="300" step="5" value="120">
+            </div>
+
+            <button class="btn-main" id="btn-reset">RESET WAVE</button>
+            <button class="btn-main" id="btn-record" style="background: #22c55e;">RECORD DATA</button>
+
+            <div class="explanation">
+                <b>Quick Concept:</b><br>
+                The wave equation states that <b>v = f × λ</b>. <br>
+                Try increasing the frequency and observe how the wavelength (distance between peaks) decreases!
+            </div>
+        </div>
+
+        <div class="card sim-box">
+            <h3>Real-time Wave Motion</h3>
+            <canvas id="waveCanvas"></canvas>
+            <div style="position:absolute; bottom:10px; left:0; width:100%; border-top:2px solid #94a3b8; display:flex; font-size:10px; color:#64748b;">
+                <div style="flex:1; border-left:1px solid #94a3b8; padding-left:3px;">0px</div>
+                <div style="flex:1; border-left:1px solid #94a3b8; padding-left:3px;">100px</div>
+                <div style="flex:1; border-left:1px solid #94a3b8; padding-left:3px;">200px</div>
+                <div style="flex:1; border-left:1px solid #94a3b8; padding-left:3px;">300px</div>
+                <div style="flex:1; border-left:1px solid #94a3b8; padding-left:3px;">400px</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Experimental Observations</h3>
+            <div class="table-wrap">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>Trial</th>
+                            <th>Freq (Hz)</th>
+                            <th>Amp (px)</th>
+                            <th>Speed (px/s)</th>
+                            <th>Wavelength (px)</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <button onclick="document.querySelector('tbody').innerHTML=''" style="background:#94a3b8; color:white; border:none; padding:5px; margin-top:10px; cursor:pointer; border-radius:4px; font-size:11px;">Clear All Records</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('waveCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let amplitude = 40, frequency = 1.5, waveSpeed = 120, time = 0, trialCount = 0;
+
+        // Global Fix for Mouse Sticky Bug
+        window.addEventListener('mouseup', () => { 
+            document.querySelectorAll('input').forEach(i => i.blur());
+        });
+
+        function resize() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight - 60;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Control Bindings
+        document.getElementById('input-amp').oninput = (e) => { amplitude = parseFloat(e.target.value); document.getElementById('amp-val').innerText = amplitude + " px"; };
+        document.getElementById('input-freq').oninput = (e) => { frequency = parseFloat(e.target.value); document.getElementById('freq-val').innerText = frequency.toFixed(1) + " Hz"; };
+        document.getElementById('input-speed').oninput = (e) => { waveSpeed = parseFloat(e.target.value); document.getElementById('speed-val').innerText = waveSpeed + " px/s"; };
+        document.getElementById('btn-reset').onclick = () => { time = 0; };
+
+        // Data Recording
+        document.getElementById('btn-record').onclick = () => {
+            trialCount++;
+            const wavelength = waveSpeed / frequency;
+            const tbody = document.querySelector('#dataTable tbody');
+            const row = `<tr><td>#${trialCount}</td><td>${frequency.toFixed(1)}</td><td>${amplitude}</td><td>${waveSpeed}</td><td>${wavelength.toFixed(1)}</td></tr>`;
+            tbody.innerHTML = row + tbody.innerHTML;
+        };
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const cy = canvas.height / 2;
+
+            // Draw Grid Lines
+            ctx.strokeStyle = "#f1f5f9"; ctx.lineWidth = 1;
+            for(let i=0; i<canvas.width; i+=50){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
+            for(let j=0; j<canvas.height; j+=50){ ctx.beginPath(); ctx.moveTo(0,j); ctx.lineTo(canvas.width,j); ctx.stroke(); }
+
+            // Draw Wave
+            ctx.beginPath();
+            ctx.strokeStyle = "#8b5cf6";
+            ctx.lineWidth = 3;
+
+            for (let x = 0; x < canvas.width; x += 1) {
+                // Wave Equation: y = A * sin(k*x - omega*t)
+                const lambda = waveSpeed / frequency;
+                const k = (2 * Math.PI) / lambda;
+                const omega = 2 * Math.PI * frequency;
+                const y = cy + amplitude * Math.sin(k * x - omega * time);
+                
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Draw Vibrating Source (Oscillator)
+            const sourceY = cy + amplitude * Math.sin(-2 * Math.PI * frequency * time);
+            ctx.beginPath();
+            ctx.arc(10, sourceY, 10, 0, Math.PI * 2);
+            ctx.fillStyle = "#ef4444"; ctx.fill();
+            ctx.strokeStyle = "#000"; ctx.stroke();
+
+            time += 0.016; 
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+    </script>
+</body>
+</html>

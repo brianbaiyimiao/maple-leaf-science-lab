@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Physics 11: Impulse Solver</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg:#0f172a; --panel:#1e293b; --text:#e2e8f0; --accent:#ef4444; /* Red Theme for Impact */
+            --res:#10b981; --border:#334155; --math:'Courier New', monospace;
+        }
+        body { margin:0; background:var(--bg); color:var(--text); font-family:'Segoe UI',sans-serif; display:flex; height:100vh; overflow:hidden; }
+
+        /* Sidebar */
+        .sidebar { width:380px; background:var(--panel); padding:20px; border-right:1px solid var(--border); display:flex; flex-direction:column; z-index:10; box-shadow:5px 0 15px #000; overflow-y:auto; }
+        .header { border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:15px; }
+        h2 { margin:0; color:var(--accent); }
+        .back { color:#94a3b8; text-decoration:none; font-size:0.85rem; }
+
+        /* Inputs */
+        .card { background:#111827; border:1px solid #334155; border-radius:8px; padding:12px; margin-bottom:15px; border-left:5px solid #ccc; }
+        .card h4 { margin:0 0 10px 0; font-size:0.9rem; font-weight:bold; color:#fff; }
+        
+        .field { margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+        .field label { font-size:0.85rem; color:#ccc; }
+        input { 
+            width:100px; padding:6px; background:#1e293b; color:#fff; border:1px solid #475569; 
+            border-radius:4px; text-align:center; font-family:var(--math); font-weight:bold; font-size:0.9rem;
+        }
+        input:focus { border-color:var(--accent); outline:none; }
+
+        .unknown { border-color:#f59e0b !important; color:#f59e0b !important; background:rgba(245, 158, 11, 0.1) !important; }
+        .solved { border-color:var(--res) !important; color:var(--res) !important; background:rgba(16, 185, 129, 0.1) !important; }
+        .locked { opacity:0.5; cursor:not-allowed; }
+
+        /* Buttons */
+        .btn { width:100%; padding:15px; border:none; border-radius:6px; font-weight:bold; cursor:pointer; margin-top:5px; font-size:1rem; transition:0.2s; }
+        .btn-solve { background:var(--res); color:#000; }
+        .btn-solve:hover { filter:brightness(1.1); }
+        .btn-reset { background:#334155; color:#fff; margin-top:10px; padding:10px; font-size:0.9rem;}
+
+        /* Mode Select */
+        .mode-box { margin-bottom:15px; display:flex; gap:5px; }
+        .mode-btn { flex:1; padding:8px; background:#111; border:1px solid #444; color:#888; border-radius:4px; cursor:pointer; }
+        .mode-btn.active { background:var(--accent); color:#000; border-color:var(--accent); font-weight:bold; }
+
+        /* Viewport */
+        .viewport { flex:1; background:linear-gradient(to bottom, #87ceeb 0%, #e0f2fe 100%); position:relative; display:flex; flex-direction:column; overflow:hidden; }
+        
+        .sim-area { flex:3; position:relative; border-bottom:2px solid var(--border); overflow:hidden; }
+        .graph-area { flex:2; background:#000; padding:10px; position:relative; display:flex; }
+        
+        /* Sim Elements */
+        .ground { position:absolute; bottom:0; width:100%; height:80px; background:#475569; display:flex; justify-content:center; align-items:center; border-top:4px solid rgba(0,0,0,0.2); font-weight:bold; color:rgba(255,255,255,0.2); font-size:2rem; }
+        
+        #egg {
+            width:40px; height:50px; background:#fef3c7; border:2px solid #d4d4d8; border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;
+            position:absolute; bottom:80px; left:50%; transform:translateX(-50%);
+            display:flex; justify-content:center; align-items:center; font-size:2rem;
+            box-shadow: inset -5px -5px 10px rgba(0,0,0,0.1);
+        }
+
+        /* Calculation Panel */
+        .calc-panel { 
+            width:300px; background:#111; border-left:1px solid #333; padding:15px; 
+            overflow-y:auto; font-family:var(--math); font-size:0.85rem; color:#ccc;
+        }
+        .step { margin-bottom:10px; border-bottom:1px dashed #333; padding-bottom:5px; }
+        .hl { color:var(--res); font-weight:bold; }
+        .warn { color:#ef4444; font-weight:bold; }
+
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="header"><a href="unit3.html" class="back">⬅ Back to Unit 3</a><h2>🥚 Impulse Solver</h2></div>
+
+    <div class="mode-box">
+        <button class="mode-btn active" onclick="setMode('drop')">Drop (Height)</button>
+        <button class="mode-btn" onclick="setMode('crash')">Crash (Velocity)</button>
+    </div>
+
+    <div style="font-size:0.75rem; color:#888; margin-bottom:15px; text-align:center;">
+        Enter knowns. Use <b>?</b> for unknown.<br>Solve for Force, Time, or Height.
+    </div>
+
+    <div class="card" style="border-color:var(--accent)">
+        <h4>Scenario Data</h4>
+        
+        <div class="field">
+            <label>Mass (kg)</label>
+            <input id="mass" value="0.05" oninput="check(this)">
+        </div>
+
+        <div class="field" id="row-h">
+            <label>Height (m)</label>
+            <input id="height" value="5.0" oninput="check(this)">
+        </div>
+        
+        <div class="field" id="row-v">
+            <label>Impact Vel (m/s)</label>
+            <input id="vel" value="?" class="unknown" oninput="check(this)">
+        </div>
+    </div>
+
+    <div class="card" style="border-color:#f59e0b">
+        <h4>Impact Details</h4>
+        
+        <div class="field">
+            <label>Duration &Delta;t (s)</label>
+            <input id="time" value="0.01" oninput="check(this)">
+        </div>
+        <div style="font-size:0.7rem; color:#666; margin-bottom:10px; text-align:right;">
+            (0.01=Concrete, 0.2=Foam)
+        </div>
+
+        <div class="field">
+            <label>Avg Force (N)</label>
+            <input id="force" value="?" class="unknown" oninput="check(this)">
+        </div>
+        
+        <div class="field">
+            <label>Max Force Limit (N)</label>
+            <input id="limit" value="25" style="border-color:#666; color:#aaa;">
+        </div>
+    </div>
+
+    <button class="btn btn-solve" onclick="solve()">🧮 SOLVE & DROP</button>
+    <button class="btn btn-reset" onclick="resetUI()">Reset</button>
+</div>
+
+<div class="viewport">
+    <div class="sim-area">
+        <div id="egg"></div>
+        <div class="ground" id="ground">SURFACE</div>
+        <div id="status-overlay" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:2rem; font-weight:bold; display:none;"></div>
+    </div>
+    
+    <div class="graph-area">
+        <div style="flex:1; position:relative;">
+            <canvas id="chart"></canvas>
+        </div>
+        <div class="calc-panel" id="log">
+            Ready.<br>Default: 5m drop on concrete.
+        </div>
+    </div>
+</div>
+
+<script>
+    let mode = 'drop';
+    const g = 9.8;
+    let chart;
+
+    window.onload = () => { 
+        initChart(); 
+        setMode('drop'); 
+    };
+
+    function setMode(m) {
+        mode = m;
+        document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+        event.target.classList.add('active');
+        
+        // Toggle Input Visibility
+        if(m === 'drop') {
+            document.getElementById('row-h').style.display = 'flex';
+            document.getElementById('row-v').querySelector('label').innerText = "Impact Vel (Calc)";
+            document.getElementById('vel').classList.add('locked'); 
+            document.getElementById('vel').readOnly = true;
+        } else {
+            document.getElementById('row-h').style.display = 'none';
+            document.getElementById('row-v').querySelector('label').innerText = "Impact Vel (m/s)";
+            document.getElementById('vel').classList.remove('locked');
+            document.getElementById('vel').readOnly = false;
+            document.getElementById('vel').value = "10";
+            check(document.getElementById('vel'));
+        }
+        resetUI();
+    }
+
+    function check(el) {
+        el.classList.remove('solved');
+        if(el.value.trim() === '?' || el.value.trim() === '') {
+            el.value = '?'; el.classList.add('unknown');
+        } else {
+            el.classList.remove('unknown');
+        }
+    }
+
+    function getVal(id) {
+        let v = document.getElementById(id).value.trim();
+        return (v==='?'||v==='') ? null : parseFloat(v);
+    }
+    function setVal(id, v) {
+        document.getElementById(id).value = v.toFixed(2);
+        document.getElementById(id).classList.remove('unknown');
+        document.getElementById(id).classList.add('solved');
+    }
+    function log(msg) { document.getElementById('log').innerHTML += `<div class="step">${msg}</div>`; }
+    function clearLog() { document.getElementById('log').innerHTML = ""; }
+
+    // --- SOLVER ---
+    function solve() {
+        clearLog();
+        
+        let m = getVal('mass');
+        let dt = getVal('time');
+        let F = getVal('force');
+        let h = (mode==='drop') ? getVal('height') : null;
+        let v = (mode==='crash') ? getVal('vel') : null;
+
+        if(m === null) { log("<span class='warn'>Mass required.</span>"); return; }
+
+        // 1. Determine Velocity
+        if(mode === 'drop') {
+            if(h !== null) {
+                v = Math.sqrt(2 * g * h);
+                setVal('vel', v);
+                log(`Step 1: Free Fall Velocity<br>v = &radic;(2gh) = <span class='hl'>${v.toFixed(2)} m/s</span>`);
+            } else {
+                // Inverse: Find Height from Force?
+                if(F!==null && dt!==null) {
+                    // F*dt = m*v -> v = F*dt/m
+                    v = (F * dt) / m;
+                    h = (v*v) / (2*g);
+                    setVal('vel', v); setVal('height', h);
+                    log(`Step 1: Reverse Solve<br>Impulse J = F&Delta;t = ${(F*dt).toFixed(2)}<br>v = J/m = ${v.toFixed(2)} m/s<br>h = v²/2g = <span class='hl'>${h.toFixed(2)} m</span>`);
+                } else {
+                    log("<span class='warn'>Need Height or (Force + Time).</span>"); return;
+                }
+            }
+        }
+
+        // 2. Solve Impulse Equation: F * dt = m * v
+        let p = m * v; // Impulse required to stop
+        log(`Step 2: Momentum Change<br>&Delta;p = mv = ${p.toFixed(2)} kg·m/s`);
+
+        if(F === null && dt !== null) {
+            // Find Force
+            F = p / dt;
+            setVal('force', F);
+            log(`Step 3: Solve Force<br>F = &Delta;p / &Delta;t<br>F = ${p.toFixed(2)} / ${dt} = <span class='hl'>${F.toFixed(1)} N</span>`);
+        } 
+        else if(F !== null && dt === null) {
+            // Find Time
+            dt = p / F;
+            setVal('time', dt);
+            log(`Step 3: Solve Time<br>&Delta;t = &Delta;p / F<br>&Delta;t = ${p.toFixed(2)} / ${F} = <span class='hl'>${dt.toFixed(3)} s</span>`);
+        } 
+        else if(F !== null && dt !== null) {
+            // Check consistency? Or verify
+            let calcF = p / dt;
+            log(`Verification: Input F=${F}, Calc F=${calcF.toFixed(1)}. Using Input.`);
+        } else {
+            log("<span class='warn'>Need Force OR Time.</span>"); return;
+        }
+
+        // 3. Safety Check
+        let limit = parseFloat(document.getElementById('limit').value);
+        let safe = F <= limit;
+        
+        let resEl = document.getElementById('status-overlay');
+        if(safe) {
+            resEl.innerText = "SAFE"; resEl.style.color = "#10b981"; 
+            log(`<b>Result: Safe!</b> (${F.toFixed(1)}N < ${limit}N)`);
+        } else {
+            resEl.innerText = "CRACKED"; resEl.style.color = "#ef4444";
+            log(`<b>Result: Cracked!</b> (${F.toFixed(1)}N > ${limit}N)`);
+        }
+
+        // 4. Animation
+        animateDrop(h || 1, dt, F, safe);
+    }
+
+    function animateDrop(h, dt, F, safe) {
+        const egg = document.getElementById('egg');
+        const resEl = document.getElementById('status-overlay');
+        
+        // Reset
+        egg.style.transition = 'none';
+        resEl.style.display = 'none';
+        egg.innerText = ""; egg.style.background="#fef3c7"; egg.style.transform="translateX(-50%)";
+        
+        // Visual Height Scaling (Max 300px)
+        let dropH = Math.min(300, h * 40); 
+        if(mode==='crash') dropH = 100; // Just a short visual for crash mode
+        
+        egg.style.bottom = (80 + dropH) + "px";
+
+        // Wait a frame
+        setTimeout(() => {
+            let duration = Math.sqrt(2 * (dropH/40) / 9.8); // visual time
+            if(mode==='crash') duration = 0.5; 
+            
+            egg.style.transition = `bottom ${duration}s cubic-bezier(0.55, 0.085, 0.68, 0.53)`;
+            egg.style.bottom = "80px";
+
+            // Impact
+            setTimeout(() => {
+                updateChart(dt, F);
+                resEl.style.display = 'block';
+                
+                if(!safe) {
+                    egg.innerText = "💥";
+                    egg.style.background = "#fca5a5";
+                    egg.style.transform = "translateX(-50%) scaleY(0.4)";
+                } else {
+                    // Bounce effect
+                    egg.style.transition = "bottom 0.2s ease-out";
+                    egg.style.bottom = "90px";
+                    setTimeout(()=>egg.style.bottom="80px", 200);
+                }
+            }, duration * 1000);
+        }, 100);
+    }
+
+    function initChart() {
+        const ctxC = document.getElementById('chart').getContext('2d');
+        chart = new Chart(ctxC, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Force (N)',
+                    data: [],
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                    fill: true, pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    x: { type:'linear', title:{display:true, text:'Time (s)', color:'#666'} },
+                    y: { beginAtZero:true, title:{display:true, text:'Force (N)', color:'#666'} }
+                },
+                plugins: { legend: {display:false} }
+            }
+        });
+    }
+
+    function updateChart(dt, maxF) {
+        let data = [];
+        // Create a bell curve impulse
+        for(let t=0; t<=dt*1.5; t+=dt/10) {
+            let f = 0;
+            if(t <= dt) f = maxF * Math.sin((t/dt)*Math.PI);
+            data.push({x:t, y:f});
+        }
+        chart.data.datasets[0].data = data;
+        chart.options.scales.x.max = dt*1.5;
+        chart.update();
+    }
+
+    function resetUI() {
+        document.querySelectorAll('input').forEach(i => {
+            if(i.id !== 'limit') {
+                i.value = '?'; check(i);
+            }
+        });
+        clearLog();
+        // Reset egg
+        const egg = document.getElementById('egg');
+        egg.style.transition = 'none';
+        egg.style.bottom = "80px";
+        egg.innerText = ""; egg.style.background="#fef3c7"; egg.style.transform="translateX(-50%)";
+        document.getElementById('status-overlay').style.display = 'none';
+        // Reset chart
+        chart.data.datasets[0].data = []; chart.update();
+    }
+</script>
+</body>
+</html>

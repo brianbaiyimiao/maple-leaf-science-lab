@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Unit 3: Biology Labs</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --theme-color: #22c55e; --theme-glow: rgba(34, 197, 94, 0.4); --bg: #020617; --glass-bg: rgba(15, 23, 42, 0.7); }
+        body { background: var(--bg); font-family: 'Rajdhani', sans-serif; text-align: center; margin: 0; color: white; overflow-x: hidden; }
+        
+        .bg-grid { position: fixed; inset: 0; background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 30px 30px; z-index: -2;}
+        .bg-glow { position: fixed; top: -20vh; left: 50%; transform: translateX(-50%); width: 80vw; height: 50vh; background: radial-gradient(ellipse at center, var(--theme-glow) 0%, transparent 70%); z-index: -1; opacity: 0.5;}
+
+        .top-nav { background: rgba(2, 6, 23, 0.8); backdrop-filter: blur(10px); padding: 20px 30px; display: flex; align-items: center; border-bottom: 2px solid var(--theme-color); box-shadow: 0 0 20px var(--theme-glow);}
+        .back-btn { text-decoration: none; color: white; border: 2px solid rgba(255,255,255,0.3); padding: 8px 20px; border-radius: 8px; font-weight: bold; font-family: 'Orbitron', sans-serif; transition: 0.3s; text-transform: uppercase; }
+        .back-btn:hover { background: white; color: var(--bg); box-shadow: 0 0 15px white; }
+        h2 { margin-left: 20px; flex: 1; font-family: 'Orbitron', sans-serif; font-size: 2rem; letter-spacing: 2px; text-shadow: 0 0 10px var(--theme-glow); }
+
+        .container { max-width: 1100px; margin: 60px auto; display: flex; justify-content: center; gap: 35px; padding: 20px; flex-wrap: wrap; }
+        
+        .lab-card {
+            background: var(--glass-bg); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); padding: 40px 30px; border-radius: 15px; text-decoration: none; color: white;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); transition: 0.4s; position: relative; overflow: hidden; width: 260px; display: flex; flex-direction: column; align-items: center;
+        }
+        .lab-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: var(--theme-color); transition: 0.3s;}
+        .lab-card:hover { transform: translateY(-10px); border-color: var(--theme-color); box-shadow: 0 15px 40px var(--theme-glow); }
+        .lab-card:hover::before { height: 100%; opacity: 0.05; }
+        
+        .icon { font-size: 4rem; margin-bottom: 20px; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5)); transition: 0.3s; }
+        .lab-card:hover .icon { transform: scale(1.15); }
+        .lab-title { font-size: 1.5rem; font-family: 'Orbitron', sans-serif; margin-bottom: 10px; color: var(--theme-color);}
+        .lab-desc { font-size: 1.1rem; color: #94a3b8; line-height: 1.4; }
+        .status { margin-top: 20px; font-size: 0.8rem; background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px; font-weight: bold; letter-spacing: 1px;}
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div><div class="bg-glow"></div>
+    <div class="top-nav">
+        <a href="index.html" class="back-btn">⬅ Portal</a>
+        <h2>🧬 Unit 3: Biosystems</h2>
+    </div>
+
+    <div class="container">
+        <a href="cell-lab.html" class="lab-card">
+            <div class="icon">🦠</div>
+            <div class="lab-title">Cell Matrix</div>
+            <div class="lab-desc">Cross-Analysis: Animal vs. Plant Cell Structures</div>
+            <div class="status">MODULE ACTIVE</div>
+        </a>
+        <a href="transport-lab.html" class="lab-card">
+            <div class="icon">🔄</div>
+            <div class="lab-title">Membrane Flux</div>
+            <div class="lab-desc">Gradient Diffusion & Osmosis Transport</div>
+            <div class="status">MODULE ACTIVE</div>
+        </a>
+        <a href="microscope-lab.html" class="lab-card">
+            <div class="icon">🔬</div>
+            <div class="lab-title">Optics Engine</div>
+            <div class="lab-desc">Virtual Focus Calibration & Magnification</div>
+            <div class="status">MODULE ACTIVE</div>
+        </a>
+    </div>
+</body>
+</html>

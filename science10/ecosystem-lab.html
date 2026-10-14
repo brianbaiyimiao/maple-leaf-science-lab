@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biology: Ecosystem Energy Flow</title>
+    <style>
+        :root {
+            --bg-color: #f0f9ff;
+            --level-1: #22c55e; /* Producers */
+            --level-2: #facc15; /* Primary */
+            --level-3: #f97316; /* Secondary */
+            --level-4: #ef4444; /* Tertiary */
+            --text-dark: #1e293b;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* 顶部导航 */
+        .nav-bar {
+            background: #0f172a; padding: 15px 20px; color: white;
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .back-btn { color: #94a3b8; text-decoration: none; border: 1px solid #334155; padding: 5px 12px; border-radius: 4px; }
+        .back-btn:hover { background: #1e293b; color: white; }
+
+        /* 主布局 */
+        .main-container {
+            flex: 1; display: flex; padding: 20px; gap: 20px; overflow: hidden;
+        }
+
+        /* 左侧：生物仓库 */
+        .sidebar {
+            width: 250px; background: white; padding: 20px;
+            border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            display: flex; flex-direction: column;
+        }
+        .sidebar h3 { margin-top: 0; color: #334155; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .organism-container {
+            flex: 1; display: flex; flex-direction: column; gap: 10px; overflow-y: auto;
+        }
+
+        /* 可拖拽的生物卡片 */
+        .organism-card {
+            background: #fff; border: 2px solid #cbd5e1; padding: 10px;
+            border-radius: 8px; cursor: grab; display: flex; align-items: center; gap: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .organism-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-color: #94a3b8; }
+        .organism-card:active { cursor: grabbing; }
+        .org-icon { font-size: 1.5rem; }
+        .org-name { font-weight: bold; font-size: 0.9rem; }
+
+        /* 右侧：金字塔构建区 */
+        .pyramid-area {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: white; border-radius: 12px; padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); position: relative;
+        }
+
+        /* 能量源 (太阳) */
+        .sun-source {
+            position: absolute; top: 20px; left: 20px; text-align: center;
+        }
+        .sun-icon { font-size: 4rem; animation: spin 20s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* 金字塔层级 */
+        .pyramid-level {
+            width: 80%; margin-bottom: 15px; padding: 15px;
+            border-radius: 8px; border: 2px dashed #cbd5e1;
+            background: rgba(255,255,255,0.8);
+            display: flex; align-items: center; justify-content: space-between;
+            transition: all 0.3s; position: relative;
+        }
+        
+        /* 拖拽悬停效果 */
+        .pyramid-level.drag-over { background: #e2e8f0; border-color: #64748b; transform: scale(1.02); }
+
+        /* 层级样式 */
+        .level-4 { width: 30%; background: #fee2e2; border-color: var(--level-4); } /* Top */
+        .level-3 { width: 50%; background: #ffedd5; border-color: var(--level-3); }
+        .level-2 { width: 70%; background: #fef9c3; border-color: var(--level-2); }
+        .level-1 { width: 90%; background: #dcfce7; border-color: var(--level-1); } /* Bottom */
+
+        .level-info { font-size: 0.9rem; color: #475569; display: flex; flex-direction: column; }
+        .level-title { font-weight: bold; text-transform: uppercase; font-size: 0.8rem; margin-bottom: 2px; }
+        .energy-val { font-family: monospace; font-weight: bold; font-size: 1.1rem; color: #0f172a; }
+
+        /* 放置后的生物槽 */
+        .slots-area { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; flex: 1; min-height: 40px; }
+        .placed-card {
+            background: white; border: 1px solid #ccc; padding: 5px 10px; border-radius: 15px;
+            font-size: 0.8rem; display: flex; align-items: center; gap: 5px;
+            animation: popIn 0.3s;
+        }
+        .btn-remove { color: #ef4444; cursor: pointer; margin-left: 5px; font-weight: bold; }
+
+        /* 状态反馈 */
+        .feedback-box {
+            margin-top: 20px; padding: 15px; border-radius: 8px; background: #f1f5f9;
+            width: 80%; text-align: center; font-weight: bold; color: #64748b;
+            border: 1px solid #e2e8f0;
+        }
+        .success { background: #dcfce7; color: #166534; border-color: #86efac; }
+        .error { background: #fee2e2; color: #991b1b; border-color: #fca5a5; animation: shake 0.3s; }
+
+        @keyframes popIn { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+
+    </style>
+</head>
+<body>
+
+    <div class="nav-bar">
+        <a href="unit-climate.html" class="back-btn">⬅ Back to Unit 4</a>
+        <h2>🦁 Ecosystem Energy Builder</h2>
+    </div>
+
+    <div class="main-container">
+        
+        <div class="sidebar">
+            <h3>Species List</h3>
+            <p style="font-size:0.8rem; color:#64748b; margin-bottom:15px;">Drag organisms to their correct Trophic Level.</p>
+            
+            <div class="organism-container" id="org-list">
+                </div>
+            
+            <button onclick="resetLab()" style="margin-top:20px; padding:10px; background:#ef4444; color:white; border:none; border-radius:6px; cursor:pointer;">Reset Pyramid</button>
+        </div>
+
+        <div class="pyramid-area">
+            
+            <div class="sun-source">
+                <div class="sun-icon">☀️</div>
+                <div style="font-weight:bold; margin-top:5px;">SUN</div>
+                <div style="font-size:0.8rem;">1,000,000 J</div>
+            </div>
+
+            <div class="pyramid-level level-4" ondrop="drop(event, 4)" ondragover="allowDrop(event)">
+                <div class="level-info">
+                    <span class="level-title">Tertiary Consumers (Apex)</span>
+                    <span class="energy-val" id="energy-4">0 J</span>
+                </div>
+                <div class="slots-area" id="slots-4"></div>
+            </div>
+
+            <div class="pyramid-level level-3" ondrop="drop(event, 3)" ondragover="allowDrop(event)">
+                <div class="level-info">
+                    <span class="level-title">Secondary Consumers</span>
+                    <span class="energy-val" id="energy-3">0 J</span>
+                </div>
+                <div class="slots-area" id="slots-3"></div>
+            </div>
+
+            <div class="pyramid-level level-2" ondrop="drop(event, 2)" ondragover="allowDrop(event)">
+                <div class="level-info">
+                    <span class="level-title">Primary Consumers (Herbivores)</span>
+                    <span class="energy-val" id="energy-2">0 J</span>
+                </div>
+                <div class="slots-area" id="slots-2"></div>
+            </div>
+
+            <div class="pyramid-level level-1" ondrop="drop(event, 1)" ondragover="allowDrop(event)">
+                <div class="level-info">
+                    <span class="level-title">Producers (Plants)</span>
+                    <span class="energy-val" id="energy-1">0 J</span>
+                </div>
+                <div class="slots-area" id="slots-1"></div>
+            </div>
+
+            <div class="feedback-box" id="feedback">
+                Build the ecosystem to see energy flow!
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // 生物数据 (level: 1=Producer, 2=Primary, etc.)
+        const organisms = [
+            { id: "grass", name: "Grass", icon: "🌿", level: 1 },
+            { id: "tree", name: "Oak Tree", icon: "🌳", level: 1 },
+            { id: "algae", name: "Algae", icon: "🦠", level: 1 },
+            
+            { id: "rabbit", name: "Rabbit", icon: "🐇", level: 2 },
+            { id: "grasshopper", name: "Grasshopper", icon: "🦗", level: 2 },
+            { id: "deer", name: "Deer", icon: "🦌", level: 2 },
+            
+            { id: "snake", name: "Snake", icon: "🐍", level: 3 },
+            { id: "frog", name: "Frog", icon: "🐸", level: 3 },
+            { id: "fox", name: "Fox", icon: "🦊", level: 3 },
+            
+            { id: "eagle", name: "Eagle", icon: "🦅", level: 4 },
+            { id: "lion", name: "Lion", icon: "🦁", level: 4 },
+            { id: "shark", name: "Shark", icon: "🦈", level: 4 }
+        ];
+
+        const SUN_ENERGY = 1000000; // Joules
+        let placed = { 1: [], 2: [], 3: [], 4: [] }; // 存储已放置的生物
+
+        // 初始化
+        window.onload = function() {
+            renderSidebar();
+            updateEnergy();
+        };
+
+        function renderSidebar() {
+            const list = document.getElementById('org-list');
+            list.innerHTML = "";
+            organisms.forEach(org => {
+                let div = document.createElement('div');
+                div.className = 'organism-card';
+                div.draggable = true;
+                div.innerHTML = `<span class="org-icon">${org.icon}</span><span class="org-name">${org.name}</span>`;
+                div.ondragstart = (e) => drag(e, org);
+                list.appendChild(div);
+            });
+        }
+
+        /* --- 拖拽逻辑 --- */
+        let draggedItem = null;
+
+        function drag(ev, item) {
+            draggedItem = item;
+            ev.dataTransfer.effectAllowed = "copy";
+        }
+
+        function allowDrop(ev) {
+            ev.preventDefault();
+            ev.currentTarget.classList.add('drag-over');
+        }
+
+        // 鼠标离开时移除高亮
+        document.querySelectorAll('.pyramid-level').forEach(el => {
+            el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+        });
+
+        function drop(ev, targetLevel) {
+            ev.preventDefault();
+            ev.currentTarget.classList.remove('drag-over');
+
+            const feedback = document.getElementById('feedback');
+
+            // 检查是否正确
+            if (draggedItem.level === targetLevel) {
+                // 正确放置
+                addOrganismToLevel(draggedItem, targetLevel);
+                feedback.innerText = `Correct! ${draggedItem.name} is a Level ${targetLevel} organism.`;
+                feedback.className = "feedback-box success";
+            } else {
+                // 错误放置
+                feedback.innerText = `Wrong! ${draggedItem.name} does not belong here. Try again.`;
+                feedback.className = "feedback-box error";
+                setTimeout(() => {
+                    feedback.className = "feedback-box";
+                    feedback.innerText = "Build the ecosystem to see energy flow!";
+                }, 2000);
+            }
+        }
+
+        function addOrganismToLevel(item, level) {
+            // 避免重复添加同一种
+            if (placed[level].find(i => i.id === item.id)) return;
+
+            placed[level].push(item);
+            renderLevelSlots(level);
+            updateEnergy();
+        }
+
+        function removeOrganism(level, id) {
+            placed[level] = placed[level].filter(i => i.id !== id);
+            renderLevelSlots(level);
+            updateEnergy();
+        }
+
+        function renderLevelSlots(level) {
+            const container = document.getElementById(`slots-${level}`);
+            container.innerHTML = "";
+            placed[level].forEach(item => {
+                let div = document.createElement('div');
+                div.className = 'placed-card';
+                div.innerHTML = `${item.icon} ${item.name} <span class="btn-remove" onclick="removeOrganism(${level}, '${item.id}')">×</span>`;
+                container.appendChild(div);
+            });
+        }
+
+        /* --- 能量计算核心 --- */
+        function updateEnergy() {
+            // 只有当下一层有生物时，上一层才能获得能量
+            // 10% Rule: 每一层只能获得下一层的 10%
+            
+            let e1 = 0, e2 = 0, e3 = 0, e4 = 0;
+
+            // Level 1 (Producers): 直接从太阳获取 (假设利用率 1% - 10%)
+            // 为了教学简单，假设如果有植物，就获得太阳能的 1% 作为起始
+            if (placed[1].length > 0) {
+                e1 = SUN_ENERGY * 0.01; // 10,000 J
+            }
+
+            // Level 2 (Primary): 获得 Level 1 的 10%
+            if (placed[2].length > 0 && e1 > 0) {
+                e2 = e1 * 0.1; // 1,000 J
+            }
+
+            // Level 3 (Secondary): 获得 Level 2 的 10%
+            if (placed[3].length > 0 && e2 > 0) {
+                e3 = e2 * 0.1; // 100 J
+            }
+
+            // Level 4 (Tertiary): 获得 Level 3 的 10%
+            if (placed[4].length > 0 && e3 > 0) {
+                e4 = e3 * 0.1; // 10 J
+            }
+
+            // 更新显示
+            animateValue(`energy-1`, e1);
+            animateValue(`energy-2`, e2);
+            animateValue(`energy-3`, e3);
+            animateValue(`energy-4`, e4);
+        }
+
+        function animateValue(id, val) {
+            const el = document.getElementById(id);
+            el.innerText = val.toLocaleString() + " J";
+            // 如果能量为0但有生物，标红提示饿死
+            // (此处简化逻辑：只更新数值)
+        }
+
+        function resetLab() {
+            placed = { 1: [], 2: [], 3: [], 4: [] };
+            for(let i=1; i<=4; i++) renderLevelSlots(i);
+            updateEnergy();
+            document.getElementById('feedback').innerText = "Build the ecosystem to see energy flow!";
+            document.getElementById('feedback').className = "feedback-box";
+        }
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Photoelectric Effect Simulator</title>
+    <style>
+        :root { --ml-blue: #1e3a8a; --ml-gold: #fbbf24; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-blue); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1450px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 420px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow-y: auto;}
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .control-group { margin-bottom: 15px; }
+        .control-group label { display: flex; justify-content: space-between; font-weight: bold; color: #475569; margin-bottom: 8px; font-size: 0.95rem; }
+        .control-group input[type="range"], .control-group select { width: 100%; padding: 8px; cursor: pointer;}
+        
+        .btn { background: var(--ml-blue); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; width: 100%;}
+        .btn-clear { background: #ef4444; }
+
+        .calc-board { background: #0f172a; color: #e2e8f0; padding: 15px; border-radius: 8px; font-family: 'Consolas', monospace; font-size: 0.85rem; line-height: 1.5; margin-top: 10px; border: 3px solid #334155;}
+        .math-res { color: #22c55e; font-weight: bold;}
+        .math-err { color: #ef4444; font-weight: bold;}
+
+        .visual-container { display: flex; flex-direction: column; gap: 15px; }
+        .canvas-box { background: #000; border-radius: 12px; border: 4px solid #cbd5e1; overflow: hidden; position: relative; height: 100%; min-height: 500px;}
+        canvas { width: 100%; height: 100%; }
+
+        .meter-box { position: absolute; top: 20px; right: 20px; background: rgba(30,41,59,0.9); padding: 15px; border-radius: 8px; border: 2px solid #64748b; color: white; font-family: monospace;}
+        .meter-val { font-size: 1.8rem; font-weight: bold; color: #fbbf24;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit5.html" class="back-link">⬅ Back to Unit 5</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 13: The Photoelectric Effect</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Physics</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>1. Light & Target Controls</h3>
+            
+            <div class="control-group">
+                <label>Target Metal (Work Function &Phi;):</label>
+                <select id="metal-sel" onchange="updatePhysics()">
+                    <option value="2.28">Sodium (Na) - &Phi; = 2.28 eV</option>
+                    <option value="4.30">Zinc (Zn) - &Phi; = 4.30 eV</option>
+                    <option value="4.70">Copper (Cu) - &Phi; = 4.70 eV</option>
+                    <option value="6.35">Platinum (Pt) - &Phi; = 6.35 eV</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Wavelength (&lambda;): <span id="lambda-val" style="color:#a855f7;">400 nm</span></label>
+                <input type="range" id="lambda-slider" min="100" max="800" step="10" value="400" oninput="updatePhysics()">
+                <div id="color-box" style="height:10px; border-radius:5px; margin-top:5px; background:purple;"></div>
+            </div>
+
+            <div class="control-group">
+                <label>Stopping Voltage (V&sub0;): <span id="v-val" style="color:#ef4444;">0.00 V</span></label>
+                <input type="range" id="v-slider" min="-5.0" max="0.0" step="0.05" value="0.0" oninput="updatePhysics()">
+            </div>
+
+            <h3>2. Quantum Physics Derivation</h3>
+            <div class="calc-board" id="calc-board"></div>
+
+            <h3 style="margin-top: 15px;">3. Data Notebook</h3>
+            <button class="btn" onclick="recordData()">Record Trial</button>
+            <table class="data-table" id="data-table" style="width:100%; margin-top:10px; font-size:0.8rem; text-align:center; border-collapse:collapse;">
+                <tr style="background:#e2e8f0;">
+                    <th>Metal</th><th>&lambda; (nm)</th><th>E<sub>phot</sub> (eV)</th><th>K<sub>max</sub> (eV)</th>
+                </tr>
+            </table>
+            <button class="btn btn-clear" onclick="clearData()">Clear</button>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box">
+                <div class="meter-box">
+                    <div style="font-size:0.8rem; color:#94a3b8;">Ammeter (Current)</div>
+                    <div class="meter-val" id="ammeter-val">0.000 &mu;A</div>
+                </div>
+                <canvas id="peCanvas" width="900" height="500"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('peCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        let workFunc = 2.28; // eV
+        let lambda_nm = 400; // nm
+        let stoppingV = 0.0; // V
+        
+        let E_photon_eV = 0;
+        let K_max_eV = 0;
+        let current = 0;
+        let isEmitting = false;
+
+        let photons = [];
+        let electrons = [];
+        let time = 0;
+
+        function waveLengthToRGB(wl) {
+            if (wl < 380) return { css: 'rgb(200, 200, 255)', hex: '#c8c8ff' }; // UV as pale blue-white
+            let R = 0, G = 0, B = 0;
+            if (wl >= 380 && wl < 440) { R = -(wl - 440) / (440 - 380); B = 1.0; }
+            else if (wl >= 440 && wl < 490) { G = (wl - 440) / (490 - 440); B = 1.0; }
+            else if (wl >= 490 && wl < 510) { G = 1.0; B = -(wl - 510) / (510 - 490); }
+            else if (wl >= 510 && wl < 580) { R = (wl - 510) / (580 - 510); G = 1.0; }
+            else if (wl >= 580 && wl < 645) { R = 1.0; G = -(wl - 645) / (645 - 580); }
+            else if (wl >= 645 && wl <= 780) { R = 1.0; }
+
+            let factor = (wl >= 380 && wl < 420) ? 0.3 + 0.7*(wl - 380)/40 : (wl > 700 ? 0.3 + 0.7*(780 - wl)/80 : 1.0);
+            return { css: `rgb(${Math.round(R*factor*255)},${Math.round(G*factor*255)},${Math.round(B*factor*255)})` };
+        }
+
+        function updatePhysics() {
+            workFunc = parseFloat(document.getElementById('metal-sel').value);
+            lambda_nm = parseInt(document.getElementById('lambda-slider').value);
+            stoppingV = parseFloat(document.getElementById('v-slider').value);
+            
+            document.getElementById('lambda-val').innerText = lambda_nm + " nm";
+            document.getElementById('v-val').innerText = stoppingV.toFixed(2) + " V";
+            
+            let colorData = waveLengthToRGB(lambda_nm);
+            document.getElementById('color-box').style.background = colorData.css;
+
+            // hc = 1240 eV*nm
+            E_photon_eV = 1240 / lambda_nm;
+            K_max_eV = E_photon_eV - workFunc;
+            
+            isEmitting = K_max_eV > 0;
+            
+            // Check if stopping voltage stops electrons
+            if (isEmitting) {
+                // If stopping voltage |V| > K_max_eV, current is zero
+                if (Math.abs(stoppingV) >= K_max_eV) {
+                    current = 0;
+                } else {
+                    current = (K_max_eV - Math.abs(stoppingV)) * 0.5; // Simplified current model
+                }
+            } else {
+                current = 0;
+            }
+
+            document.getElementById('ammeter-val').innerText = current.toFixed(3) + " \u03BCA";
+
+            let board = document.getElementById('calc-board');
+            let eqHtml = `
+                <div style="color:#fcd34d; font-weight:bold; margin-bottom:5px;">Einstein's Eq: K<sub>max</sub> = E<sub>photon</sub> - &Phi;</div>
+                <div><b>1. Photon Energy:</b><br>E = hc / &lambda; = 1240 / ${lambda_nm} = <span class="math-res">${E_photon_eV.toFixed(2)} eV</span></div>
+                <div style="margin-top:5px;"><b>2. Kinetic Energy:</b><br>K<sub>max</sub> = ${E_photon_eV.toFixed(2)} - ${workFunc.toFixed(2)} = `;
+            
+            if (isEmitting) {
+                eqHtml += `<span class="math-res">${K_max_eV.toFixed(2)} eV</span></div>`;
+                if (Math.abs(stoppingV) >= K_max_eV) {
+                    eqHtml += `<div style="margin-top:5px; color:#ef4444; font-weight:bold;">Stopping Voltage reached! Electrons repel back.</div>`;
+                }
+            } else {
+                eqHtml += `<span class="math-err">${K_max_eV.toFixed(2)} eV</span></div>
+                <div style="margin-top:5px; color:#ef4444; font-weight:bold;">E < &Phi; : No Photoelectric Emission!</div>`;
+            }
+            board.innerHTML = eqHtml;
+        }
+
+        function recordData() {
+            let table = document.getElementById('data-table');
+            let row = table.insertRow(-1);
+            let metalName = document.getElementById('metal-sel').options[document.getElementById('metal-sel').selectedIndex].text.split('-')[0];
+            row.insertCell(0).innerText = metalName;
+            row.insertCell(1).innerText = lambda_nm;
+            row.insertCell(2).innerText = E_photon_eV.toFixed(2);
+            row.insertCell(3).innerText = isEmitting ? K_max_eV.toFixed(2) : "0.00";
+        }
+
+        function clearData() {
+            let table = document.getElementById('data-table');
+            while(table.rows.length > 1) { table.deleteRow(1); }
+        }
+
+        function spawnParticles() {
+            // Spawn Photons
+            if(Math.random() < 0.2) {
+                photons.push({ x: 450, y: 0, targetX: 200 + Math.random()*50, targetY: 400 });
+            }
+            // Spawn Electrons
+            if(isEmitting && Math.random() < current * 0.5) {
+                let speed = Math.max(0.5, K_max_eV * 2);
+                electrons.push({ x: 250, y: 150 + Math.random()*200, speed: speed, initialSpeed: speed });
+            }
+        }
+
+        function drawLab() {
+            ctx.fillStyle = '#0f172a'; ctx.fillRect(0,0,900,500);
+
+            // Draw circuit
+            ctx.strokeStyle = '#64748b'; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(225, 400); ctx.lineTo(225, 450); ctx.lineTo(675, 450); ctx.lineTo(675, 400); ctx.stroke();
+            // Variable Voltage Source
+            ctx.fillStyle = '#1e293b'; ctx.fillRect(400, 430, 100, 40);
+            ctx.fillStyle = 'white'; ctx.font = '14px Arial'; ctx.fillText("Voltage " + stoppingV.toFixed(1)+"V", 410, 455);
+
+            // Draw Vacuum Tube
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.ellipse(450, 250, 250, 150, 0, 0, Math.PI*2); ctx.stroke();
+
+            // Emitter Plate (Cathode)
+            ctx.fillStyle = '#94a3b8'; ctx.fillRect(200, 150, 50, 200);
+            ctx.fillStyle = '#0f172a'; ctx.fillText("Cathode", 130, 250);
+
+            // Collector Plate (Anode)
+            ctx.fillStyle = '#cbd5e1'; ctx.fillRect(650, 150, 50, 200);
+            ctx.fillStyle = '#0f172a'; ctx.fillText("Anode", 710, 250);
+
+            spawnParticles();
+
+            // Update & Draw Photons
+            ctx.strokeStyle = waveLengthToRGB(lambda_nm).css; ctx.lineWidth = 3;
+            for(let i=photons.length-1; i>=0; i--) {
+                let p = photons[i];
+                let dx = p.targetX - p.x; let dy = p.targetY - p.y;
+                let angle = Math.atan2(dy, dx);
+                p.x += Math.cos(angle)*10; p.y += Math.sin(angle)*10;
+                
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(p.x - Math.cos(angle)*15 + Math.sin(time*20)*3, p.y - Math.sin(angle)*15 + Math.cos(time*20)*3);
+                ctx.stroke();
+
+                if(p.y > 400 || p.x < 250) photons.splice(i, 1);
+            }
+
+            // Update & Draw Electrons
+            ctx.fillStyle = '#fcd34d'; // Electrons
+            for(let i=electrons.length-1; i>=0; i--) {
+                let e = electrons[i];
+                
+                // If stopping voltage applied, slow down electron
+                if (stoppingV < 0) {
+                    e.speed -= Math.abs(stoppingV) * 0.02; 
+                }
+                
+                e.x += e.speed;
+
+                ctx.beginPath(); ctx.arc(e.x, e.y, 4, 0, Math.PI*2); ctx.fill();
+                
+                // Remove if reaches anode or repelled back
+                if(e.x > 650 || e.speed < 0) electrons.splice(i, 1);
+            }
+
+            time += 0.05;
+            requestAnimationFrame(drawLab);
+        }
+
+        updatePhysics();
+        drawLab();
+    </script>
+</body>
+</html>

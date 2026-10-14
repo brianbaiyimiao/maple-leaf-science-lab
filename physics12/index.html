@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics 12 Virtual Lab - Maple Leaf World School</title>
+    <style>
+        /* --- 您的原始主页样式 --- */
+        :root { --ml-blue: #1e3a8a; --ml-gold: #fbbf24; --panel: #0f172a; }
+        body { background: #f8fafc; font-family: 'Segoe UI', sans-serif; text-align: center; margin: 0; padding-bottom: 80px;}
+        .header { background: var(--ml-blue); color: white; padding: 50px 20px; border-bottom: 5px solid var(--ml-gold); position: relative; }
+        .portal-back { position: absolute; top: 20px; left: 20px; color: white; text-decoration: none; font-weight: bold; border: 2px solid rgba(255,255,255,0.4); padding: 8px 15px; border-radius: 8px; font-size: 0.9rem; transition: 0.3s;}
+        .portal-back:hover { background: white; color: var(--ml-blue); }
+        .container { max-width: 1100px; margin: 50px auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 25px; padding: 0 20px; }
+        .unit-card { 
+            background: white; padding: 30px; border-radius: 20px; text-decoration: none; color: #1e293b; 
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05); transition: 0.3s; border-top: 8px solid var(--ml-blue);
+            display: flex; flex-direction: column; align-items: flex-start; text-align: left;
+        }
+        .unit-card:hover { transform: translateY(-10px); box-shadow: 0 20px 40px rgba(30, 58, 138, 0.15); }
+        .unit-num { font-size: 0.8rem; font-weight: 800; color: var(--ml-blue); text-transform: uppercase; margin-bottom: 10px; }
+        .unit-title { font-size: 1.4rem; font-weight: bold; margin-bottom: 10px; }
+        .unit-desc { font-size: 0.9rem; color: #64748b; line-height: 1.5; }
+
+        /* --- 新增：智能词典专属样式 (适配物理蓝) --- */
+        .dict-fab { position: fixed; bottom: 30px; right: 30px; background: var(--panel); color: var(--ml-gold); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; box-shadow: 0 10px 25px rgba(0,0,0,0.3); border: 3px solid var(--ml-gold); transition: 0.3s; z-index: 100;}
+        .dict-fab:hover { transform: scale(1.1) rotate(15deg); background: var(--ml-gold); color: var(--panel);}
+
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px;}
+        .modal-content { background: var(--panel); width: 100%; max-width: 800px; max-height: 85vh; border-radius: 15px; border: 2px solid #1e3a8a; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.5); animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);}
+        @keyframes slideUp { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
+
+        .modal-header { background: #020617; padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e3a8a;}
+        .modal-header h2 { margin: 0; color: var(--ml-gold); display: flex; align-items: center; gap: 10px;}
+        .close-btn { background: transparent; border: none; color: #94a3b8; font-size: 24px; cursor: pointer; transition: 0.2s;}
+        .close-btn:hover { color: #ef4444;}
+
+        .search-bar { padding: 20px; background: #0f172a; border-bottom: 1px solid #1e3a8a;}
+        .search-bar input { width: 100%; padding: 12px 20px; border-radius: 8px; border: 2px solid #3b82f6; background: #020617; color: white; font-size: 1.1rem; outline: none; box-sizing: border-box; transition: 0.2s;}
+        .search-bar input:focus { border-color: #60a5fa; box-shadow: 0 0 15px rgba(96,165,250,0.3);}
+
+        .vocab-list { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px;}
+        .vocab-item { background: #020617; border: 1px solid #1e3a8a; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 5px; text-align: left;}
+        .vocab-item .term { font-size: 1.2rem; font-weight: bold; color: #60a5fa;}
+        .vocab-item .translation { font-size: 1.1rem; color: var(--ml-gold); font-weight: bold;}
+        .vocab-item .desc { color: #cbd5e1; font-size: 0.9rem; line-height: 1.4; margin-top: 5px;}
+        .vocab-item .unit-tag { display: inline-block; background: #1e3a8a; color: #bfdbfe; font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; align-self: flex-start; margin-top: 5px; font-weight: bold;}
+
+        .vocab-list::-webkit-scrollbar { width: 8px; }
+        .vocab-list::-webkit-scrollbar-track { background: #0f172a; }
+        .vocab-list::-webkit-scrollbar-thumb { background: #1e3a8a; border-radius: 4px; }
+        .vocab-list::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="../index.html" class="portal-back">⬅ Back to Main Portal</a>
+        <h1>SPHYS12 Virtual Laboratory</h1>
+        <p>Maple Leaf World School Program | Department of Science</p>
+        <p style="color: #93c5fd; font-size: 0.9rem;">Data-Driven Experimental Modules</p>
+    </div>
+    
+    <div class="container">
+        <a href="unit1.html" class="unit-card">
+            <span class="unit-num">Unit 1</span>
+            <span class="unit-title">Solids, Liquids & Gases</span>
+            <span class="unit-desc">Explore thermodynamics, fluid dynamics, and material deformation.</span>
+        </a>
+        <a href="unit2.html" class="unit-card">
+            <span class="unit-num">Unit 2</span>
+            <span class="unit-title">Electric Forces & Fields</span>
+            <span class="unit-desc">Measure Coulomb's Law, map electric fields, and analyze complex circuits.</span>
+        </a>
+        <a href="unit3.html" class="unit-card">
+            <span class="unit-num">Unit 3</span>
+            <span class="unit-title">Magnetic Forces & Fields</span>
+            <span class="unit-desc">Investigate moving charges, mass spectrometry, and electromagnetic induction.</span>
+        </a>
+        <a href="unit4.html" class="unit-card">
+            <span class="unit-num">Unit 4</span>
+            <span class="unit-title">Electromagnetic Radiation</span>
+            <span class="unit-desc">Experiment with optics, Snell's Law, and Young's Double Slit interference.</span>
+        </a>
+        <a href="unit5.html" class="unit-card">
+            <span class="unit-num">Unit 5</span>
+            <span class="unit-title">Atomic Physics</span>
+            <span class="unit-desc">Extract Planck's constant via the photoelectric effect and model radioactive decay.</span>
+        </a>
+    </div>
+
+    <div class="dict-fab" onclick="toggleModal(true)" title="Open Physics Glossary">📖</div>
+
+    <div class="modal-overlay" id="dictModal" onclick="closeOnOutside(event)">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚛️ SPHYS12 Smart Glossary</h2>
+                <button class="close-btn" onclick="toggleModal(false)">✖</button>
+            </div>
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Search a term (e.g., Torque, 动量, Voltage...)" oninput="filterVocab()">
+            </div>
+            <div class="vocab-list" id="vocabList">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        // ================= 物理 12 海量核心词汇库 (120+ 词汇) =================
+        const vocabData = [
+            // Unit 1: Solids, Liquids & Gases
+            { unit: "U1: Thermodynamics & Fluids", en: "Density", zh: "密度", desc: "Mass per unit volume of a substance." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Pressure", zh: "压强", desc: "Force applied perpendicular to the surface of an object per unit area over which that force is distributed." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Pascal's Principle", zh: "帕斯卡定律", desc: "A pressure change occurring anywhere in a confined incompressible fluid is transmitted throughout the fluid." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Buoyant Force", zh: "浮力", desc: "An upward force exerted by a fluid that opposes the weight of a partially or fully immersed object." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Archimedes' Principle", zh: "阿基米德原理", desc: "The upward buoyant force that is exerted on a body immersed in a fluid is equal to the weight of the fluid that the body displaces." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Bernoulli's Principle", zh: "伯努利原理", desc: "An increase in the speed of a fluid occurs simultaneously with a decrease in pressure or a decrease in the fluid's potential energy." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Viscosity", zh: "粘度", desc: "A measure of a fluid's resistance to gradual deformation by shear stress or tensile stress." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Surface Tension", zh: "表面张力", desc: "The tendency of liquid surfaces to shrink into the minimum surface area possible." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Stress", zh: "应力", desc: "The internal force per unit area associated with a strain." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Strain", zh: "应变", desc: "The relative deformation or change in shape and size of materials under applied forces." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Young's Modulus", zh: "杨氏模量", desc: "A mechanical property that measures the tensile stiffness of a solid material." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Hooke's Law", zh: "胡克定律", desc: "The force needed to extend or compress a spring by some distance is proportional to that distance." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Specific Heat Capacity", zh: "比热容", desc: "The heat required to raise the temperature of the unit mass of a given substance by a given amount (usually one degree)." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Latent Heat", zh: "潜热", desc: "Heat absorbed or radiated during a change of phase at a constant temperature and pressure." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Conduction", zh: "热传导", desc: "The process by which heat or electricity is directly transmitted through a substance." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Convection", zh: "热对流", desc: "The movement caused within a fluid by the tendency of hotter and therefore less dense material to rise." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Radiation", zh: "热辐射", desc: "The emission of energy as electromagnetic waves or as moving subatomic particles." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Ideal Gas Law", zh: "理想气体状态方程", desc: "The equation of state of a hypothetical ideal gas, PV=nRT." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Entropy", zh: "熵", desc: "A thermodynamic quantity representing the unavailability of a system's thermal energy for conversion into mechanical work." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Isothermal", zh: "等温过程", desc: "A change of a system in which the temperature remains constant." },
+            { unit: "U1: Thermodynamics & Fluids", en: "Adiabatic", zh: "绝热过程", desc: "A process that occurs without transfer of heat or matter between a thermodynamic system and its surroundings." },
+
+            // Unit 2: Electric Forces & Fields
+            { unit: "U2: Electric Fields & Circuits", en: "Electric Charge", zh: "电荷", desc: "The physical property of matter that causes it to experience a force when placed in an electromagnetic field." },
+            { unit: "U2: Electric Fields & Circuits", en: "Coulomb's Law", zh: "库仑定律", desc: "The electrical force between two charged objects is directly proportional to the product of the quantity of charge on the objects and inversely proportional to the square of the separation distance." },
+            { unit: "U2: Electric Fields & Circuits", en: "Electric Field", zh: "电场", desc: "A region around a charged particle or object within which a force would be exerted on other charged particles." },
+            { unit: "U2: Electric Fields & Circuits", en: "Test Charge", zh: "检验电荷", desc: "A positive charge small enough that it does not affect the electric field it is placed in." },
+            { unit: "U2: Electric Fields & Circuits", en: "Electric Potential", zh: "电势", desc: "The amount of work needed to move a unit charge from a reference point to a specific point against an electric field." },
+            { unit: "U2: Electric Fields & Circuits", en: "Potential Difference", zh: "电势差 / 电压", desc: "The difference of electrical potential between two points (Voltage)." },
+            { unit: "U2: Electric Fields & Circuits", en: "Equipotential Lines", zh: "等势线", desc: "Lines representing points in space that have the same electric potential." },
+            { unit: "U2: Electric Fields & Circuits", en: "Capacitor", zh: "电容器", desc: "A device used to store an electric charge, consisting of one or more pairs of conductors separated by an insulator." },
+            { unit: "U2: Electric Fields & Circuits", en: "Capacitance", zh: "电容", desc: "The ratio of the change in an electric charge in a system to the corresponding change in its electric potential." },
+            { unit: "U2: Electric Fields & Circuits", en: "Dielectric", zh: "电介质", desc: "An insulating material that can be polarized by an applied electric field." },
+            { unit: "U2: Electric Fields & Circuits", en: "Current", zh: "电流", desc: "A flow of electrical charge carriers, usually electrons or electron-deficient atoms." },
+            { unit: "U2: Electric Fields & Circuits", en: "Resistance", zh: "电阻", desc: "A measure of the opposition to current flow in an electrical circuit." },
+            { unit: "U2: Electric Fields & Circuits", en: "Ohm's Law", zh: "欧姆定律", desc: "States that the current through a conductor between two points is directly proportional to the voltage across the two points (V=IR)." },
+            { unit: "U2: Electric Fields & Circuits", en: "Resistivity", zh: "电阻率", desc: "A fundamental property of a material that measures how strongly it resists electric current." },
+            { unit: "U2: Electric Fields & Circuits", en: "Series Circuit", zh: "串联电路", desc: "A circuit in which resistors are arranged in a chain, so the current has only one path to take." },
+            { unit: "U2: Electric Fields & Circuits", en: "Parallel Circuit", zh: "并联电路", desc: "A closed circuit in which the current divides into two or more paths before recombining." },
+            { unit: "U2: Electric Fields & Circuits", en: "Kirchhoff's Junction Rule", zh: "基尔霍夫节点定律", desc: "The sum of currents entering a junction must equal the sum of currents leaving that junction." },
+            { unit: "U2: Electric Fields & Circuits", en: "Kirchhoff's Loop Rule", zh: "基尔霍夫回路定律", desc: "The sum of the voltage differences around any closed loop in a circuit must be zero." },
+            { unit: "U2: Electric Fields & Circuits", en: "Electromotive Force (EMF)", zh: "电动势", desc: "The electrical action produced by a non-electrical source, such as a battery or generator." },
+            { unit: "U2: Electric Fields & Circuits", en: "Internal Resistance", zh: "内阻", desc: "The opposition to the flow of current offered by the cells and batteries themselves." },
+
+            // Unit 3: Magnetic Forces & Fields
+            { unit: "U3: Magnetic Fields", en: "Magnetic Field", zh: "磁场", desc: "A vector field that describes the magnetic influence on moving electric charges, electric currents, and magnetic materials." },
+            { unit: "U3: Magnetic Fields", en: "Magnetic Domain", zh: "磁畴", desc: "A region within a magnetic material in which the magnetization is in a uniform direction." },
+            { unit: "U3: Magnetic Fields", en: "Right-Hand Rule", zh: "右手定则", desc: "A common mnemonic for understanding orientation of axes in three-dimensional space, used in electromagnetism." },
+            { unit: "U3: Magnetic Fields", en: "Lorentz Force", zh: "洛伦兹力", desc: "The combination of electric and magnetic force on a point charge due to electromagnetic fields." },
+            { unit: "U3: Magnetic Fields", en: "Mass Spectrometer", zh: "质谱仪", desc: "An analytical tool useful for measuring the mass-to-charge ratio of one or more molecules present in a sample." },
+            { unit: "U3: Magnetic Fields", en: "Cyclotron", zh: "回旋加速器", desc: "A type of particle accelerator in which charged particles accelerate outwards from the center along a spiral path." },
+            { unit: "U3: Magnetic Fields", en: "Ampere's Law", zh: "安培定律", desc: "Relates the integrated magnetic field around a closed loop to the electric current passing through the loop." },
+            { unit: "U3: Magnetic Fields", en: "Solenoid", zh: "螺线管", desc: "A type of electromagnet, the purpose of which is to generate a controlled magnetic field through a coil wound into a tightly packed helix." },
+            { unit: "U3: Magnetic Fields", en: "Magnetic Flux", zh: "磁通量", desc: "A measurement of the total magnetic field which passes through a given surface area." },
+            { unit: "U3: Magnetic Fields", en: "Electromagnetic Induction", zh: "电磁感应", desc: "The production of an electromotive force across an electrical conductor in a changing magnetic field." },
+            { unit: "U3: Magnetic Fields", en: "Faraday's Law", zh: "法拉第电磁感应定律", desc: "The induced electromotive force in any closed circuit is equal to the negative of the time rate of change of the magnetic flux enclosed by the circuit." },
+            { unit: "U3: Magnetic Fields", en: "Lenz's Law", zh: "楞次定律", desc: "The direction of the electric current induced in a conductor by a changing magnetic field is such that the magnetic field created by the induced current opposes the initial changing magnetic field." },
+            { unit: "U3: Magnetic Fields", en: "Generator", zh: "发电机", desc: "A machine that converts motive power (mechanical energy) into electrical power for use in an external circuit." },
+            { unit: "U3: Magnetic Fields", en: "Transformer", zh: "变压器", desc: "A passive component that transfers electrical energy from one electrical circuit to another circuit, or multiple circuits." },
+            { unit: "U3: Magnetic Fields", en: "Eddy Currents", zh: "涡电流", desc: "Loops of electrical current induced within conductors by a changing magnetic field in the conductor." },
+
+            // Unit 4: Electromagnetic Radiation
+            { unit: "U4: EM Radiation & Optics", en: "Electromagnetic Wave", zh: "电磁波", desc: "Waves that are created as a result of vibrations between an electric field and a magnetic field." },
+            { unit: "U4: EM Radiation & Optics", en: "Speed of Light (c)", zh: "光速", desc: "The fundamental physical constant, exactly 299,792,458 metres per second in a vacuum." },
+            { unit: "U4: EM Radiation & Optics", en: "Electromagnetic Spectrum", zh: "电磁波谱", desc: "The range of frequencies of electromagnetic radiation and their respective wavelengths and photon energies." },
+            { unit: "U4: EM Radiation & Optics", en: "Wavelength", zh: "波长", desc: "The distance over which the wave's shape repeats." },
+            { unit: "U4: EM Radiation & Optics", en: "Frequency", zh: "频率", desc: "The number of occurrences of a repeating event per unit of time (Hertz)." },
+            { unit: "U4: EM Radiation & Optics", en: "Reflection", zh: "反射", desc: "The change in direction of a wavefront at an interface between two different media so that the wavefront returns into the medium from which it originated." },
+            { unit: "U4: EM Radiation & Optics", en: "Refraction", zh: "折射", desc: "The change in direction of a wave passing from one medium to another or from a gradual change in the medium." },
+            { unit: "U4: EM Radiation & Optics", en: "Index of Refraction", zh: "折射率", desc: "A dimensionless number that describes how fast light travels through the material." },
+            { unit: "U4: EM Radiation & Optics", en: "Snell's Law", zh: "斯涅尔定律 / 折射定律", desc: "A formula used to describe the relationship between the angles of incidence and refraction." },
+            { unit: "U4: EM Radiation & Optics", en: "Total Internal Reflection", zh: "全反射", desc: "The complete reflection of a light ray reaching an interface with a less dense medium when the angle of incidence exceeds the critical angle." },
+            { unit: "U4: EM Radiation & Optics", en: "Critical Angle", zh: "临界角", desc: "The angle of incidence beyond which rays of light passing through a denser medium to the surface of a less dense medium are no longer refracted but totally reflected." },
+            { unit: "U4: EM Radiation & Optics", en: "Dispersion", zh: "色散", desc: "The phase velocity of a wave depends on its frequency (e.g., separating white light using a prism)." },
+            { unit: "U4: EM Radiation & Optics", en: "Diffraction", zh: "衍射", desc: "The slight bending of light as it passes around the edge of an object." },
+            { unit: "U4: EM Radiation & Optics", en: "Constructive Interference", zh: "相长干涉", desc: "The interference of two or more waves of equal frequency and phase, resulting in their mutual reinforcement." },
+            { unit: "U4: EM Radiation & Optics", en: "Destructive Interference", zh: "相消干涉", desc: "The interference of two waves of equal frequency and opposite phase, resulting in their cancellation." },
+            { unit: "U4: EM Radiation & Optics", en: "Young's Double Slit", zh: "杨氏双缝实验", desc: "A demonstration that light and matter can display characteristics of both classically defined waves and particles." },
+            { unit: "U4: EM Radiation & Optics", en: "Diffraction Grating", zh: "衍射光栅", desc: "An optical component with a periodic structure that splits and diffracts light into several beams travelling in different directions." },
+            { unit: "U4: EM Radiation & Optics", en: "Polarization", zh: "偏振", desc: "A property applying to transverse waves that specifies the geometrical orientation of the oscillations." },
+            { unit: "U4: EM Radiation & Optics", en: "Focal Length", zh: "焦距", desc: "The distance between the center of a lens or curved mirror and its focus." },
+
+            // Unit 5: Atomic Physics
+            { unit: "U5: Atomic Physics", en: "Photon", zh: "光子", desc: "A particle representing a quantum of light or other electromagnetic radiation." },
+            { unit: "U5: Atomic Physics", en: "Planck's Constant", zh: "普朗克常数", desc: "A fundamental physical constant characteristic of the mathematical formulations of quantum mechanics." },
+            { unit: "U5: Atomic Physics", en: "Photoelectric Effect", zh: "光电效应", desc: "The emission of electrons when electromagnetic radiation, such as light, hits a material." },
+            { unit: "U5: Atomic Physics", en: "Work Function", zh: "逸出功", desc: "The minimum thermodynamic work (i.e., energy) needed to remove an electron from a solid to a point in the vacuum immediately outside the solid surface." },
+            { unit: "U5: Atomic Physics", en: "Threshold Frequency", zh: "极限频率", desc: "The minimum frequency of incident light which can cause photo electric emission." },
+            { unit: "U5: Atomic Physics", en: "Stopping Potential", zh: "遏止电压", desc: "The minimum negative (retarding) potential applied to the anode with respect to cathode that stops even the most energetic photoelectrons." },
+            { unit: "U5: Atomic Physics", en: "Compton Effect", zh: "康普顿效应", desc: "The scattering of a photon by a charged particle, usually an electron, resulting in a decrease in energy (increase in wavelength) of the photon." },
+            { unit: "U5: Atomic Physics", en: "Wave-Particle Duality", zh: "波粒二象性", desc: "The concept in quantum mechanics that every particle or quantum entity may be described as either a particle or a wave." },
+            { unit: "U5: Atomic Physics", en: "De Broglie Wavelength", zh: "德布罗意波长", desc: "The wavelength manifested in all the particles in quantum mechanics, determining the probability density of finding the object at a given point." },
+            { unit: "U5: Atomic Physics", en: "Energy Level", zh: "能级", desc: "The fixed amount of energy that a system described by quantum mechanics, such as a molecule, atom, electron, or nucleus, can have." },
+            { unit: "U5: Atomic Physics", en: "Emission Spectrum", zh: "发射光谱", desc: "The spectrum of frequencies of electromagnetic radiation emitted due to an atom or molecule making a transition from a high energy state to a lower energy state." },
+            { unit: "U5: Atomic Physics", en: "Absorption Spectrum", zh: "吸收光谱", desc: "A spectrum of electromagnetic radiation transmitted through a substance, showing dark lines or bands due to absorption of specific wavelengths." },
+            { unit: "U5: Atomic Physics", en: "Bohr Model", zh: "玻尔模型", desc: "A model of the atom in which electrons move rapidly around the nucleus in paths called orbits." },
+            { unit: "U5: Atomic Physics", en: "Isotope", zh: "同位素", desc: "Two or more forms of the same element that contain equal numbers of protons but different numbers of neutrons." },
+            { unit: "U5: Atomic Physics", en: "Radioactivity", zh: "放射性", desc: "The emission of ionizing radiation or particles caused by the spontaneous disintegration of atomic nuclei." },
+            { unit: "U5: Atomic Physics", en: "Alpha Decay", zh: "阿尔法衰变", desc: "A type of radioactive decay in which an atomic nucleus emits an alpha particle (helium nucleus)." },
+            { unit: "U5: Atomic Physics", en: "Beta Decay", zh: "贝塔衰变", desc: "A type of radioactive decay in which a beta particle (fast energetic electron or positron) is emitted from an atomic nucleus." },
+            { unit: "U5: Atomic Physics", en: "Gamma Decay", zh: "伽马衰变", desc: "Type of radioactivity in which an unstable atomic nucleus dissipates energy by gamma emission, producing gamma rays." },
+            { unit: "U5: Atomic Physics", en: "Half-Life", zh: "半衰期", desc: "The time required for a quantity to reduce to half of its initial value." },
+            { unit: "U5: Atomic Physics", en: "Nuclear Fission", zh: "核裂变", desc: "A reaction in which the nucleus of an atom splits into two or more smaller nuclei." },
+            { unit: "U5: Atomic Physics", en: "Nuclear Fusion", zh: "核聚变", desc: "A reaction in which two or more atomic nuclei are combined to form one or more different atomic nuclei and subatomic particles." },
+            { unit: "U5: Atomic Physics", en: "Mass Defect", zh: "质量亏损", desc: "The difference between the mass of an isotope and its mass number, representing the binding energy of the nucleus." },
+            { unit: "U5: Atomic Physics", en: "Binding Energy", zh: "结合能", desc: "The smallest amount of energy required to remove a particle from a system of particles or to disassemble a system of particles into individual parts." }
+        ];
+
+        const listContainer = document.getElementById('vocabList');
+
+        function renderList(data) {
+            listContainer.innerHTML = '';
+            if(data.length === 0) {
+                listContainer.innerHTML = '<div style="color:#64748b; text-align:center; margin-top:20px;">No vocabulary found matching your search.</div>';
+                return;
+            }
+
+            data.forEach(word => {
+                let item = document.createElement('div');
+                item.className = 'vocab-item';
+                item.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div class="term">${word.en}</div>
+                        <div class="translation">${word.zh}</div>
+                    </div>
+                    <div class="desc">${word.desc}</div>
+                    <div class="unit-tag">${word.unit}</div>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+        function filterVocab() {
+            let query = document.getElementById('searchInput').value.toLowerCase();
+            let filtered = vocabData.filter(w => 
+                w.en.toLowerCase().includes(query) || 
+                w.zh.includes(query) || 
+                w.desc.toLowerCase().includes(query)
+            );
+            renderList(filtered);
+        }
+
+        function toggleModal(show) {
+            let modal = document.getElementById('dictModal');
+            modal.style.display = show ? 'flex' : 'none';
+            if(show) {
+                document.getElementById('searchInput').value = '';
+                renderList(vocabData);
+                document.getElementById('searchInput').focus();
+            }
+        }
+
+        function closeOnOutside(e) {
+            if(e.target.id === 'dictModal') toggleModal(false);
+        }
+
+        renderList(vocabData);
+    </script>
+</body>
+</html>

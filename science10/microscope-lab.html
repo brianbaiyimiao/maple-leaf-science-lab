@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Microscope Lab (Fixed)</title>
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --panel-bg: #1e1e1e;
+            --accent: #10b981;
+            --text-main: #e5e5e5;
+        }
+
+        body {
+            margin: 0; background-color: var(--bg-dark); color: var(--text-main);
+            font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; height: 100vh; overflow: hidden;
+        }
+
+        /* --- 侧边栏 --- */
+        .sidebar {
+            width: 320px; background: var(--panel-bg); border-right: 1px solid #333;
+            display: flex; flex-direction: column; z-index: 20; box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+        }
+
+        .header-nav { padding: 15px; border-bottom: 1px solid #333; background: #111; }
+        .back-link { color: #888; text-decoration: none; font-size: 0.85rem; display: block; margin-bottom: 5px; }
+        h2 { margin: 0; color: var(--accent); font-size: 1.4rem; }
+
+        .mode-tabs { display: flex; background: #000; border-bottom: 1px solid #333; }
+        .tab-btn {
+            flex: 1; padding: 12px; cursor: pointer; text-align: center; font-weight: bold;
+            color: #666; border-bottom: 3px solid transparent; transition: all 0.2s;
+        }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: #2a2a2a; }
+
+        .content-panel { flex: 1; display: none; flex-direction: column; overflow-y: auto; padding: 20px; }
+        .content-panel.active { display: flex; }
+
+        /* 控件 */
+        .ctrl-group { margin-bottom: 20px; background: #252525; padding: 12px; border-radius: 8px; border: 1px solid #333; }
+        .ctrl-label { font-size: 0.8rem; color: #aaa; margin-bottom: 8px; font-weight: bold; letter-spacing: 0.5px; }
+
+        select { width: 100%; padding: 8px; background: #111; color: white; border: 1px solid #444; border-radius: 4px; }
+        
+        .lens-row { display: flex; gap: 5px; }
+        .lens-btn { 
+            flex: 1; padding: 10px; background: #333; border: 2px solid transparent; color: #ccc; 
+            cursor: pointer; border-radius: 4px; text-align: center; font-weight: bold; font-size: 0.9rem;
+        }
+        .lens-btn.active { background: #111; color: white; border-color: var(--accent); }
+        
+        input[type=range] { width: 100%; cursor: grab; margin: 5px 0; }
+        
+        .clarity-box { background: #000; border: 1px solid #444; padding: 10px; border-radius: 4px; text-align: center; margin-top:10px; }
+        #clarity-val { font-size: 1.2rem; font-weight: bold; font-family: monospace; }
+
+        /* --- 主视口 --- */
+        .main-viewport { flex: 1; position: relative; background: #000; overflow: hidden; display: none; }
+        .main-viewport.active { display: flex; align-items: center; justify-content: center; }
+
+        /* >>> 1. 结构模式 (Anatomy) <<< */
+        #view-anatomy { background: #1a1a1a; }
+        
+        .img-container {
+            position: relative; 
+            height: 95%; 
+            width: auto;
+            display: flex; justify-content: center;
+        }
+        
+        #anatomy-img {
+            display: block;
+            height: 100%; 
+            width: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 5px 15px rgba(0,0,0,0.5));
+        }
+
+        /* 热点样式 (修复：绝对稳定的过渡) */
+        .hotspot {
+            position: absolute; 
+            width: 24px; height: 24px;
+            background: rgba(16, 185, 129, 0.6); /* 静态半透明绿 */
+            border: 2px solid #fff; 
+            border-radius: 50%;
+            cursor: pointer; 
+            z-index: 10; 
+            
+            /* 关键修复：确保默认状态也有 translate，防止 hover 移除时跳动 */
+            transform: translate(-50%, -50%) scale(1);
+            transition: transform 0.2s ease-out, background-color 0.2s;
+        }
+
+        /* 鼠标放上去的效果 */
+        .hotspot:hover { 
+            background: #f59e0b; /* 变橙色 */
+            border-color: #fff;
+            /* 保持 translate，只改变 scale */
+            transform: translate(-50%, -50%) scale(1.4); 
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.6);
+        }
+
+        /* >>> 更多的热点坐标 (补全所有结构) <<< */
+        /* 请根据你的图片微调 top/left */
+        #hs-eye { top: 8%; left: 78%; width: 40px; height: 40px; border-radius: 10px;} /* 目镜 */
+        #hs-tube { top: 15%; left: 68%; width: 35px; height: 50px; border-radius: 10px; transform: translate(-50%, -50%) rotate(-25deg); } /* 镜筒 */
+        
+        #hs-nose { top: 28%; left: 58%; width: 40px; height: 20px; } /* 转换器 (新增) */
+        
+        #hs-obj { top: 34%; left: 53%; width: 60px; height: 50px; } /* 物镜 */
+        
+        #hs-clips { top: 48%; left: 55%; width: 30px; height: 10px; } /* 压片夹 (新增) */
+        #hs-stage { top: 51%; left: 53%; width: 120px; height: 20px; border-radius: 5px; } /* 载物台 */
+        
+        #hs-condenser { top: 56%; left: 53%; width: 40px; height: 20px; } /* 光圈/聚光器 (新增) */
+        
+        #hs-coarse { top: 52%; left: 26%; width: 45px; height: 45px; } /* 粗准焦 */
+        #hs-fine { top: 52%; left: 26%; width: 20px; height: 20px; background: #f59e0b; pointer-events: auto; } /* 细准焦 */
+        
+        #hs-light { top: 65%; left: 54%; width: 45px; height: 45px; } /* 光源 */
+        #hs-base { top: 83%; left: 50%; width: 180px; height: 40px; border-radius: 15px; } /* 镜座 */
+        #hs-arm { top: 40%; left: 36%; width: 50px; height: 130px; border-radius: 15px; } /* 镜臂 */
+
+        .info-tooltip {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.9); color: #fff;
+            padding: 15px 25px; border-radius: 8px; border-left: 4px solid var(--accent);
+            font-size: 1.1rem; min-width: 300px; text-align: center; pointer-events: none; z-index: 100;
+        }
+
+        /* >>> 2. 观察模式 (Observation) <<< */
+        .eyepiece-mask {
+            width: 600px; height: 600px; border-radius: 50%;
+            position: relative; overflow: hidden;
+            border: 20px solid #18181b;
+            box-shadow: 0 0 0 1000px #000;
+            background: #000;
+        }
+
+        .slide-container {
+            width: 100%; height: 100%; 
+            display: flex; align-items: center; justify-content: center;
+            background: #fff; 
+            position: relative;
+            overflow: hidden;
+        }
+
+        #slide-img {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 100%; 
+            height: auto;
+            min-height: 100%;
+            transform: translate(-50%, -50%) scale(1); 
+            transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 0.1s; 
+        }
+
+        .pointer-line {
+            position: absolute; top: 50%; left: 20%; width: 100px; height: 2px; 
+            background: rgba(0,0,0,0.5); pointer-events: none; z-index: 5;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="header-nav">
+            <a href="unit-biology.html" class="back-link">⬅ Back to Biology</a>
+            <h2>🔬 Real Microscope</h2>
+        </div>
+
+        <div class="mode-tabs">
+            <div class="tab-btn active" onclick="setMode('observe')">Observation</div>
+            <div class="tab-btn" onclick="setMode('anatomy')">Structure</div>
+        </div>
+
+        <div id="panel-observe" class="content-panel active">
+            <div class="ctrl-group">
+                <div class="ctrl-label">1. SELECT SPECIMEN</div>
+                <select id="specimen-select" onchange="loadSpecimen()">
+                    <option value="letter_e.jpg">Letter 'e'</option>
+                    <option value="onion.jpg">Onion Epidermis</option>
+                    <option value="cheek.jpg">Cheek Cells</option>
+                    <option value="blood.jpg">Blood Smear</option>
+                    <option value="leaf.jpg">Leaf Stomata</option>
+                </select>
+                <div style="font-size:0.7rem; color:#666; margin-top:5px;">
+                    *Images must be in 'science10/images/' folder.
+                </div>
+            </div>
+
+            <div class="ctrl-group">
+                <div class="ctrl-label">2. MAGNIFICATION</div>
+                <div class="lens-row">
+                    <div class="lens-btn active" id="btn-4" onclick="setMag(4)">4x</div>
+                    <div class="lens-btn" id="btn-10" onclick="setMag(10)">10x</div>
+                    <div class="lens-btn" id="btn-40" onclick="setMag(40)">40x</div>
+                </div>
+                <div style="text-align:center;margin-top:5px;font-size:0.8rem;color:#888;">
+                    Total: <span id="mag-display" style="color:white;">40x</span>
+                </div>
+            </div>
+
+            <div class="ctrl-group">
+                <div class="ctrl-label">3. FOCUS</div>
+                <div class="range-info"><span>Coarse</span><span>Fine</span></div>
+                <div style="display:flex; gap:10px;">
+                    <input type="range" id="coarse" min="0" max="100" value="0" oninput="updateView()">
+                    <input type="range" id="fine" min="0" max="100" value="50" oninput="updateView()">
+                </div>
+                <div class="clarity-box">
+                    <div style="font-size:0.75rem; color:#888;">CLARITY</div>
+                    <div id="clarity-val" style="color:#ef4444;">0%</div>
+                </div>
+            </div>
+
+            <div class="ctrl-group">
+                <div class="ctrl-label">4. STAGE X/Y</div>
+                <div style="display:flex; gap:10px;">
+                    <input type="range" id="pos-x" min="-50" max="50" value="0" oninput="updateView()">
+                    <input type="range" id="pos-y" min="-50" max="50" value="0" oninput="updateView()">
+                </div>
+                <div class="ctrl-label" style="margin-top:10px;">LIGHT</div>
+                <input type="range" id="light" min="20" max="150" value="100" oninput="updateView()">
+            </div>
+        </div>
+
+        <div id="panel-anatomy" class="content-panel">
+            <div style="color:#ccc; line-height:1.6;">
+                <p><strong>Microscope Anatomy:</strong></p>
+                <p>Hover over the <span style="color:#10b981">Green Dots</span> to learn the function of each part.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-observe" class="main-viewport active">
+        <div class="eyepiece-mask">
+            <div class="slide-container">
+                <img id="slide-img" src="images/letter_e.jpg" alt="Image Not Found">
+                <div id="light-overlay" style="position:absolute; width:100%; height:100%; background:black; opacity:0; pointer-events:none;"></div>
+            </div>
+            <div class="pointer-line"></div>
+        </div>
+    </div>
+
+    <div id="view-anatomy" class="main-viewport">
+        <div class="img-container">
+            <img id="anatomy-img" src="images/microscope.jpg" alt="Microscope Structure">
+            
+            <div class="hotspot" id="hs-eye" onmouseover="showPart('Eyepiece (Ocular)', 'Contains a lens (usually 10x) to magnify the image.')"></div>
+            <div class="hotspot" id="hs-tube" onmouseover="showPart('Body Tube', 'Connects the eyepiece to the objective lenses.')"></div>
+            <div class="hotspot" id="hs-nose" onmouseover="showPart('Revolving Nosepiece', 'Holds the objectives and can be rotated to change magnification.')"></div>
+            <div class="hotspot" id="hs-obj" onmouseover="showPart('Objective Lenses', 'Magnify the specimen: Low (4x), Medium (10x), High (40x).')"></div>
+            <div class="hotspot" id="hs-clips" onmouseover="showPart('Stage Clips', 'Hold the slide in place.')"></div>
+            <div class="hotspot" id="hs-stage" onmouseover="showPart('Stage', 'The flat platform where you place the slide.')"></div>
+            <div class="hotspot" id="hs-condenser" onmouseover="showPart('Diaphragm / Condenser', 'Controls the amount of light passing through the opening of the stage.')"></div>
+            <div class="hotspot" id="hs-coarse" onmouseover="showPart('Coarse Adjustment Knob', 'Moves the stage up and down for rough focusing. ONLY use on Low Power.')"></div>
+            <div class="hotspot" id="hs-fine" onmouseover="showPart('Fine Adjustment Knob', 'Moves the stage slightly to sharpen the image. Used on High Power.')"></div>
+            <div class="hotspot" id="hs-light" onmouseover="showPart('Light Source (Illuminator)', 'Projects light upwards through the diaphragm, the specimen, and the lenses.')"></div>
+            <div class="hotspot" id="hs-arm" onmouseover="showPart('Arm', 'Supports the tube and connects it to the base. Hold this when carrying.')"></div>
+            <div class="hotspot" id="hs-base" onmouseover="showPart('Base', 'The bottom of the microscope, used for support.')"></div>
+
+            <div class="info-tooltip">
+                <div id="part-title" style="font-weight:bold; font-size:1.1rem; color:#10b981; margin-bottom:5px;">Microscope Anatomy</div>
+                <div id="part-desc">Hover over parts to identify.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let state = { mag: 4, coarse: 0, fine: 50, light: 100, x: 0, y: 0 };
+        const PERFECT_FOCUS = 65;
+
+        function setMode(m) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.main-viewport').forEach(v => v.classList.remove('active'));
+
+            if (m === 'observe') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('panel-observe').classList.add('active');
+                document.getElementById('view-observe').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('panel-anatomy').classList.add('active');
+                document.getElementById('view-anatomy').classList.add('active');
+            }
+        }
+
+        function loadSpecimen() {
+            const filename = document.getElementById('specimen-select').value;
+            const img = document.getElementById('slide-img');
+            
+            img.src = "images/" + filename;
+            
+            if (filename.includes('letter_e')) {
+                img.style.transform = "translate(-50%, -50%) rotate(180deg)"; 
+            } else {
+                img.style.transform = "translate(-50%, -50%)";
+            }
+
+            document.getElementById('pos-x').value = 0;
+            document.getElementById('pos-y').value = 0;
+            updateView();
+        }
+
+        function setMag(val) {
+            state.mag = val;
+            document.querySelectorAll('.lens-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-' + val).classList.add('active');
+            document.getElementById('mag-display').innerText = (val * 10) + "x"; 
+            updateView();
+        }
+
+        function updateView() {
+            const img = document.getElementById('slide-img');
+            const filename = document.getElementById('specimen-select').value;
+            
+            const coarse = parseInt(document.getElementById('coarse').value);
+            const fine = parseInt(document.getElementById('fine').value);
+            const light = parseInt(document.getElementById('light').value);
+            const posX = parseInt(document.getElementById('pos-x').value);
+            const posY = parseInt(document.getElementById('pos-y').value);
+
+            let scale = state.mag / 4; 
+            let moveX = -posX * 5 * scale;
+            let moveY = -posY * 5 * scale;
+
+            let baseTransform = `translate(calc(-50% + ${moveX}px), calc(-50% + ${moveY}px)) scale(${scale})`;
+            
+            if (filename.includes('letter_e')) {
+                baseTransform += " rotate(180deg)";
+            }
+            
+            img.style.transform = baseTransform;
+
+            let z = coarse + (fine - 50) / 10;
+            let dist = Math.abs(z - PERFECT_FOCUS);
+            let blur = dist * (state.mag / 3); 
+            if(blur < 0.5) blur = 0;
+            if(blur > 20) blur = 20;
+            img.style.filter = `blur(${blur}px)`;
+
+            let clarity = Math.max(0, 100 - (blur * 5));
+            const clVal = document.getElementById('clarity-val');
+            clVal.innerText = Math.round(clarity) + "%";
+            clVal.style.color = clarity > 90 ? '#10b981' : (clarity > 50 ? '#f59e0b' : '#ef4444');
+
+            let op = 1 - (light / 200);
+            if(op < 0) op = 0;
+            document.getElementById('light-overlay').style.opacity = op;
+        }
+
+        function showPart(title, desc) {
+            document.getElementById('part-title').innerText = title;
+            document.getElementById('part-desc').innerText = desc;
+        }
+
+        window.onload = function() {
+            loadSpecimen();
+        };
+    </script>
+</body>
+</html>

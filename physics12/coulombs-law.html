@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Coulomb's Law Simulator</title>
+    <style>
+        :root { --ml-blue: #1e3a8a; --ml-gold: #fbbf24; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-blue); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1350px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 420px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow-y: auto;}
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: flex; justify-content: space-between; font-weight: bold; color: #475569; margin-bottom: 8px; font-size: 0.95rem; }
+        .control-group input[type="range"] { width: 100%; padding: 8px; cursor: pointer;}
+        
+        .btn { background: var(--ml-blue); color: white; border: none; padding: 12px; border-radius: 8px; font-size: 1rem; cursor: pointer; font-weight: bold; transition: 0.2s; width: 100%; margin-top: 10px;}
+        .btn:hover { background: #1e40af; }
+        .btn-clear { background: #ef4444; margin-top: 10px;}
+        .btn-clear:hover { background: #b91c1c; }
+
+        /* 动态计算黑板 */
+        .calc-board { background: #0f172a; color: #38bdf8; padding: 20px; border-radius: 8px; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.9rem; line-height: 1.6; margin-top: 15px; border: 3px solid #334155; box-shadow: inset 0 0 15px rgba(0,0,0,0.8);}
+        .calc-title { color: #f59e0b; font-weight: bold; border-bottom: 1px dashed #475569; padding-bottom: 5px; margin-bottom: 10px;}
+        .calc-highlight { color: #22c55e; font-weight: bold; font-size: 1.05rem;}
+        .calc-step { margin-bottom: 10px; }
+
+        /* 数据记录表 */
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; text-align: center;}
+        .data-table th, .data-table td { border: 1px solid #cbd5e1; padding: 8px; }
+        .data-table th { background: #f1f5f9; color: #334155; }
+        .data-table tr:nth-child(even) { background: #f8fafc; }
+
+        .visual-container { display: flex; flex-direction: column; gap: 15px; }
+        .canvas-box { background: #e2e8f0; border-radius: 12px; border: 4px solid #cbd5e1; overflow: hidden; position: relative; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 0 20px rgba(0,0,0,0.1); height: 100%; min-height: 500px;}
+        canvas { width: 100%; height: 100%; }
+
+        /* 虚拟测力计 */
+        .force-display { position: absolute; top: 20px; right: 20px; background: #ffffff; color: #0f172a; padding: 15px 25px; border-radius: 8px; font-family: monospace; font-size: 1.8rem; border: 3px solid #cbd5e1; font-weight: bold; box-shadow: 0 10px 15px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: flex-end; z-index: 10;}
+        .force-label { font-size: 0.8rem; color: #64748b; text-transform: uppercase; margin-bottom: 5px;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit2.html" class="back-link">⬅ Back to Unit 2</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 4: Coulomb's Law Apparatus</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Physics</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>1. Charge & Distance Controls</h3>
+            
+            <div class="control-group">
+                <label>Charge 1 (q&sub1;): <span id="q1-val" style="color:#3b82f6;">+5 &mu;C</span></label>
+                <input type="range" id="q1-slider" min="-10" max="10" step="1" value="5" oninput="updatePhysics()">
+            </div>
+
+            <div class="control-group">
+                <label>Charge 2 (q&sub2;): <span id="q2-val" style="color:#ef4444;">-5 &mu;C</span></label>
+                <input type="range" id="q2-slider" min="-10" max="10" step="1" value="-5" oninput="updatePhysics()">
+            </div>
+
+            <div class="control-group" style="margin-top: 25px;">
+                <label>Separation Distance (r): <span id="r-val" style="color:var(--ml-blue); font-size: 1.1rem;">0.50 m</span></label>
+                <input type="range" id="r-slider" min="0.1" max="1.0" step="0.05" value="0.5" oninput="updatePhysics()">
+            </div>
+
+            <h3>2. Live Calculation Board</h3>
+            <div class="calc-board" id="calc-board">
+                </div>
+
+            <h3 style="margin-top: 20px;">3. Data Notebook</h3>
+            <button class="btn" onclick="recordData()">Record Current Data</button>
+            <table class="data-table" id="data-table">
+                <tr>
+                    <th>q&sub1; (&mu;C)</th>
+                    <th>q&sub2; (&mu;C)</th>
+                    <th>r (m)</th>
+                    <th>1/r&sup2; (m&supmin;&sup2;)</th>
+                    <th>Force (N)</th>
+                </tr>
+            </table>
+            <button class="btn btn-clear" onclick="clearData()">Clear Table</button>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box">
+                <div class="force-display">
+                    <span class="force-label">Electrostatic Force (F)</span>
+                    <span id="force-val" style="color: #ef4444;">0.00 N</span>
+                </div>
+                <canvas id="labCanvas" width="800" height="600"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('labCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        // 物理变量
+        let q1 = 5; // microCoulombs (mu C)
+        let q2 = -5; // microCoulombs (mu C)
+        let r_m = 0.50; // meters
+        let force = 0; // Newtons
+        let interactionType = ""; // Attraction or Repulsion
+        
+        const k = 8.98755e9; // Coulomb's constant N*m^2/C^2
+
+        function updatePhysics() {
+            q1 = parseInt(document.getElementById('q1-slider').value);
+            q2 = parseInt(document.getElementById('q2-slider').value);
+            r_m = parseFloat(document.getElementById('r-slider').value);
+            
+            // 更新 UI
+            document.getElementById('q1-val').innerText = (q1 > 0 ? "+" : "") + q1 + " \u03BCC";
+            document.getElementById('q2-val').innerText = (q2 > 0 ? "+" : "") + q2 + " \u03BCC";
+            document.getElementById('r-val').innerText = r_m.toFixed(2) + ' m';
+
+            // 物理核心计算
+            let q1_C = q1 * 1e-6; // 转换为库仑
+            let q2_C = q2 * 1e-6; // 转换为库仑
+
+            // F = k * |q1 * q2| / r^2
+            force = k * Math.abs(q1_C * q2_C) / Math.pow(r_m, 2);
+
+            // 判断吸引还是排斥
+            if (q1 === 0 || q2 === 0) interactionType = "None";
+            else if ((q1 > 0 && q2 > 0) || (q1 < 0 && q2 < 0)) interactionType = "Repulsion";
+            else interactionType = "Attraction";
+
+            // 更新仪表盘
+            document.getElementById('force-val').innerText = force.toFixed(3) + ' N';
+            if(interactionType === "Attraction") document.getElementById('force-val').style.color = "#8b5cf6";
+            else if(interactionType === "Repulsion") document.getElementById('force-val').style.color = "#ef4444";
+            else document.getElementById('force-val').style.color = "#64748b";
+
+            updateCalcBoard(q1_C, q2_C);
+        }
+
+        function updateCalcBoard(q1_C, q2_C) {
+            let board = document.getElementById('calc-board');
+            let q1_str = q1 !== 0 ? `${Math.abs(q1)} &times; 10<sup>-6</sup> C` : `0 C`;
+            let q2_str = q2 !== 0 ? `${Math.abs(q2)} &times; 10<sup>-6</sup> C` : `0 C`;
+            let r2 = Math.pow(r_m, 2).toFixed(4);
+            let invR2 = (1 / Math.pow(r_m, 2)).toFixed(2);
+
+            board.innerHTML = `
+                <div class="calc-title">Coulomb's Law: F = k &middot; |q&sub1;q&sub2;| / r&sup2;</div>
+                <div class="calc-step">
+                    <b>1. Constants & Conversions:</b><br>
+                    k &approx; 8.99 &times; 10<sup>9</sup> N&middot;m&sup2;/C&sup2;<br>
+                    |q&sub1;| = ${q1_str}<br>
+                    |q&sub2;| = ${q2_str}
+                </div>
+                <div class="calc-step">
+                    <b>2. Inverse Square (1/r&sup2;):</b><br>
+                    r&sup2; = ${r_m.toFixed(2)}&sup2; = ${r2} m&sup2;<br>
+                    1/r&sup2; = <span style="color:#fcd34d;">${invR2} m&supmin;&sup2;</span>
+                </div>
+                <div class="calc-step">
+                    <b>3. Calculation:</b><br>
+                    F = (8.99 &times; 10<sup>9</sup> &times; ${q1_str.replace(' C','')} &times; ${q2_str.replace(' C','')}) / ${r2}<br>
+                    F = <span class="calc-highlight">${force.toFixed(3)} N</span> (${interactionType})
+                </div>
+            `;
+        }
+
+        function recordData() {
+            let table = document.getElementById('data-table');
+            let row = table.insertRow(-1);
+            let invR2 = (1 / Math.pow(r_m, 2)).toFixed(2);
+            
+            row.insertCell(0).innerText = (q1 > 0 ? "+" : "") + q1;
+            row.insertCell(1).innerText = (q2 > 0 ? "+" : "") + q2;
+            row.insertCell(2).innerText = r_m.toFixed(2);
+            row.insertCell(3).innerText = invR2;
+            row.insertCell(4).innerHTML = "<b>" + force.toFixed(3) + "</b>";
+        }
+
+        function clearData() {
+            let table = document.getElementById('data-table');
+            while(table.rows.length > 1) { table.deleteRow(1); }
+        }
+
+        function drawCharge(x, y, q) {
+            ctx.beginPath();
+            ctx.arc(x, y, 35, 0, Math.PI*2);
+            
+            // 颜色：正电荷蓝，负电荷红，中性灰
+            if (q > 0) {
+                let grad = ctx.createRadialGradient(x-10, y-10, 5, x, y, 35);
+                grad.addColorStop(0, '#60a5fa'); grad.addColorStop(1, '#1e3a8a');
+                ctx.fillStyle = grad;
+            } else if (q < 0) {
+                let grad = ctx.createRadialGradient(x-10, y-10, 5, x, y, 35);
+                grad.addColorStop(0, '#f87171'); grad.addColorStop(1, '#7f1d1d');
+                ctx.fillStyle = grad;
+            } else {
+                ctx.fillStyle = '#94a3b8';
+            }
+            
+            ctx.fill();
+            ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 2; ctx.stroke();
+
+            // 绘制正负号
+            ctx.fillStyle = 'white'; ctx.font = 'bold 30px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            if(q > 0) ctx.fillText("+", x, y);
+            else if(q < 0) ctx.fillText("-", x, y);
+            
+            ctx.font = 'bold 16px Arial';
+            ctx.fillText(Math.abs(q) + " \u03BCC", x, y + 55);
+        }
+
+        function drawArrow(fromX, y, toX, color, label) {
+            let headlen = 15;
+            let angle = Math.atan2(0, toX - fromX);
+            
+            ctx.strokeStyle = color; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(fromX, y); ctx.lineTo(toX, y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(toX, y);
+            ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), y - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), y - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.lineTo(toX, y); ctx.fillStyle = color; ctx.fill();
+
+            // 绘制力的文字
+            ctx.font = 'bold 16px Arial'; ctx.fillStyle = color; ctx.textAlign = 'center';
+            ctx.fillText(label, (fromX + toX)/2, y - 15);
+        }
+
+        function drawLab() {
+            // 背景
+            ctx.fillStyle = '#f1f5f9'; ctx.fillRect(0,0,800,600);
+
+            let centerY = 300;
+            // r_m 从 0.1 到 1.0 m，映射到像素距离 100px 到 600px
+            let pxDistance = 100 + (r_m - 0.1) / 0.9 * 500;
+            
+            let cx1 = 400 - pxDistance / 2;
+            let cx2 = 400 + pxDistance / 2;
+
+            // 绘制底部刻度尺 (1.0m 轨道)
+            ctx.fillStyle = '#e2e8f0'; ctx.fillRect(50, 450, 700, 30);
+            ctx.strokeStyle = '#475569'; ctx.lineWidth = 2; ctx.strokeRect(50, 450, 700, 30);
+            ctx.fillStyle = '#0f172a'; ctx.font = '12px Arial'; ctx.textAlign = 'center';
+            for(let i=0; i<=10; i++) {
+                let tickX = 100 + i*60; // 0m 到 1.0m 映射到 100-700
+                ctx.beginPath(); ctx.moveTo(tickX, 450); ctx.lineTo(tickX, 460); ctx.stroke();
+                if(i%2 === 0) ctx.fillText((i/10).toFixed(1) + "m", tickX, 475);
+            }
+
+            // 绘制距离虚线
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
+            ctx.beginPath(); ctx.moveTo(cx1, centerY); ctx.lineTo(cx1, 450); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx2, centerY); ctx.lineTo(cx2, 450); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx1, centerY); ctx.lineTo(cx2, centerY); ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 绘制中心距离文字
+            ctx.fillStyle = '#334155'; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center';
+            ctx.fillText("r = " + r_m.toFixed(2) + " m", 400, centerY - 15);
+
+            // 绘制力向量箭头
+            if (force > 0.001) {
+                // 根据力的大小动态调整箭头长度 (最大120px)
+                let arrowLen = 40 + Math.min((force / 10) * 80, 80); 
+                
+                if (interactionType === "Repulsion") {
+                    // 排斥力：向外
+                    drawArrow(cx1 - 40, centerY, cx1 - 40 - arrowLen, '#ef4444', "F21");
+                    drawArrow(cx2 + 40, centerY, cx2 + 40 + arrowLen, '#ef4444', "F12");
+                } else if (interactionType === "Attraction") {
+                    // 吸引力：向内
+                    drawArrow(cx1 + 40, centerY, cx1 + 40 + arrowLen, '#8b5cf6', "F21");
+                    drawArrow(cx2 - 40, centerY, cx2 - 40 - arrowLen, '#8b5cf6', "F12");
+                }
+            }
+
+            // 绘制电荷
+            drawCharge(cx1, centerY, q1);
+            drawCharge(cx2, centerY, q2);
+        }
+
+        // 初始化
+        updatePhysics();
+        
+        // 简单渲染循环 (虽然静态也可，但保持架构一致)
+        function animate() {
+            drawLab();
+            requestAnimationFrame(animate);
+        }
+        animate();
+    </script>
+</body>
+</html>

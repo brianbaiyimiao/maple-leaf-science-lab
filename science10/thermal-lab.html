@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Calorimetry Lab</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #1f2937;
+            --panel-bg: #111827;
+            --accent-hot: #ef4444;
+            --accent-cold: #3b82f6;
+            --text-main: #f3f4f6;
+            --calc-bg: #000000;
+        }
+
+        body {
+            margin: 0; background-color: var(--bg-color); color: var(--text-main);
+            font-family: 'Segoe UI', monospace; display: flex; height: 100vh; overflow: hidden;
+        }
+
+        /* --- 左侧控制 --- */
+        .sidebar {
+            width: 340px; background: var(--panel-bg); padding: 20px;
+            border-right: 2px solid #374151; display: flex; flex-direction: column;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.3); z-index: 10; overflow-y: auto;
+        }
+
+        .header-nav { border-bottom: 1px solid #374151; padding-bottom: 15px; margin-bottom: 20px; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: white; }
+        h2 { margin: 5px 0 0 0; color: #f59e0b; font-size: 1.4rem; }
+
+        /* 控件组 */
+        .control-group { margin-bottom: 20px; background: #1f2937; padding: 12px; border-radius: 8px; border: 1px solid #374151; }
+        .label-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.8rem; color: #d1d5db; }
+        .sub-label { font-size: 0.7rem; color: #9ca3af; margin-bottom: 5px; display:block;}
+
+        select, input[type=range] { width: 100%; padding: 8px; background: #111827; color: white; border: 1px solid #4b5563; border-radius: 4px; cursor: pointer; }
+        
+        .btn-main {
+            width: 100%; padding: 12px; font-size: 1rem; font-weight: bold;
+            border: none; border-radius: 6px; cursor: pointer; margin-bottom: 10px;
+            transition: transform 0.1s;
+        }
+        .btn-heat { background: var(--accent-hot); color: white; } 
+        .btn-drop { background: var(--accent-cold); color: white; } 
+        .btn-reset { background: #4b5563; color: white; } 
+        .btn-main:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* 数据面板 */
+        .data-display {
+            margin-top: 10px; background: #000; padding: 15px; border-radius: 8px; border: 1px solid #374151;
+        }
+        .data-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.9rem; }
+        .val-hot { color: var(--accent-hot); font-weight: bold; }
+        .val-cool { color: var(--accent-cold); font-weight: bold; }
+
+        /* --- 右侧主视图 --- */
+        .main-view { flex: 1; display: flex; flex-direction: column; position: relative; }
+
+        /* 1. 动画区 */
+        .lab-bench {
+            flex: 6; position: relative;
+            background: linear-gradient(to bottom, #374151 0%, #1f2937 100%);
+            display: flex; justify-content: center; align-items: flex-end;
+            padding-bottom: 50px; border-bottom: 2px solid #111;
+            overflow: hidden;
+        }
+
+        /* 烧杯与液体 */
+        .beaker {
+            width: 200px; height: 250px; border: 4px solid rgba(255,255,255,0.5); border-top: none;
+            border-radius: 0 0 20px 20px; position: relative; margin: 0 50px;
+            background: rgba(255,255,255,0.05);
+        }
+        .liquid {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 60%;
+            background: rgba(59, 130, 246, 0.6); /* Default Water Blue */
+            transition: height 0.5s, background-color 0.5s;
+            border-radius: 0 0 15px 15px;
+        }
+        .thermometer {
+            position: absolute; right: 20px; bottom: 10px; width: 8px; height: 280px;
+            background: #fff; border-radius: 5px; border: 1px solid #999;
+        }
+        .merc-line {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 20%;
+            background: #ef4444; transition: height 0.5s; border-radius: 0 0 5px 5px;
+        }
+
+        /* 加热器与物体 */
+        .heater {
+            width: 160px; height: 50px; background: #333; border-radius: 5px;
+            display: flex; justify-content: center; align-items: center;
+            border-top: 5px solid #555; position: relative;
+        }
+        .heater.on { border-top-color: #ef4444; box-shadow: 0 -10px 30px rgba(239, 68, 68, 0.5); }
+
+        #metal-block {
+            width: 60px; height: 60px; background: #9ca3af; border: 2px solid #fff;
+            border-radius: 8px; position: absolute; 
+            bottom: 50px; left: calc(25% + 30px); 
+            transition: background-color 0.5s, transform 1s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            display: flex; justify-content: center; align-items: center;
+            font-weight: bold; color: #000; box-shadow: 0 5px 10px rgba(0,0,0,0.5);
+            z-index: 20;
+        }
+
+        /* 2. 底部区域 (图表 + 计算过程) */
+        .bottom-section {
+            flex: 4; background: #111827; display: flex;
+            border-top: 2px solid #374151;
+        }
+        .chart-area { flex: 1; padding: 10px; position: relative; }
+        
+        .calc-panel {
+            flex: 1; background: var(--calc-bg); padding: 20px; overflow-y: auto;
+            border-left: 1px solid #374151; font-family: 'Courier New', Courier, monospace;
+            color: #10b981; font-size: 0.9rem; line-height: 1.6;
+        }
+        .calc-step { margin-bottom: 10px; opacity: 0; animation: fadeIn 0.5s forwards; }
+        .calc-highlight { color: #f59e0b; font-weight: bold; }
+        .calc-final { font-size: 1.2rem; color: #38bdf8; font-weight: bold; border-top: 1px dashed #333; margin-top: 10px; padding-top: 10px; }
+
+        @keyframes fadeIn { to { opacity: 1; } }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="header-nav">
+            <a href="unit-physics.html" class="back-link">⬅ Back to Physics</a>
+            <h2>🔥 Advanced Calorimetry</h2>
+        </div>
+
+        <div class="control-group">
+            <div class="label-row"><span>Solid Material (Object)</span><span id="val-c-solid">c = 0.90</span></div>
+            <select id="solid-select" onchange="updateSettings()">
+                <option value="Al">Aluminum (c=0.90)</option>
+                <option value="Fe">Iron (c=0.45)</option>
+                <option value="Cu">Copper (c=0.39)</option>
+                <option value="Au">Gold (c=0.13)</option>
+                <option value="Pb">Lead (c=0.16)</option>
+                <option value="Wood">Wood (c=1.76)</option>
+                <option value="Brick">Brick (c=0.84)</option>
+            </select>
+            <div class="label-row" style="margin-top:10px;"><span>Mass (m₁)</span><span id="val-m-solid">0.50 kg</span></div>
+            <input type="range" id="solid-mass" min="0.1" max="2.0" step="0.1" value="0.5" oninput="updateSettings()">
+            <div class="sub-label">Initial Temp (T₁): 100°C</div>
+        </div>
+
+        <div class="control-group">
+            <div class="label-row"><span>Liquid Material (Bath)</span><span id="val-c-liquid">c = 4.18</span></div>
+            <select id="liquid-select" onchange="updateSettings()">
+                <option value="Water">Water (c=4.186)</option>
+                <option value="Oil">Olive Oil (c=1.97)</option>
+                <option value="Ethanol">Ethanol (c=2.44)</option>
+                <option value="Glycerin">Glycerin (c=2.43)</option>
+            </select>
+            <div class="label-row" style="margin-top:10px;"><span>Mass (m₂)</span><span id="val-m-liquid">0.50 kg</span></div>
+            <input type="range" id="liquid-mass" min="0.2" max="2.0" step="0.1" value="0.5" oninput="updateSettings()">
+            <div class="sub-label">Initial Temp (T₂): 20°C</div>
+        </div>
+
+        <button id="btn-heat" class="btn-main btn-heat" onclick="heatBlock()">1. Heat Object</button>
+        <button id="btn-drop" class="btn-main btn-drop" onclick="dropBlock()" disabled>2. Drop & Measure</button>
+        <button id="btn-reset" class="btn-main btn-reset" onclick="resetLab()">Reset</button>
+
+        <div class="data-display">
+            <div class="data-row"><span>Object Temp:</span><span id="disp-t1" class="val-hot">20.0 °C</span></div>
+            <div class="data-row"><span>Liquid Temp:</span><span id="disp-t2" class="val-cool">20.0 °C</span></div>
+        </div>
+    </div>
+
+    <div class="main-view">
+        <div class="lab-bench">
+            <div style="display:flex; flex-direction:column; align-items:center; margin-right:120px;">
+                <div id="metal-block">Al</div>
+                <div class="heater" id="heater">HEATER (100°C)</div>
+            </div>
+
+            <div class="beaker">
+                <div class="liquid" id="liquid-visual"></div>
+                <div class="thermometer">
+                    <div class="merc-line" id="merc-line"></div>
+                </div>
+                <div id="liquid-label" style="position:absolute; bottom:10px; left:10px; color:rgba(255,255,255,0.5); font-size:0.8rem;">Water</div>
+            </div>
+        </div>
+
+        <div class="bottom-section">
+            <div class="chart-area">
+                <canvas id="tempChart"></canvas>
+            </div>
+            <div class="calc-panel" id="calc-output">
+                <div style="color:#6b7280; font-style:italic;">Calculation steps will appear here after reaction...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 数据库 ---
+        const SOLIDS = {
+            'Al': { name: 'Aluminum', c: 0.900, color: '#d1d5db' },
+            'Fe': { name: 'Iron', c: 0.450, color: '#4b5563' },
+            'Cu': { name: 'Copper', c: 0.385, color: '#b45309' },
+            'Au': { name: 'Gold', c: 0.129, color: '#fbbf24' },
+            'Pb': { name: 'Lead', c: 0.160, color: '#64748b' },
+            'Wood': { name: 'Wood', c: 1.760, color: '#78350f' },
+            'Brick': { name: 'Brick', c: 0.840, color: '#dc2626' }
+        };
+
+        const LIQUIDS = {
+            'Water': { name: 'Water', c: 4.186, color: 'rgba(59, 130, 246, 0.6)' },
+            'Oil': { name: 'Olive Oil', c: 1.970, color: 'rgba(234, 179, 8, 0.7)' },
+            'Ethanol': { name: 'Ethanol', c: 2.440, color: 'rgba(16, 185, 129, 0.4)' }, // Clear/Greenish tint
+            'Glycerin': { name: 'Glycerin', c: 2.430, color: 'rgba(255, 255, 255, 0.4)' }
+        };
+
+        // 初始状态
+        let state = {
+            solid: 'Al', m1: 0.5, t1: 20, // Object
+            liquid: 'Water', m2: 0.5, t2: 20, // Liquid
+            phase: 'idle'
+        };
+
+        let chart;
+        let timer;
+        let time = 0;
+
+        window.onload = function() {
+            initChart();
+            updateSettings();
+        };
+
+        // 1. 更新设置与UI
+        function updateSettings() {
+            if(state.phase !== 'idle') return;
+
+            // 读值
+            state.solid = document.getElementById('solid-select').value;
+            state.m1 = parseFloat(document.getElementById('solid-mass').value);
+            
+            state.liquid = document.getElementById('liquid-select').value;
+            state.m2 = parseFloat(document.getElementById('liquid-mass').value);
+
+            // 更新文本
+            const sData = SOLIDS[state.solid];
+            const lData = LIQUIDS[state.liquid];
+
+            document.getElementById('val-c-solid').innerText = `c = ${sData.c.toFixed(2)}`;
+            document.getElementById('val-m-solid').innerText = `${state.m1.toFixed(2)} kg`;
+            
+            document.getElementById('val-c-liquid').innerText = `c = ${lData.c.toFixed(2)}`;
+            document.getElementById('val-m-liquid').innerText = `${state.m2.toFixed(2)} kg`;
+
+            // 更新视觉 - 固体
+            const block = document.getElementById('metal-block');
+            block.innerText = state.solid;
+            block.style.backgroundColor = sData.color;
+            block.style.color = (state.solid === 'Fe' || state.solid === 'Wood' || state.solid === 'Pb') ? '#fff' : '#000';
+            let size = 40 + (state.m1 * 20);
+            block.style.width = size + "px"; block.style.height = size + "px";
+
+            // 更新视觉 - 液体
+            const liqVisual = document.getElementById('liquid-visual');
+            liqVisual.style.backgroundColor = lData.color;
+            let h = 30 + (state.m2 * 30);
+            liqVisual.style.height = h + "%";
+            document.getElementById('liquid-label').innerText = lData.name;
+        }
+
+        // 2. 加热过程
+        function heatBlock() {
+            state.phase = 'heating';
+            document.getElementById('heater').classList.add('on');
+            document.getElementById('btn-heat').disabled = true;
+            
+            // 锁定输入
+            document.getElementById('solid-select').disabled = true;
+            document.getElementById('liquid-select').disabled = true;
+            document.getElementById('solid-mass').disabled = true;
+            document.getElementById('liquid-mass').disabled = true;
+
+            let interval = setInterval(() => {
+                if(state.t1 < 100) {
+                    state.t1 += 2;
+                    updateDisplay();
+                } else {
+                    clearInterval(interval);
+                    state.t1 = 100;
+                    state.phase = 'heated';
+                    document.getElementById('heater').classList.remove('on');
+                    document.getElementById('metal-block').style.boxShadow = "0 0 20px #ef4444";
+                    document.getElementById('btn-drop').disabled = false;
+                    updateDisplay();
+                }
+            }, 30);
+        }
+
+        // 3. 投放过程
+        function dropBlock() {
+            state.phase = 'dropping';
+            document.getElementById('btn-drop').disabled = true;
+            
+            const block = document.getElementById('metal-block');
+            // 提起
+            block.style.transform = "translate(350px, -200px)";
+            
+            setTimeout(() => {
+                // 落下
+                block.style.transform = "translate(350px, 80px)";
+                
+                setTimeout(() => {
+                    state.phase = 'mixing';
+                    startCalculations();
+                }, 500);
+            }, 500);
+        }
+
+        // 4. 计算与模拟
+        function startCalculations() {
+            const sData = SOLIDS[state.solid];
+            const lData = LIQUIDS[state.liquid];
+
+            // 公式: Q_lost = Q_gained
+            // m1 * c1 * (T1 - Tf) = m2 * c2 * (Tf - T2)
+            // m1*c1*T1 - m1*c1*Tf = m2*c2*Tf - m2*c2*T2
+            // m1*c1*T1 + m2*c2*T2 = Tf * (m1*c1 + m2*c2)
+            // Tf = (m1*c1*T1 + m2*c2*T2) / (m1*c1 + m2*c2)
+
+            let term1 = state.m1 * sData.c * 100; // m1*c1*T1
+            let term2 = state.m2 * lData.c * 20;  // m2*c2*T2
+            let denom = (state.m1 * sData.c) + (state.m2 * lData.c);
+            
+            let Tf = (term1 + term2) / denom;
+
+            // 显示计算过程 (LaTeX style text)
+            showCalculations(sData, lData, term1, term2, denom, Tf);
+
+            // 动画模拟温度趋近
+            timer = setInterval(() => {
+                time += 0.5;
+                let rate = 0.08; // 混合速度
+                
+                state.t1 += (Tf - state.t1) * rate;
+                state.t2 += (Tf - state.t2) * rate;
+                
+                updateDisplay();
+                updateChart();
+
+                if(Math.abs(state.t1 - state.t2) < 0.05) {
+                    clearInterval(timer);
+                    state.t1 = Tf; state.t2 = Tf;
+                    updateDisplay();
+                    updateChart();
+                }
+            }, 50);
+        }
+
+        function showCalculations(s, l, term1, term2, denom, Tf) {
+            const div = document.getElementById('calc-output');
+            div.innerHTML = ""; // Clear
+
+            const steps = [
+                `1. System: <b>${s.name}</b> (m₁=${state.m1}kg, c₁=${s.c}) + <b>${l.name}</b> (m₂=${state.m2}kg, c₂=${l.c})`,
+                `2. Formula: -Q<sub>lost</sub> = Q<sub>gained</sub>`,
+                `3. Equation: m₁c₁(T₁ - T<sub>f</sub>) = m₂c₂(T<sub>f</sub> - T₂)`,
+                `4. Plug in: (${state.m1})(${s.c})(100 - T<sub>f</sub>) = (${state.m2})(${l.c})(T<sub>f</sub> - 20)`,
+                `5. Solve for T<sub>f</sub>: <br> <span class="calc-highlight">T<sub>f</sub> = (m₁c₁T₁ + m₂c₂T₂) / (m₁c₁ + m₂c₂)</span>`,
+                `6. Calc: (${term1.toFixed(1)} + ${term2.toFixed(1)}) / ${denom.toFixed(2)}`,
+                `<div class="calc-final">Final Temp (T<sub>f</sub>) = ${Tf.toFixed(2)} °C</div>`
+            ];
+
+            let delay = 0;
+            steps.forEach(step => {
+                setTimeout(() => {
+                    div.innerHTML += `<div class="calc-step">${step}</div>`;
+                    div.scrollTop = div.scrollHeight;
+                }, delay);
+                delay += 600; // 逐行显示
+            });
+        }
+
+        function updateDisplay() {
+            document.getElementById('disp-t1').innerText = state.t1.toFixed(1) + " °C";
+            document.getElementById('disp-t2').innerText = state.t2.toFixed(1) + " °C";
+            
+            // 温度计
+            document.getElementById('merc-line').style.height = state.t2 + "%";
+            
+            // 冷却视觉
+            if(state.phase === 'mixing') {
+                let glow = Math.max(0, (state.t1 - 20) / 80);
+                document.getElementById('metal-block').style.boxShadow = `0 0 ${20*glow}px rgba(239, 68, 68, ${glow})`;
+            }
+        }
+
+        function resetLab() {
+            clearInterval(timer);
+            time = 0;
+            state.t1 = 20; state.t2 = 20; state.phase = 'idle';
+            
+            // UI Reset
+            document.getElementById('calc-output').innerHTML = `<div style="color:#6b7280; font-style:italic;">Calculation steps will appear here...</div>`;
+            
+            const block = document.getElementById('metal-block');
+            block.style.transform = "none";
+            block.style.boxShadow = "none";
+            
+            document.getElementById('btn-heat').disabled = false;
+            document.getElementById('btn-drop').disabled = true;
+            
+            // Unlock inputs
+            document.getElementById('solid-select').disabled = false;
+            document.getElementById('liquid-select').disabled = false;
+            document.getElementById('solid-mass').disabled = false;
+            document.getElementById('liquid-mass').disabled = false;
+
+            chart.data.labels = [];
+            chart.data.datasets.forEach(d => d.data = []);
+            chart.update();
+            updateDisplay();
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('tempChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        { label: 'Object Temp', borderColor: '#ef4444', data: [], borderWidth:2, pointRadius:0, fill:false },
+                        { label: 'Liquid Temp', borderColor: '#3b82f6', data: [], borderWidth:2, pointRadius:0, fill:false }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: false,
+                    scales: {
+                        x: { display:false },
+                        y: { min:15, max:105, title: {display:true, text:'Temp (°C)', color:'#9ca3af'} }
+                    }
+                }
+            });
+        }
+
+        function updateChart() {
+            chart.data.labels.push(time.toFixed(1));
+            chart.data.datasets[0].data.push(state.t1);
+            chart.data.datasets[1].data.push(state.t2);
+            chart.update('none');
+        }
+
+    </script>
+</body>
+</html>

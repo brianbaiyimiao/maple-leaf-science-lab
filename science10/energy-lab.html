@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics: Energy Master</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --accent-blue: #38bdf8;
+            --ke-color: #22c55e; /* Green */
+            --pe-color: #3b82f6; /* Blue */
+            --th-color: #f97316; /* Orange */
+            --tot-color: #eab308; /* Yellow */
+            --text-main: #f1f5f9;
+        }
+
+        body {
+            margin: 0; background-color: var(--bg-color); color: var(--text-main);
+            font-family: 'Segoe UI', monospace; display: flex; height: 100vh; overflow: hidden;
+        }
+
+        /* --- 左侧控制 --- */
+        .sidebar {
+            width: 280px; background: var(--panel-bg); padding: 15px;
+            border-right: 2px solid #334155; display: flex; flex-direction: column; z-index: 10;
+            overflow-y: auto;
+        }
+
+        .header-nav { border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 15px; }
+        .back-link { color: #94a3b8; text-decoration: none; font-size: 0.85rem; }
+        .back-link:hover { color: white; }
+        h2 { margin: 5px 0 0 0; color: var(--accent-blue); font-size: 1.4rem; }
+
+        /* 模式切换 */
+        .mode-switch { display: flex; gap: 5px; margin-bottom: 15px; background: #0f172a; padding: 4px; border-radius: 6px; }
+        .mode-btn {
+            flex: 1; padding: 8px; border: none; background: transparent; color: #94a3b8;
+            cursor: pointer; font-weight: bold; border-radius: 4px; transition: all 0.2s;
+        }
+        .mode-btn.active { background: var(--accent-blue); color: #0f172a; }
+
+        /* 控制项 */
+        .control-group { margin-bottom: 15px; padding: 10px; background: #253248; border-radius: 6px; }
+        .label-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.8rem; color: #cbd5e1; }
+        input[type=range] { width: 100%; cursor: pointer; }
+
+        .btn-action {
+            width: 100%; padding: 10px; font-size: 1rem; font-weight: bold;
+            border: none; border-radius: 6px; cursor: pointer; margin-bottom: 8px;
+            background: var(--ke-color); color: white; transition: filter 0.2s;
+        }
+        .btn-action:hover { filter: brightness(1.1); }
+        
+        .btn-reset { background: #ef4444; }
+        
+        /* 暂停按钮样式 */
+        .btn-pause { background: #f59e0b; color: #fff; margin-top: 5px; }
+        .btn-pause.paused { background: #22c55e; animation: pulse 1s infinite; }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+
+        /* 数据面板 */
+        .data-panel {
+            background: #000; padding: 10px; border-radius: 6px; border: 1px solid #334155;
+            font-family: monospace; font-size: 0.8rem; margin-top: auto;
+        }
+        .data-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+
+        /* --- 右侧主视图 --- */
+        .main-view {
+            flex: 1; display: flex; flex-direction: column;
+        }
+
+        /* 1. 动画区 (变大!) */
+        .sim-container {
+            flex: 7; /* 占70% */
+            position: relative;
+            background: linear-gradient(to bottom, #1e293b 70%, #0f172a 100%);
+            overflow: hidden; border-bottom: 2px solid #334155;
+        }
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* 暂停时的覆盖层 */
+        #pause-overlay {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(245, 158, 11, 0.9); color: black;
+            padding: 5px 15px; border-radius: 20px; font-weight: bold;
+            display: none; pointer-events: none;
+        }
+
+        /* 2. 底部图表区 (变小) */
+        .chart-container {
+            flex: 3; /* 占30% */
+            background: #0f172a; padding: 10px; position: relative;
+        }
+
+        .hidden { display: none; }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="header-nav">
+            <a href="unit-physics.html" class="back-link">⬅ Back to Physics</a>
+            <h2>⚡ Energy Master</h2>
+        </div>
+
+        <div class="mode-switch">
+            <button class="mode-btn active" onclick="setMode('skater')">🛹 Skater</button>
+            <button class="mode-btn" onclick="setMode('throw')">⬆️ Throw</button>
+        </div>
+
+        <div class="control-group">
+            <div class="label-row"><span>Mass (kg)</span><span id="val-mass">50 kg</span></div>
+            <input type="range" id="slider-mass" min="1" max="100" value="50" oninput="updateParams()">
+            
+            <div class="label-row" style="margin-top:8px;"><span>Gravity (g)</span><span id="val-g">9.8 m/s²</span></div>
+            <input type="range" id="slider-g" min="1" max="20" step="0.1" value="9.8" oninput="updateParams()">
+        </div>
+
+        <button id="btn-pause" class="btn-action btn-pause" onclick="togglePause()">⏸ PAUSE</button>
+
+        <div id="ctrl-skater" class="control-group">
+            <div class="label-row"><span>Track Friction</span><span id="val-fric">0.00</span></div>
+            <input type="range" id="slider-fric" min="0" max="0.1" step="0.001" value="0" oninput="updateParams()">
+            <button class="btn-action btn-reset" style="margin-top:12px;" onclick="resetSim()">Restart Skater</button>
+        </div>
+
+        <div id="ctrl-throw" class="control-group hidden">
+            <div class="label-row"><span>Initial Speed (v0)</span><span id="val-speed">50 m/s</span></div>
+            <input type="range" id="slider-speed" min="10" max="200" value="50" oninput="updateParams()">
+            
+            <div class="label-row" style="margin-top:8px;"><span>Air Resistance</span><span id="val-drag">0.00</span></div>
+            <input type="range" id="slider-drag" min="0" max="0.05" step="0.001" value="0" oninput="updateParams()">
+            
+            <button class="btn-action" style="margin-top:12px;" onclick="throwBall()">THROW UP!</button>
+        </div>
+
+        <div class="data-panel">
+            <div class="data-row" style="color:var(--ke-color);"><span>Kinetic (Ek):</span><span id="d-ke">0 J</span></div>
+            <div class="data-row" style="color:var(--pe-color);"><span>Potential (Ep):</span><span id="d-pe">0 J</span></div>
+            <div class="data-row" style="color:var(--th-color);"><span>Thermal (Eth):</span><span id="d-th">0 J</span></div>
+            <div class="data-row" style="color:var(--tot-color); border-top:1px solid #333;"><span>Total (Et):</span><span id="d-total">0 J</span></div>
+            <div class="data-row" style="margin-top:5px;"><span>Height:</span><span id="d-h">0.0 m</span></div>
+            <div class="data-row"><span>Speed:</span><span id="d-v">0.0 m/s</span></div>
+        </div>
+    </div>
+
+    <div class="main-view">
+        <div class="sim-container" id="sim-container">
+            <canvas id="simCanvas"></canvas>
+            <div id="pause-overlay">PAUSED</div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="energyChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // --- 变量 ---
+        let mode = 'skater';
+        let params = { mass: 50, g: 9.8, fric: 0, speed: 50, drag: 0 };
+        let isPaused = false; // 暂停状态
+        
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        // 物体状态
+        let skater = { angle: -Math.PI/2, v: 0, h: 0, thermal: 0 };
+        let ball = { y: 0, v: 0, active: false, thermal: 0, startE: 0 };
+        
+        // 当前能量状态 (用于暂停时重绘)
+        let currentEnergy = { ke:0, pe:0, th:0, tot:0 };
+
+        let time = 0;
+        let chart;
+
+        // --- 初始化 ---
+        window.onload = function() {
+            resize();
+            initChart();
+            resetSim();
+            animate();
+        };
+        window.onresize = resize;
+
+        function resize() {
+            const c = document.getElementById('sim-container');
+            width = canvas.width = c.clientWidth;
+            height = canvas.height = c.clientHeight;
+        }
+
+        function setMode(m) {
+            mode = m;
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.mode-btn')[mode==='skater'?0:1].classList.add('active');
+            
+            document.getElementById('ctrl-skater').classList.toggle('hidden', mode!=='skater');
+            document.getElementById('ctrl-throw').classList.toggle('hidden', mode!=='throw');
+            
+            // 切换模式时自动取消暂停
+            if(isPaused) togglePause();
+            resetSim();
+        }
+
+        // --- 暂停功能 ---
+        function togglePause() {
+            isPaused = !isPaused;
+            const btn = document.getElementById('btn-pause');
+            const overlay = document.getElementById('pause-overlay');
+            
+            if(isPaused) {
+                btn.innerText = "▶ RESUME";
+                btn.classList.add('paused');
+                overlay.style.display = "block";
+            } else {
+                btn.innerText = "⏸ PAUSE";
+                btn.classList.remove('paused');
+                overlay.style.display = "none";
+            }
+        }
+
+        function updateParams() {
+            params.mass = parseInt(document.getElementById('slider-mass').value);
+            params.g = parseFloat(document.getElementById('slider-g').value);
+            params.fric = parseFloat(document.getElementById('slider-fric').value);
+            params.speed = parseInt(document.getElementById('slider-speed').value);
+            params.drag = parseFloat(document.getElementById('slider-drag').value);
+
+            document.getElementById('val-mass').innerText = params.mass + " kg";
+            document.getElementById('val-g').innerText = params.g + " m/s²";
+            document.getElementById('val-fric').innerText = params.fric.toFixed(3);
+            document.getElementById('val-speed').innerText = params.speed + " m/s";
+            document.getElementById('val-drag').innerText = params.drag.toFixed(3);
+        }
+
+        function resetSim() {
+            time = 0;
+            chart.data.labels = [];
+            chart.data.datasets.forEach(d => d.data = []);
+            chart.update();
+
+            if(mode === 'skater') {
+                skater.angle = -Math.PI/2 + 0.1; 
+                skater.v = 0;
+                skater.thermal = 0;
+            } else {
+                ball.active = false;
+                ball.y = 0; 
+                ball.v = 0;
+                ball.thermal = 0;
+            }
+            // 重置能量显示
+            currentEnergy = { ke:0, pe:0, th:0, tot:0 };
+        }
+
+        function throwBall() {
+            if(mode !== 'throw') return;
+            // 如果暂停了，点击发射会自动继续
+            if(isPaused) togglePause();
+            
+            resetSim();
+            ball.active = true;
+            ball.y = 0;
+            ball.v = params.speed; 
+            ball.startE = 0.5 * params.mass * params.speed * params.speed;
+            ball.thermal = 0;
+        }
+
+        // --- 物理计算 ---
+        function updatePhysics() {
+            let dt = 1/60;
+            let ke=0, pe=0, th=0, tot=0, h=0, v=0;
+
+            if(mode === 'skater') {
+                const R_meters = 6; 
+                let a_grav = -params.g * Math.sin(skater.angle);
+                let a_fric = 0;
+                if(Math.abs(skater.v) > 0.01) {
+                    a_fric = -params.fric * params.g * Math.sign(skater.v);
+                }
+                
+                let a = a_grav + a_fric;
+                skater.v += a * dt;
+                
+                if(params.fric > 0) {
+                    let dist = Math.abs(skater.v) * dt;
+                    let loss = (params.fric * params.mass * params.g) * dist;
+                    skater.thermal += loss;
+                }
+
+                let omega = skater.v / R_meters;
+                skater.angle += omega * dt;
+
+                if(skater.angle > Math.PI/2) { skater.angle = Math.PI/2; skater.v = 0; }
+                if(skater.angle < -Math.PI/2) { skater.angle = -Math.PI/2; skater.v = 0; }
+
+                h = R_meters * (1 - Math.cos(skater.angle)); 
+                v = Math.abs(skater.v);
+                
+                pe = params.mass * params.g * h;
+                ke = 0.5 * params.mass * v * v;
+                th = skater.thermal;
+                tot = pe + ke + th;
+
+            } else {
+                // Throw
+                if(ball.active) {
+                    let F_grav = -params.mass * params.g;
+                    let F_drag = -params.drag * params.mass * ball.v * 0.5; 
+                    let a = (F_grav + F_drag) / params.mass;
+                    
+                    ball.v += a * dt;
+                    ball.y += ball.v * dt;
+
+                    if(ball.y < 0) {
+                        ball.y = 0;
+                        ball.v = 0; 
+                        ball.active = false;
+                    }
+                }
+
+                h = ball.y;
+                v = Math.abs(ball.v);
+                
+                pe = params.mass * params.g * h;
+                ke = 0.5 * params.mass * v * v;
+                
+                if(ball.active || h>0) {
+                    th = ball.startE - (pe + ke);
+                    if(th < 0) th = 0;
+                } else {
+                    pe = 0; ke = 0; th = 0;
+                }
+                tot = pe + ke + th;
+            }
+
+            // Update UI Numbers
+            document.getElementById('d-ke').innerText = Math.round(ke);
+            document.getElementById('d-pe').innerText = Math.round(pe);
+            document.getElementById('d-th').innerText = Math.round(th);
+            document.getElementById('d-total').innerText = Math.round(tot);
+            document.getElementById('d-h').innerText = h.toFixed(1);
+            document.getElementById('d-v').innerText = v.toFixed(1);
+
+            // Update Graph
+            time++;
+            if(time % 5 === 0 && (mode==='skater' || ball.active)) {
+                let tSec = (time/60).toFixed(1);
+                if(chart.data.labels.length > 60) {
+                    chart.data.labels.shift();
+                    chart.data.datasets.forEach(d=>d.data.shift());
+                }
+                chart.data.labels.push(tSec);
+                chart.data.datasets[0].data.push(ke);
+                chart.data.datasets[1].data.push(pe);
+                chart.data.datasets[2].data.push(tot);
+                chart.update('none');
+            }
+
+            return { ke, pe, th, tot };
+        }
+
+        // --- 绘图 ---
+        function draw(energy) {
+            ctx.clearRect(0, 0, width, height);
+
+            // 绘制悬浮柱状图
+            drawBarChart(energy);
+
+            if(mode === 'skater') {
+                const cx = width/2;
+                const cy = height - 50 - 300; 
+                const R = 300; 
+                
+                ctx.beginPath();
+                ctx.arc(cx, cy, R, 0, Math.PI, false);
+                ctx.strokeStyle = "#64748b"; ctx.lineWidth = 10; ctx.stroke();
+
+                let angle = skater.angle + Math.PI/2; 
+                let sx = cx + R * Math.cos(angle);
+                let sy = cy + R * Math.sin(angle);
+
+                ctx.beginPath(); ctx.arc(sx, sy-15, 12, 0, 6.28);
+                ctx.fillStyle = "#e11d48"; ctx.fill();
+                
+            } else {
+                // Throw
+                ctx.fillStyle = "#475569";
+                ctx.fillRect(0, height-20, width, 20);
+                
+                // Auto Scale for High throws
+                let scaleY = 1; 
+                if(ball.y > 400) scaleY = 400 / ball.y; // 简单缩放
+                if(scaleY < 0.2) scaleY = 0.2; // 最小缩放
+
+                let by = height - 20 - (ball.y * scaleY);
+                
+                // Ball
+                ctx.beginPath();
+                ctx.arc(width/2, by - 10, 10, 0, 6.28);
+                ctx.fillStyle = "#facc15"; ctx.fill();
+                
+                // Scale markers
+                ctx.fillStyle = "#666";
+                for(let i=0; i<=1000; i+=50) {
+                    let y = height - 20 - i*scaleY;
+                    if(y > 0) {
+                        ctx.fillRect(width/2 + 20, y, 10, 1);
+                        ctx.fillText(i+"m", width/2 + 35, y+3);
+                    }
+                }
+            }
+        }
+
+        function drawBarChart(e) {
+            const barW = 20;
+            const maxH = 150;
+            const startX = width - 100;
+            const startY = 50;
+            const base = startY + maxH;
+            
+            let total = e.tot > 0 ? e.tot : 1;
+            
+            let hKE = (e.ke / total) * maxH;
+            let hPE = (e.pe / total) * maxH;
+            let hTH = (e.th / total) * maxH;
+
+            // KE
+            ctx.fillStyle = "#22c55e";
+            ctx.fillRect(startX, base - hKE, barW, hKE);
+            ctx.fillText("KE", startX, base + 15);
+
+            // PE
+            ctx.fillStyle = "#3b82f6";
+            ctx.fillRect(startX + 30, base - hPE, barW, hPE);
+            ctx.fillText("PE", startX + 30, base + 15);
+
+            // TH
+            ctx.fillStyle = "#f97316";
+            ctx.fillRect(startX + 60, base - hTH, barW, hTH);
+            ctx.fillText("TH", startX + 60, base + 15);
+            
+            // Total Line
+            ctx.strokeStyle = "#eab308";
+            ctx.beginPath(); ctx.moveTo(startX-10, startY); ctx.lineTo(startX+90, startY); ctx.stroke();
+            ctx.fillStyle = "#eab308"; ctx.fillText("Total", startX, startY - 5);
+        }
+
+        function animate() {
+            if(!isPaused) {
+                currentEnergy = updatePhysics();
+            }
+            // 即使暂停也要绘制，防止画面消失
+            draw(currentEnergy);
+            requestAnimationFrame(animate);
+        }
+
+        // --- 图表初始化 ---
+        function initChart() {
+            const ctxC = document.getElementById('energyChart').getContext('2d');
+            chart = new Chart(ctxC, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        { label: 'Kinetic (Ek)', data: [], borderColor: '#22c55e', borderWidth: 2, pointRadius: 0, fill: false },
+                        { label: 'Potential (Ep)', data: [], borderColor: '#3b82f6', borderWidth: 2, pointRadius: 0, fill: false },
+                        { label: 'Total (E)', data: [], borderColor: '#f8fafc', borderWidth: 2, borderDash: [5,5], pointRadius: 0, fill: false }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        x: { display: true, grid: {color: '#334155'}, ticks: {color:'#94a3b8'} },
+                        y: { display: true, grid: {color: '#334155'}, ticks: {color:'#94a3b8'}, title: {display:true, text:'Energy (J)', color:'#cbd5e1'} }
+                    },
+                    plugins: { legend: { labels: { color: '#cbd5e1' } } }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

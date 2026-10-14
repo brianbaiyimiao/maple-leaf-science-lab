@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lever Efficiency Lab Pro - MLWS</title>
+    <style>
+        :root { --primary: #eab308; --dark: #0f172a; --accent: #22c55e; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f8fafc; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        .nav { background: var(--dark); color: white; padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .back-btn { color: white; text-decoration: none; border: 1px solid #444; padding: 5px 12px; border-radius: 4px; font-size: 13px; }
+
+        .workspace { display: grid; grid-template-columns: 320px 1fr 380px; gap: 15px; padding: 15px; flex: 1; overflow: hidden; }
+        .card { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; display: flex; flex-direction: column; }
+        h3 { margin-top: 0; border-left: 4px solid var(--primary); padding-left: 10px; font-size: 16px; margin-bottom: 15px; }
+
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-size: 12px; font-weight: bold; color: #64748b; margin-bottom: 5px; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .val-span { float: right; color: var(--primary); font-weight: bold; }
+        
+        .btn-main { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 10px; }
+        .btn-secondary { background: #64748b; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; width: 100%; }
+
+        .sim-box { position: relative; background: #fff; border: 1px solid #eee; overflow: hidden; }
+        canvas { width: 100%; height: 100%; }
+
+        .table-wrap { flex: 1; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 5px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th { background: #f8fafc; padding: 8px; position: sticky; top: 0; border-bottom: 1px solid #eee; }
+        td { padding: 8px; text-align: center; border-bottom: 1px solid #f8fafc; }
+
+        .data-display { background: var(--dark); color: #38bdf8; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 13px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit4.html" class="back-btn">⬅ Back</a>
+        <h2 style="margin:0; font-size: 18px;">Physics 11: Lever & Efficiency (Interactive)</h2>
+        <span style="font-size: 12px; opacity: 0.8;">Maple Leaf High School Lab</span>
+    </div>
+
+    <div class="workspace">
+        <div class="card">
+            <h3>Lab Configuration</h3>
+            <div class="control-group">
+                <label>Fulcrum Position <span class="val-span" id="pos-val">0 cm</span></label>
+                <input type="range" id="input-pos" min="-150" max="150" step="1" value="0">
+            </div>
+            <div class="control-group">
+                <label>Load Mass (m) <span class="val-span" id="mass-val">5.0 kg</span></label>
+                <input type="range" id="input-mass" min="1" max="20" step="0.5" value="5">
+            </div>
+            <div class="control-group">
+                <label>Pivot Friction <span class="val-span" id="fric-val">5%</span></label>
+                <input type="range" id="input-fric" min="0" max="50" step="1" value="5">
+            </div>
+
+            <button class="btn-main" id="btn-reset">RESET SYSTEM (一键复原)</button>
+            <button class="btn-main" id="btn-record" style="background: var(--accent);">LOG DATA POINT</button>
+
+            <div class="data-display" id="stat-box">
+                MA (Ideal): 1.00<br>
+                Effort Force: --- N<br>
+                Efficiency: 95%
+            </div>
+        </div>
+
+        <div class="card sim-box">
+            <p style="position:absolute; top:10px; right:20px; font-size:12px; color:#94a3b8;">
+                Drag the <b>Yellow Ball</b> to move the lever!
+            </p>
+            <canvas id="leverCanvas"></canvas>
+        </div>
+
+        <div class="card">
+            <h3>Experiment Data Table</h3>
+            <div class="table-wrap">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>Trial</th>
+                            <th>L1 (Load)</th>
+                            <th>L2 (Effort)</th>
+                            <th>F_load(N)</th>
+                            <th>F_effort(N)</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <button class="btn-secondary" style="margin-top:10px;" onclick="document.querySelector('tbody').innerHTML=''">Clear Table</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('leverCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let fulcrumX = 0, mass = 5, friction = 5, angle = 0, isDragging = false, trialCount = 0;
+
+        // 核心修复：彻底解决鼠标松开不释放的问题
+        window.addEventListener('mouseup', () => { 
+            isDragging = false; 
+            document.querySelectorAll('input').forEach(i => i.blur());
+        });
+
+        function resize() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight - 60;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // 控件事件
+        document.getElementById('input-pos').oninput = (e) => { fulcrumX = parseInt(e.target.value); resetAngle(); };
+        document.getElementById('input-mass').oninput = (e) => { mass = parseFloat(e.target.value); resetAngle(); };
+        document.getElementById('input-fric').oninput = (e) => { friction = parseInt(e.target.value); resetAngle(); };
+        document.getElementById('btn-reset').onclick = resetAngle;
+
+        function resetAngle() {
+            angle = 0;
+            document.getElementById('pos-val').innerText = fulcrumX + " cm";
+            document.getElementById('mass-val').innerText = mass.toFixed(1) + " kg";
+            document.getElementById('fric-val').innerText = friction + "%";
+            updateStats();
+        }
+
+        // 鼠标交互检测
+        canvas.onmousedown = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            
+            // 计算右侧手柄当前的实时位置
+            const cx = canvas.width/2 + fulcrumX;
+            const cy = canvas.height/2;
+            const handX = cx + (200 - fulcrumX) * Math.cos(angle);
+            const handY = cy + (200 - fulcrumX) * Math.sin(angle);
+
+            // 如果点击位置靠近手柄
+            if(Math.hypot(mx-handX, my-handY) < 40) isDragging = true;
+        };
+
+        canvas.onmousemove = (e) => {
+            if(isDragging) {
+                const rect = canvas.getBoundingClientRect();
+                const dy = (e.clientY - rect.top) - (canvas.height/2);
+                const dx = (e.clientX - rect.left) - (canvas.width/2 + fulcrumX);
+                angle = Math.max(-0.6, Math.min(0.6, Math.atan2(dy, dx)));
+                updateStats();
+            }
+        };
+
+        function updateStats() {
+            const L1 = 200 + fulcrumX, L2 = 200 - fulcrumX;
+            const ma = L2 / L1;
+            const eff = (100 - friction) / 100;
+            const Fe = (mass * 9.8) / (ma * eff);
+            document.getElementById('stat-box').innerHTML = `MA (Ideal): ${ma.toFixed(2)}<br>Effort Force: ${Fe.toFixed(1)} N<br>Efficiency: ${100-friction}%`;
+        }
+
+        document.getElementById('btn-record').onclick = () => {
+            trialCount++;
+            const L1 = 200 + fulcrumX, L2 = 200 - fulcrumX;
+            const Fl = (mass * 9.8).toFixed(1);
+            const Fe = (Fl / ((L2/L1) * (100-friction)/100)).toFixed(1);
+            const row = `<tr><td>#${trialCount}</td><td>${L1}</td><td>${L2}</td><td>${Fl}</td><td>${Fe}</td></tr>`;
+            document.querySelector('tbody').innerHTML = row + document.querySelector('tbody').innerHTML;
+        };
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const cx = canvas.width / 2 + fulcrumX; // 支点随滑块移动
+            const cy = canvas.height / 2;
+
+            // 1. 支架 (地面上的三角形)
+            ctx.beginPath();
+            ctx.moveTo(cx, cy); ctx.lineTo(cx-25, cy+50); ctx.lineTo(cx+25, cy+50); ctx.closePath();
+            ctx.fillStyle = "#475569"; ctx.fill();
+
+            // 2. 杠杆梁 (随支点移动和转动)
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(angle);
+            
+            // 梁主体 (固定总长 400px，支点在中间)
+            ctx.fillStyle = "#cbd5e1";
+            ctx.fillRect(-200 - fulcrumX, -6, 400, 12);
+            ctx.strokeStyle = "#94a3b8"; ctx.strokeRect(-200 - fulcrumX, -6, 400, 12);
+
+            // 负载 (左侧)
+            const lx = -200 - fulcrumX + 20;
+            ctx.fillStyle = "#1e293b";
+            ctx.fillRect(lx - 25, -35, 50, 30);
+            ctx.fillStyle = "white"; ctx.font = "bold 11px Arial";
+            ctx.fillText(mass + "kg", lx - 18, -15);
+
+            // 动力操作球 (右侧黄色球)
+            const ex = 200 - fulcrumX - 20;
+            ctx.beginPath(); ctx.arc(ex, 0, 15, 0, Math.PI*2);
+            ctx.fillStyle = "#eab308"; ctx.fill();
+            ctx.strokeStyle = "#854d0e"; ctx.lineWidth = 2; ctx.stroke();
+
+            ctx.restore();
+
+            requestAnimationFrame(draw);
+        }
+
+        resetAngle();
+        draw();
+    </script>
+</body>
+</html>

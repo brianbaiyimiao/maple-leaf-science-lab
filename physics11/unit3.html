@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unit 3: Momentum Labs</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        body { 
+            background: #f0f2f5; 
+            font-family: 'Segoe UI', sans-serif; 
+            text-align: center; 
+            margin: 0; 
+        }
+        
+        /* 顶部导航栏 - 动量单元主题色 (橙色) */
+        .top-nav {
+            background: #f59e0b; 
+            padding: 15px 30px; 
+            display: flex; 
+            align-items: center; 
+            color: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .back-btn {
+            color: white; 
+            text-decoration: none; 
+            border: 1px solid rgba(255,255,255,0.4);
+            padding: 8px 15px; 
+            border-radius: 5px; 
+            transition: all 0.2s; 
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        .back-btn:hover { background: rgba(255,255,255,0.2); }
+        .page-title { margin-left: 20px; font-size: 1.4rem; font-weight: bold; letter-spacing: 1px; }
+
+        /* 卡片容器 */
+        .container {
+            max-width: 1100px; 
+            margin: 50px auto; 
+            display: flex; 
+            flex-wrap: wrap; 
+            justify-content: center; 
+            gap: 30px; 
+            padding: 20px;
+        }
+        
+        /* 实验卡片样式 */
+        .lab-entry {
+            background: white; 
+            padding: 30px; 
+            border-radius: 12px; 
+            text-decoration: none; 
+            color: #333;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05); 
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 260px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center;
+            border-top: 6px solid #ccc;
+            cursor: pointer;
+        }
+        .lab-entry:hover { 
+            transform: translateY(-8px); 
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15); 
+        }
+        
+        .icon { font-size: 3.5rem; margin-bottom: 15px; }
+        h2 { font-size: 1.3rem; margin: 10px 0; color: #b45309; font-weight: bold; }
+        p { color: #666; line-height: 1.5; font-size: 0.9rem; }
+
+        /* 颜色区分 */
+        .card-inelastic { border-top-color: #8b5cf6; } /* 紫色 */
+        .card-1d { border-top-color: #3b82f6; } /* 蓝色 */
+        .card-2d { border-top-color: #10b981; } /* 绿色 */
+        .card-impulse { border-top-color: #ef4444; } /* 红色 */
+
+    </style>
+</head>
+<body>
+
+    <div class="top-nav">
+        <a href="index.html" class="back-btn">⬅ Back to Units</a>
+        <span class="page-title">💥 Unit 3: Momentum & Impulse</span>
+    </div>
+
+    <div class="container">
+        
+        <a href="collision-inelastic.html" class="lab-entry card-inelastic">
+            <div class="icon">🎇</div>
+            <h2>Inelastic / Explosion</h2>
+            <p>Stick Collisions & Fireworks</p>
+        </a>
+
+        <a href="collision-1d-elastic.html" class="lab-entry card-1d">
+            <div class="icon">➖</div>
+            <h2>1D Elastic Solver</h2>
+            <p>Linear Collision & Unknowns</p>
+        </a>
+
+        <a href="collision-2d-elastic.html" class="lab-entry card-2d">
+            <div class="icon">🎱</div>
+            <h2>2D Elastic Solver</h2>
+            <p>Angled Scattering Problems</p>
+        </a>
+
+        <a href="impulse-lab.html" class="lab-entry card-impulse">
+            <div class="icon">🥚</div>
+            <h2>Impulse & Safety</h2>
+            <p>Egg Drop Challenge</p>
+        </a>
+
+    </div>
+
+</body>
+</html>

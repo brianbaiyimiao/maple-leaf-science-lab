@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>1D Elastic Universal Solver</title>
+    <style>
+        :root { --bg:#0f172a; --panel:#1e293b; --text:#e2e8f0; --accent:#38bdf8; --c1:#ef4444; --c2:#3b82f6; --res:#10b981; --math:'Courier New',monospace; }
+        body { margin:0; background:var(--bg); color:var(--text); font-family:'Segoe UI',sans-serif; display:flex; height:100vh; overflow:hidden; }
+        
+        /* Sidebar */
+        .sidebar { width:350px; background:var(--panel); padding:20px; border-right:1px solid #334155; display:flex; flex-direction:column; z-index:10; box-shadow:5px 0 15px #000; }
+        .header { border-bottom:1px solid #334155; padding-bottom:10px; margin-bottom:15px; }
+        h2 { margin:0; color:var(--accent); }
+        .back { color:#94a3b8; text-decoration:none; font-size:0.85rem; }
+
+        /* Input Cards */
+        .card { background:#0f172a; border:1px solid #334155; border-radius:8px; padding:12px; margin-bottom:15px; border-left:5px solid #ccc; }
+        .card h4 { margin:0 0 10px 0; font-size:0.9rem; font-weight:bold; color:#fff; display:flex; justify-content:space-between; }
+        
+        .grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+        .field { display:flex; flex-direction:column; }
+        .field label { font-size:0.7rem; color:#94a3b8; display:block; margin-bottom:2px; }
+        
+        input { 
+            width:100%; padding:8px; background:#1e293b; color:#fff; border:1px solid #475569; 
+            border-radius:4px; text-align:center; font-family:var(--math); font-weight:bold; font-size:1rem;
+        }
+        input:focus { outline:none; border-color:var(--accent); background:#2d3748; }
+        
+        /* Dynamic State Styles */
+        .unknown { border-color:#f59e0b !important; color:#f59e0b !important; background:rgba(245, 158, 11, 0.1) !important; }
+        .solved { border-color:var(--res) !important; color:var(--res) !important; background:rgba(16, 185, 129, 0.1) !important; }
+
+        /* Buttons */
+        .btn { width:100%; padding:15px; border:none; border-radius:6px; font-weight:bold; cursor:pointer; margin-top:5px; font-size:1rem; transition:0.2s; }
+        .btn-solve { background:var(--res); color:#000; margin-top:auto; }
+        .btn-solve:hover { filter:brightness(1.1); }
+        
+        /* Clear Button */
+        .btn-clear { background:transparent; border:1px solid #ef4444; color:#ef4444; margin-top:10px; padding:10px; font-size:0.9rem; }
+        .btn-clear:hover { background:#ef4444; color:#fff; }
+
+        /* Viewport */
+        .viewport { flex:1; position:relative; background:#111827; display:flex; justify-content:center; align-items:center; overflow:hidden; }
+        canvas { z-index:2; }
+        .track { position:absolute; width:100%; height:4px; background:#334155; top:50%; margin-top:-2px; }
+        
+        /* Log */
+        .log-box { 
+            position:absolute; bottom:0; left:0; width:100%; height:180px; 
+            background:rgba(0,0,0,0.95); border-top:1px solid #334155; padding:20px; 
+            overflow-y:auto; font-family:var(--math); font-size:0.85rem; color:#ccc; z-index:20;
+        }
+        .step { margin-bottom:8px; padding-bottom:8px; border-bottom:1px dashed #333; }
+        .hl { color:var(--res); font-weight:bold; }
+        .err { color:#ef4444; font-weight:bold; }
+
+        /* Animation Controls */
+        .controls { position:absolute; bottom:200px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:20; background:rgba(0,0,0,0.8); padding:5px 15px; border-radius:20px; align-items:center;}
+        #time-display { position:absolute; top:20px; right:20px; font-family:monospace; color:#666; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="header"><a href="unit3.html" class="back">⬅ Back to Unit 3</a><h2>➖ 1D Elastic Solver</h2></div>
+    
+    <div style="font-size:0.8rem; color:#888; margin-bottom:15px; text-align:center;">
+        Enter knowns. Type <b>?</b> for unknowns.<br>
+        (Max 2 unknowns allowed)
+    </div>
+
+    <div class="card" style="border-color:var(--c1)">
+        <h4 class="card-h" style="color:var(--c1)">Object 1 (Red)</h4>
+        <div class="grid">
+            <div class="field"><label>Mass (kg)</label><input id="m1" type="text" value="0.75" onfocus="clean(this)" onblur="check(this)"></div>
+            <div class="field"><label>Init V (m/s)</label><input id="u1" type="text" value="22" onfocus="clean(this)" onblur="check(this)"></div>
+            <div class="field"><label>Final V (m/s)</label><input id="v1" type="text" value="?" class="unknown" onfocus="clean(this)" onblur="check(this)"></div>
+        </div>
+    </div>
+
+    <div class="card" style="border-color:var(--c2)">
+        <h4 class="card-h" style="color:var(--c2)">Object 2 (Blue)</h4>
+        <div class="grid">
+            <div class="field"><label>Mass (kg)</label><input id="m2" type="text" value="0.05" onfocus="clean(this)" onblur="check(this)"></div>
+            <div class="field"><label>Init V (m/s)</label><input id="u2" type="text" value="?" class="unknown" onfocus="clean(this)" onblur="check(this)"></div>
+            <div class="field"><label>Final V (m/s)</label><input id="v2" type="text" value="54.38" onfocus="clean(this)" onblur="check(this)"></div>
+        </div>
+    </div>
+
+    <button class="btn btn-solve" onclick="solve()">🧮 SOLVE & ANIMATE</button>
+    <button class="btn btn-clear" onclick="clearAll()">Clear All</button>
+</div>
+
+<div class="viewport">
+    <div class="track"></div>
+    <div id="time-display">T: 0.00s</div>
+    <canvas id="c"></canvas>
+    
+    <div class="controls">
+        <button id="btn-pause" style="background:none; border:none; color:#fff; font-size:1.2rem; cursor:pointer;" onclick="togglePause()">⏸</button>
+        <span style="color:#aaa; font-size:0.8rem;">Speed:</span>
+        <input type="range" id="speed" min="0.1" max="2.0" step="0.1" value="0.5" style="width:80px">
+    </div>
+
+    <div class="log-box" id="log">
+        Ready. Default values set for "Golf Ball" problem.<br>
+        Click "Clear All" to start fresh.
+    </div>
+</div>
+
+<script>
+    const cvs = document.getElementById('c');
+    const ctx = cvs.getContext('2d');
+    let W, H;
+    
+    // Animation State
+    let running = false, paused = false, t = 0;
+    const IMPACT_TIME = 2.0; 
+    let SCALE = 20; 
+    let sim = { m1:0, m2:0, u1:0, u2:0, v1:0, v2:0 };
+
+    window.onload = () => { resize(); drawEmpty(); };
+    window.onresize = resize;
+
+    function resize() {
+        W = cvs.width = cvs.parentElement.clientWidth;
+        H = cvs.height = cvs.parentElement.clientHeight;
+        if(!running) drawEmpty();
+    }
+
+    // --- UI Logic ---
+    function clean(el) {
+        if(el.value === '?') el.value = '';
+    }
+    function check(el) {
+        el.classList.remove('solved');
+        if(el.value.trim() === '' || el.value.trim() === '?') {
+            el.value = '?';
+            el.classList.add('unknown');
+        } else {
+            el.classList.remove('unknown');
+        }
+    }
+
+    function clearAll() {
+        document.querySelectorAll('input').forEach(i => {
+            i.value = '?';
+            check(i);
+        });
+        resetLog();
+        log("All inputs cleared. Please enter new values.");
+        running = false;
+        drawEmpty();
+    }
+
+    function getVal(id) {
+        let v = document.getElementById(id).value.trim();
+        return (v==='?' || v==='') ? null : parseFloat(v);
+    }
+    function setVal(id, v) {
+        let el = document.getElementById(id);
+        el.value = v.toFixed(2);
+        el.classList.remove('unknown');
+        el.classList.add('solved');
+    }
+
+    function log(msg, type='info') {
+        const l = document.getElementById('log');
+        let color = type==='err' ? 'class="err"' : '';
+        l.innerHTML += `<div class="step" ${color}>${msg}</div>`;
+        l.scrollTop = l.scrollHeight;
+    }
+    function resetLog() { document.getElementById('log').innerHTML = ""; }
+
+    // --- CORE SOLVER ---
+    function solve() {
+        resetLog();
+        document.querySelectorAll('.solved').forEach(i => i.classList.remove('solved'));
+
+        // 1. Read Data
+        let data = {
+            m1: getVal('m1'), m2: getVal('m2'),
+            u1: getVal('u1'), u2: getVal('u2'),
+            v1: getVal('v1'), v2: getVal('v2')
+        };
+
+        // 2. Check Unknowns
+        let unknowns = [];
+        for(let k in data) if(data[k] === null) unknowns.push(k);
+
+        if(unknowns.length > 2) {
+            log("Error: Too many unknowns (Max 2).", "err"); return;
+        }
+        if(unknowns.length === 0) {
+            log("All values known. Animating...");
+            startAnim(data.m1, data.m2, data.u1, data.u2, data.v1, data.v2);
+            return;
+        }
+
+        // Case A: Unknown Mass (1 or 2)
+        if(unknowns.includes('m1') || unknowns.includes('m2')) {
+            if(data.u1===null || data.u2===null || data.v1===null || data.v2===null) {
+                log("Error: All 4 velocities required to find Mass.", "err"); return;
+            }
+            let num = data.u2 - data.v2;
+            let den = data.v1 - data.u1;
+            
+            if(Math.abs(den) < 0.001) { log("Error: Invalid velocities for mass calc.", "err"); return; }
+            let ratio = num / den;
+            
+            if(ratio < 0) { log("Error: Physics impossible (Negative Mass).", "err"); return; }
+
+            if(data.m1 === null) {
+                data.m1 = data.m2 * ratio;
+                setVal('m1', data.m1);
+            } else {
+                data.m2 = data.m1 / ratio;
+                setVal('m2', data.m2);
+            }
+            log(`<b>Solved Mass:</b> Using Momentum Conservation.`);
+        }
+
+        // Case B: Unknown Velocities (Linear System)
+        let velKeys = unknowns.filter(k => ['u1','u2','v1','v2'].includes(k));
+        
+        if(velKeys.length > 0) {
+            if(data.m1===null || data.m2===null) return; 
+
+            let eq1 = { u1: data.m1, u2: data.m2, v1: -data.m1, v2: -data.m2, rhs: 0 };
+            let eq2 = { u1: 1,       u2: -1,      v1: 1,        v2: -1,       rhs: 0 };
+            
+            let rhs1 = 0, rhs2 = 0;
+            ['u1','u2','v1','v2'].forEach(k => {
+                if(!velKeys.includes(k)) {
+                    rhs1 -= eq1[k] * data[k];
+                    rhs2 -= eq2[k] * data[k];
+                }
+            });
+
+            if (velKeys.length === 1) {
+                let k = velKeys[0];
+                let res = rhs1 / eq1[k];
+                setVal(k, res);
+                data[k] = res;
+                log(`<b>Solved:</b> ${k} = ${res.toFixed(2)}`);
+            } 
+            else if(velKeys.length === 2) {
+                let k1 = velKeys[0], k2 = velKeys[1];
+                let a1 = eq1[k1], b1 = eq1[k2];
+                let a2 = eq2[k1], b2 = eq2[k2];
+                let det = a1*b2 - a2*b1;
+                
+                if(Math.abs(det) < 1e-5) { log("Error: Indeterminate system.", "err"); return; }
+                
+                let res1 = (rhs1*b2 - rhs2*b1) / det;
+                let res2 = (a1*rhs2 - a2*rhs1) / det;
+                
+                setVal(k1, res1); data[k1] = res1;
+                setVal(k2, res2); data[k2] = res2;
+                log(`<b>Solved:</b> ${k1} = ${res1.toFixed(2)}, ${k2} = ${res2.toFixed(2)}`);
+            }
+        }
+
+        startAnim(data.m1, data.m2, data.u1, data.u2, data.v1, data.v2);
+    }
+
+    // --- ANIMATION ---
+    function startAnim(m1, m2, u1, u2, v1, v2) {
+        let maxV = Math.max(Math.abs(u1), Math.abs(u2), Math.abs(v1), Math.abs(v2));
+        if(maxV < 1) maxV = 1;
+        SCALE = (W * 0.4) / (maxV * (IMPACT_TIME + 1));
+
+        let cx = W / 2;
+        // Start Pos
+        sim = {
+            m1, m2, u1, u2, v1, v2,
+            start1: cx - u1 * SCALE * IMPACT_TIME,
+            start2: cx - u2 * SCALE * IMPACT_TIME
+        };
+        
+        // Adjust for radius (visual fix)
+        // If chasing, logic still holds for Center of Mass
+        // Simple offset to prevent overlap at T=Impact
+        let r1 = 15+m1*2; if(r1>40) r1=40;
+        let r2 = 15+m2*2; if(r2>40) r2=40;
+        // Assuming collision is Left-Right order? 
+        // Let's just let them overlap at t=Impact for mathematical purity of center-mass collision.
+        
+        t = 0; running = true; paused = false;
+        document.getElementById('btn-pause').innerText = "⏸";
+        requestAnimationFrame(loop);
+    }
+
+    function loop() {
+        if(!running) return;
+        
+        let speed = parseFloat(document.getElementById('speed').value);
+        if(!paused) t += (1/60) * speed;
+
+        ctx.clearRect(0,0,W,H);
+        let cy = H/2;
+        
+        // Track
+        ctx.fillStyle="#334155"; ctx.fillRect(0, cy-2, W, 4);
+        ctx.strokeStyle="#555"; ctx.beginPath(); ctx.moveTo(W/2, cy-20); ctx.lineTo(W/2, cy+20); ctx.stroke();
+
+        // Positions
+        let x1, x2, curV1, curV2;
+        if(t < IMPACT_TIME) {
+            x1 = sim.start1 + sim.u1 * SCALE * t;
+            x2 = sim.start2 + sim.u2 * SCALE * t;
+            curV1 = sim.u1; curV2 = sim.u2;
+        } else {
+            let dt = t - IMPACT_TIME;
+            // Start from center
+            x1 = (W/2) + sim.v1 * SCALE * dt;
+            x2 = (W/2) + sim.v2 * SCALE * dt;
+            curV1 = sim.v1; curV2 = sim.v2;
+
+            // Flash
+            if(dt < 0.15) {
+                ctx.fillStyle="rgba(255,255,255,0.6)"; ctx.beginPath(); ctx.arc(W/2, cy, 50, 0, 6.28); ctx.fill();
+            }
+        }
+
+        drawBall(x1, cy, '#ef4444', sim.m1, curV1);
+        drawBall(x2, cy, '#3b82f6', sim.m2, curV2);
+
+        document.getElementById('time-display').innerText = `T: ${t.toFixed(2)}s`;
+
+        if(t < IMPACT_TIME + 3.0) requestAnimationFrame(loop);
+        else running = false;
+    }
+
+    function drawBall(x, y, c, m, v) {
+        let r = 15 + m*2; if(r>40) r=40;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, 6.28); ctx.fillStyle=c; ctx.fill();
+        ctx.strokeStyle="#fff"; ctx.lineWidth=2; ctx.stroke();
+        
+        ctx.fillStyle="#fff"; ctx.font="bold 12px Arial"; ctx.textAlign="center"; 
+        ctx.fillText(m+"kg", x, y+4);
+        
+        // Arrow
+        if(Math.abs(v) > 0.1) {
+            let len = v * 2 * (SCALE/20); 
+            let dir = Math.sign(v);
+            let ay = y - r - 10;
+            ctx.strokeStyle=c; ctx.lineWidth=2;
+            ctx.beginPath(); ctx.moveTo(x, ay); ctx.lineTo(x+len*5, ay); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x+len*5, ay);
+            ctx.lineTo(x+len*5 - 5*dir, ay-4); ctx.lineTo(x+len*5 - 5*dir, ay+4);
+            ctx.fillStyle=c; ctx.fill();
+            ctx.fillText(v.toFixed(2)+"m/s", x, ay-8);
+        }
+    }
+
+    function drawEmpty() { ctx.clearRect(0,0,W,H); ctx.fillStyle="#334155"; ctx.fillRect(0, H/2-2, W, 4); }
+    function togglePause() { paused=!paused; document.getElementById('btn-pause').innerText=paused?"▶":"⏸"; }
+</script>
+</body>
+</html>

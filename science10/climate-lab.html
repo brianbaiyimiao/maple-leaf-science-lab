@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unit 4: Earth & Climate Lab</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --panel-bg: #16213e;
+            --text-color: #e2e8f0;
+            --accent-blue: #3498db;
+            --accent-sun: #f1c40f;
+            --accent-heat: #e74c3c;
+            --tab-inactive: #2c3e50;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- 顶部导航栏 --- */
+        .top-nav {
+            background: #0f1520;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            height: 50px;
+        }
+        .back-btn {
+            color: #8ba6c1; text-decoration: none; border: 1px solid #333;
+            padding: 5px 12px; border-radius: 4px; font-size: 0.9rem; margin-right: 20px;
+        }
+        .back-btn:hover { background: #333; color: white; }
+
+        /* --- 选项卡设计 --- */
+        .tab-container {
+            display: flex;
+            background: #000;
+            border-bottom: 2px solid var(--accent-blue);
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            background: var(--tab-inactive);
+            color: #aaa;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            border-right: 1px solid #222;
+        }
+        .tab-btn:hover { background: #34495e; color: white; }
+        .tab-btn.active {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        /* --- 主内容区 (包含两个实验) --- */
+        .lab-wrapper {
+            flex: 1;
+            position: relative;
+            display: none; /* 默认隐藏，通过 JS 激活 */
+        }
+        .lab-wrapper.active {
+            display: flex;
+        }
+
+        /* =========================================
+           实验 A: Greenhouse (样式)
+           ========================================= */
+        .sidebar {
+            width: 300px; background: var(--panel-bg); padding: 20px;
+            border-right: 1px solid #30475e; display: flex; flex-direction: column; z-index: 10;
+        }
+        .viewport {
+            flex: 1; position: relative; overflow: hidden;
+            background: radial-gradient(circle at center, #1b262c 0%, #000 100%);
+            display: flex; justify-content: center; align-items: center;
+        }
+        
+        /* 控件通用样式 */
+        h3 { margin: 0 0 15px 0; color: var(--accent-blue); border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .control-group { margin-bottom: 25px; }
+        .label-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.9rem; color: #ccc; }
+        input[type=range] { width: 100%; cursor: pointer; }
+        .val-display { font-weight: bold; color: white; }
+
+        /* Greenhouse 特定动画元素 */
+        .sun-gh { position: absolute; top: -50px; left: -50px; width: 150px; height: 150px; background: radial-gradient(#f1c40f, #e67e22); border-radius: 50%; box-shadow: 0 0 80px #f39c12; }
+        .earth-container { width: 380px; height: 380px; position: relative; border-radius: 50%; }
+        .earth { width: 100%; height: 100%; border-radius: 50%; background: #2980b9; overflow: hidden; position: relative; box-shadow: inset -50px -20px 100px rgba(0,0,0,0.8); }
+        .atmosphere { position: absolute; top: -20px; left: -20px; right: -20px; bottom: -20px; border-radius: 50%; border: 2px solid rgba(74, 163, 223, 0.3); box-shadow: 0 0 50px rgba(74, 163, 223, 0.2); pointer-events: none; transition: all 0.5s; }
+        .ice-cap { position: absolute; left: 0; width: 100%; background: #fff; opacity: 0.8; transition: height 0.5s; }
+        #gh-energy-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        
+        .temp-display { background: #000; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid var(--accent-blue); margin-top: auto; }
+        .temp-val { font-size: 2.5rem; font-weight: bold; }
+
+        /* =========================================
+           实验 B: Solar (样式)
+           ========================================= */
+        .sol-view { flex: 1; display: flex; flex-direction: column; }
+        .sol-canvas-area { flex: 6; position: relative; background: radial-gradient(circle at center, #2c3e50 0%, #000 100%); overflow: hidden; border-bottom: 2px solid #333; }
+        .sol-chart-area { flex: 4; background: #181818; padding: 20px; position: relative; }
+        
+        /* Solar 动画元素 */
+        #sol-beam { position: absolute; top: -50px; left: 50%; transform: translateX(-50%); width: 100px; height: 800px; background: linear-gradient(to bottom, rgba(241, 196, 15, 0.6), rgba(241, 196, 15, 0)); pointer-events: none; transform-origin: top center; transition: transform 0.1s; }
+        #sol-ground { position: absolute; bottom: 0; left: 0; width: 100%; height: 120px; background: #2ecc71; display: flex; justify-content: center; align-items: flex-start; transition: background 0.3s; box-shadow: inset 0 20px 50px rgba(0,0,0,0.5); }
+        #sol-spot { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); width: 100px; height: 10px; background: rgba(255, 255, 255, 0.8); border-radius: 50%; box-shadow: 0 0 20px 10px rgba(255, 255, 200, 0.5); transition: width 0.1s, opacity 0.3s; }
+        
+        .grid-options { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        .opt-btn { background: #333; border: 1px solid #555; color: #ccc; padding: 6px; cursor: pointer; border-radius: 4px; font-size: 0.8rem; text-align: center; }
+        .opt-btn.active { background: var(--accent-blue); color: white; border-color: var(--accent-blue); }
+        select { width: 100%; padding: 5px; background: #121212; color: white; border: 1px solid #555; border-radius: 4px; }
+
+        /* Helper classes */
+        .hidden { display: none !important; }
+
+    </style>
+</head>
+<body>
+
+    <div class="top-nav">
+        <a href="index.html" class="back-btn">⬅ Back to Menu</a>
+        <div style="font-weight: bold; color: #fff;">Unit 4: Earth & Climate Systems</div>
+    </div>
+
+    <div class="tab-container">
+        <div class="tab-btn active" onclick="switchTab('greenhouse')">Experiment A: Energy Budget</div>
+        <div class="tab-btn" onclick="switchTab('solar')">Experiment B: Solar Insolation</div>
+    </div>
+
+    <div id="lab-greenhouse" class="lab-wrapper active">
+        
+        <div class="sidebar">
+            <h3>🌡️ Energy Budget Controls</h3>
+            
+            <div class="control-group">
+                <div class="label-row"><span>Solar Output</span><span id="gh-val-solar" class="val-display">100%</span></div>
+                <input type="range" id="gh-slider-solar" min="50" max="150" value="100" oninput="updateGreenhouse()">
+            </div>
+
+            <div class="control-group">
+                <div class="label-row"><span>Greenhouse Gases (CO₂)</span><span id="gh-val-ghg" class="val-display">Medium</span></div>
+                <input type="range" id="gh-slider-ghg" min="0" max="100" value="30" oninput="updateGreenhouse()">
+                <div style="font-size:0.75rem; color:#888; margin-top:5px;">Traps red heat radiation.</div>
+            </div>
+
+            <div class="control-group">
+                <div class="label-row"><span>Ice Coverage (Albedo)</span><span id="gh-val-ice" class="val-display">10%</span></div>
+                <input type="range" id="gh-slider-ice" min="0" max="50" value="10" oninput="updateGreenhouse()">
+                <div style="font-size:0.75rem; color:#888; margin-top:5px;">Reflects sunlight.</div>
+            </div>
+
+            <div class="temp-display">
+                <div id="gh-global-temp" class="temp-val">15°C</div>
+                <div style="font-size:0.8rem; color:#888;">Global Temperature</div>
+            </div>
+        </div>
+
+        <div class="viewport" id="gh-viewport">
+            <div class="sun-gh"></div>
+            
+            <div class="earth-container">
+                <div class="atmosphere" id="gh-atmos"></div>
+                <div class="earth">
+                    <div style="position:absolute; width:100%; height:100%; background-image: url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22 fill=%22%2327ae60%22><path d=%22M20,30 Q40,10 50,30 T80,50 T40,80 T10,50 Z%22 opacity=%220.6%22/></svg>'); background-size: cover;"></div>
+                    <div class="ice-cap" id="gh-ice-top" style="top:0; height:5%;"></div>
+                    <div class="ice-cap" id="gh-ice-btm" style="bottom:0; height:5%;"></div>
+                </div>
+            </div>
+
+            <canvas id="gh-energy-canvas"></canvas>
+        </div>
+    </div>
+
+    <div id="lab-solar" class="lab-wrapper">
+        
+        <div class="sidebar">
+            <h3>☀️ Solar Angles Controls</h3>
+
+            <div class="control-group">
+                <div class="label-row"><span>Latitude</span><span id="sol-val-lat" class="val-display">0°</span></div>
+                <input type="range" id="sol-slider-lat" min="0" max="90" value="0" oninput="updateSolar()">
+            </div>
+
+            <div class="control-group">
+                <div class="label-row"><span>Season (Tilt)</span></div>
+                <select id="sol-select-season" onchange="updateSolar()">
+                    <option value="0">Equinox (Spring/Fall)</option>
+                    <option value="23.5">Summer Solstice</option>
+                    <option value="-23.5">Winter Solstice</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <div class="label-row"><span>Surface Type</span></div>
+                <div class="grid-options">
+                    <div class="opt-btn active" id="btn-forest" onclick="setSolSurface('forest')">Forest</div>
+                    <div class="opt-btn" id="btn-ocean" onclick="setSolSurface('ocean')">Ocean</div>
+                    <div class="opt-btn" id="btn-sand" onclick="setSolSurface('sand')">Sand</div>
+                    <div class="opt-btn" id="btn-ice" onclick="setSolSurface('ice')">Ice</div>
+                </div>
+            </div>
+
+            <div class="temp-display" style="border-color: var(--accent-sun);">
+                <div id="sol-res-energy" class="temp-val" style="font-size:1.8rem; color:var(--accent-sun);">1000</div>
+                <div style="font-size:0.8rem;">Energy (W/m²)</div>
+            </div>
+        </div>
+
+        <div class="sol-view">
+            <div class="sol-canvas-area" id="sol-viewport">
+                <div id="sol-beam"></div>
+                <div id="sol-spot"></div>
+                <div style="position:absolute; bottom:100px; left:60%; color:white; font-weight:bold;" id="sol-angle-txt">90°</div>
+                <div id="sol-ground"></div>
+            </div>
+            <div class="sol-chart-area">
+                <canvas id="solChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ==================== TAB SYSTEM ==================== */
+        let currentTab = 'greenhouse';
+
+        function switchTab(tab) {
+            currentTab = tab;
+            // 更新按钮样式
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            if(tab === 'greenhouse') document.querySelectorAll('.tab-btn')[0].classList.add('active');
+            else document.querySelectorAll('.tab-btn')[1].classList.add('active');
+
+            // 切换显示区域
+            document.querySelectorAll('.lab-wrapper').forEach(d => d.classList.remove('active'));
+            document.getElementById('lab-' + tab).classList.add('active');
+
+            // 优化：切换时调整 Canvas 尺寸
+            if(tab === 'greenhouse') {
+                resizeGreenhouse();
+                if(!ghAnimationId) animateGreenhouse(); // 重启循环
+            } else {
+                // 停止 Greenhouse 循环以节省资源
+                if(ghAnimationId) cancelAnimationFrame(ghAnimationId);
+                ghAnimationId = null;
+                resizeSolar();
+            }
+        }
+
+        /* ==================== LOGIC: GREENHOUSE ==================== */
+        let ghParams = { solar: 100, ghg: 30, ice: 10 };
+        const ghCanvas = document.getElementById('gh-energy-canvas');
+        const ghCtx = ghCanvas.getContext('2d');
+        let ghParticles = [];
+        let ghAnimationId;
+
+        class Particle {
+            constructor(type) { this.type = type; this.reset(); }
+            reset() {
+                const w = ghCanvas.width; const h = ghCanvas.height;
+                if(this.type === 'sun') {
+                    this.x = 0; this.y = 0;
+                    this.tx = w/2 + (Math.random()*80-40); this.ty = h/2 + (Math.random()*80-40);
+                    let dist = Math.hypot(this.tx-this.x, this.ty-this.y);
+                    this.vx = (this.tx-this.x)/dist * 5; this.vy = (this.ty-this.y)/dist * 5;
+                    this.life = dist/5; this.state = 'in';
+                } else {
+                    let a = Math.random()*6.28; let r = 180;
+                    this.x = w/2 + Math.cos(a)*r; this.y = h/2 + Math.sin(a)*r;
+                    this.vx = (Math.random()-0.5)*2; this.vy = (Math.random()-0.5)*2;
+                    this.life = 100; this.state = 'out';
+                }
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy; this.life--;
+                // 阳光碰撞
+                if(this.type === 'sun' && this.life <= 0) {
+                    if(Math.random()*100 < ghParams.ice * 1.5) { // 反射
+                        this.vx *= -1; this.vy *= -1; this.life = 100; this.state = 'ref';
+                    } else { // 吸收
+                        if(Math.random() > 0.5) ghParticles.push(new Particle('heat'));
+                        this.reset();
+                    }
+                }
+                // 温室效应
+                if(this.type === 'heat' && this.state === 'out') {
+                    let dist = Math.hypot(this.x - ghCanvas.width/2, this.y - ghCanvas.height/2);
+                    if(dist > 220 && dist < 230 && Math.random()*100 < ghParams.ghg) {
+                        this.vx *= -1; this.vy *= -1; // Trapped
+                    }
+                }
+                if(this.life < -50 || this.x<0 || this.x>ghCanvas.width || this.y<0 || this.y>ghCanvas.height) this.reset();
+            }
+            draw() {
+                ghCtx.beginPath(); ghCtx.arc(this.x, this.y, this.type==='sun'?3:4, 0, 6.28);
+                ghCtx.fillStyle = this.type==='sun' ? (this.state==='ref'?'#fff':'#f1c40f') : '#e74c3c';
+                ghCtx.fill();
+            }
+        }
+
+        function updateGreenhouse() {
+            ghParams.solar = parseInt(document.getElementById('gh-slider-solar').value);
+            ghParams.ghg = parseInt(document.getElementById('gh-slider-ghg').value);
+            ghParams.ice = parseInt(document.getElementById('gh-slider-ice').value);
+
+            document.getElementById('gh-val-solar').innerText = ghParams.solar + '%';
+            document.getElementById('gh-val-ghg').innerText = ghParams.ghg + '%';
+            document.getElementById('gh-val-ice').innerText = ghParams.ice + '%';
+
+            // Update Visuals
+            let iceH = ghParams.ice + "%";
+            document.getElementById('gh-ice-top').style.height = iceH;
+            document.getElementById('gh-ice-btm').style.height = iceH;
+            
+            let op = 0.2 + (ghParams.ghg/200);
+            let sz = 50 + (ghParams.ghg/2);
+            document.getElementById('gh-atmos').style.boxShadow = `0 0 ${sz}px rgba(74,163,223,${op})`;
+
+            // Calc Temp
+            let temp = 15 + (ghParams.solar-100)*0.5 + (ghParams.ice-10)*-0.8 + (ghParams.ghg-30)*0.6;
+            let tEl = document.getElementById('gh-global-temp');
+            tEl.innerText = temp.toFixed(1) + "°C";
+            tEl.style.color = temp > 25 ? '#e74c3c' : (temp < 0 ? '#3498db' : '#fff');
+        }
+
+        function animateGreenhouse() {
+            if(currentTab !== 'greenhouse') return;
+            ghCtx.clearRect(0, 0, ghCanvas.width, ghCanvas.height);
+            // 粒子数量控制
+            let targetSun = Math.floor(ghParams.solar/3);
+            let curSun = ghParticles.filter(p=>p.type==='sun').length;
+            if(curSun < targetSun) ghParticles.push(new Particle('sun'));
+            else if(curSun > targetSun) ghParticles.splice(ghParticles.findIndex(p=>p.type==='sun'), 1);
+
+            ghParticles.forEach(p => { p.update(); p.draw(); });
+            ghAnimationId = requestAnimationFrame(animateGreenhouse);
+        }
+
+        function resizeGreenhouse() {
+            const el = document.getElementById('gh-viewport');
+            ghCanvas.width = el.clientWidth;
+            ghCanvas.height = el.clientHeight;
+        }
+
+        /* ==================== LOGIC: SOLAR ==================== */
+        let solParams = { lat: 0, tilt: 0, surface: 'forest' };
+        let solChart;
+        const ALBEDO = { ocean: 0.06, forest: 0.15, sand: 0.40, ice: 0.85 };
+        const SOL_COLORS = { ocean: '#2980b9', forest: '#2ecc71', sand: '#f39c12', ice: '#ecf0f1' };
+
+        function initSolarChart() {
+            const ctx = document.getElementById('solChart').getContext('2d');
+            solChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Surface Energy Budget'],
+                    datasets: [
+                        { label: 'Absorbed', data: [0], backgroundColor: '#e74c3c' },
+                        { label: 'Reflected (Albedo)', data: [0], backgroundColor: '#95a5a6' },
+                        { label: 'Lost (Angle/Atmos)', data: [0], backgroundColor: '#34495e' }
+                    ]
+                },
+                options: { 
+                    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                    scales: { x: { max: 1400, grid:{color:'#333'} }, y: { display:false } },
+                    plugins: { legend: { labels: { color:'#ccc' } } }
+                }
+            });
+        }
+
+        function setSolSurface(type) {
+            solParams.surface = type;
+            document.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-'+type).classList.add('active');
+            updateSolar();
+        }
+
+        function updateSolar() {
+            solParams.lat = parseInt(document.getElementById('sol-slider-lat').value);
+            solParams.tilt = parseFloat(document.getElementById('sol-select-season').value);
+            
+            document.getElementById('sol-val-lat').innerText = solParams.lat + "°";
+
+            // Physics
+            let angle = 90 - Math.abs(solParams.lat - solParams.tilt);
+            if(angle < 0) angle = 0;
+            
+            let spread = Math.sin(angle * Math.PI / 180);
+            let albedo = ALBEDO[solParams.surface];
+            
+            let raw = 1360 * spread; // 简化：没有云层
+            let absorbed = raw * (1 - albedo);
+            let reflected = raw * albedo;
+            let lost = 1360 - raw;
+
+            // UI
+            document.getElementById('sol-res-energy').innerText = Math.round(absorbed);
+            document.getElementById('sol-angle-txt').innerText = angle.toFixed(1) + "°";
+            
+            // Visuals
+            let rotate = 90 - angle;
+            document.getElementById('sol-beam').style.transform = `translateX(-50%) rotate(${rotate}deg)`;
+            let width = spread > 0.1 ? 100/spread : 800;
+            if(width>800) width=800;
+            
+            const spot = document.getElementById('sol-spot');
+            spot.style.width = width + 'px';
+            spot.style.opacity = 0.8 * spread;
+            document.getElementById('sol-ground').style.backgroundColor = SOL_COLORS[solParams.surface];
+
+            // Chart
+            solChart.data.datasets[0].data = [absorbed];
+            solChart.data.datasets[1].data = [reflected];
+            solChart.data.datasets[2].data = [lost];
+            solChart.update();
+        }
+
+        function resizeSolar() {
+            // Chart.js handles its own resize mostly, but we ensure container is right
+        }
+
+        /* ==================== INIT ==================== */
+        window.onload = function() {
+            // Init GH
+            resizeGreenhouse();
+            for(let i=0; i<30; i++) ghParticles.push(new Particle('sun'));
+            animateGreenhouse();
+            updateGreenhouse();
+
+            // Init Solar
+            initSolarChart();
+            updateSolar();
+        };
+
+        window.onresize = function() {
+            if(currentTab === 'greenhouse') resizeGreenhouse();
+        };
+
+    </script>
+</body>
+</html>

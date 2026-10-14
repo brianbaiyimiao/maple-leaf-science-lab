@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Wave Interference Pro - Maple Leaf Science</title>
+    <style>
+        :root { --primary: #8b5cf6; --dark: #0f172a; --accent: #ec4899; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #000; color: #fff; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        .nav { background: var(--dark); padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; }
+        .back-btn { color: white; text-decoration: none; border: 1px solid #444; padding: 6px 15px; border-radius: 5px; font-size: 13px; }
+
+        .workspace { display: grid; grid-template-columns: 320px 1fr 380px; gap: 15px; padding: 15px; flex: 1; overflow: hidden; }
+        .card { background: #1e293b; border-radius: 12px; padding: 20px; border: 1px solid #334155; display: flex; flex-direction: column; }
+        h3 { margin: 0 0 15px 0; border-left: 5px solid var(--primary); padding-left: 12px; font-size: 17px; color: #e2e8f0; }
+
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-size: 11px; font-weight: bold; color: #94a3b8; margin-bottom: 8px; text-transform: uppercase; }
+        input[type="range"] { width: 100%; cursor: pointer; accent-color: var(--primary); }
+        .val-span { float: right; color: var(--primary); font-family: monospace; font-size: 14px; }
+        
+        .btn { border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 10px; transition: 0.2s; }
+        .btn-start { background: var(--primary); color: white; }
+        .btn-record { background: var(--accent); color: white; }
+
+        .sim-box { position: relative; background: #000; border: 1px solid #334155; overflow: hidden; }
+        canvas { width: 100%; height: 100%; cursor: crosshair; }
+
+        .table-wrap { flex: 1; overflow-y: auto; border: 1px solid #334155; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; text-align: center; color: #cbd5e1; }
+        th { background: #0f172a; padding: 10px; position: sticky; top: 0; border-bottom: 2px solid #334155; }
+        td { padding: 8px; border-bottom: 1px solid #334155; font-family: monospace; }
+
+        .explanation { background: #0f172a; padding: 15px; border-radius: 8px; font-size: 12px; line-height: 1.6; color: #94a3b8; margin-top: auto; border: 1px solid #1e293b; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit5.html" class="back-btn">⬅ Back to Unit 5</a>
+        <h2 style="margin:0; font-size: 18px;">Unit 5: Two-Source Interference Patterns</h2>
+        <span style="font-size: 12px; opacity: 0.8;">Physics 11 Advanced Wave Lab</span>
+    </div>
+
+    <div class="workspace">
+        <div class="card">
+            <h3>Wave Source Control</h3>
+            
+            <div class="control-group">
+                <label>Frequency ($f$) <span class="val-span" id="f-val">2.5 Hz</span></label>
+                <input type="range" id="input-f" min="0.5" max="10.0" step="0.1" value="2.5">
+            </div>
+
+            <div class="control-group">
+                <label>Separation ($d$) <span class="val-span" id="d-val">120 px</span></label>
+                <input type="range" id="input-d" min="10" max="300" step="2" value="120">
+            </div>
+
+            <div class="control-group">
+                <label>Phase Diff ($\phi$) <span class="val-span" id="p-val">0°</span></label>
+                <input type="range" id="input-p" min="0" max="360" step="5" value="0">
+            </div>
+
+            <button class="btn btn-start" id="btn-reset">RESET SIMULATION</button>
+            <button class="btn btn-record" id="btn-record">LOG DATA POINT</button>
+
+            <div class="explanation">
+                <b>Lab Mission:</b><br>
+                1. Set Phase to $180^\circ$ and observe the central "Node" (Destructive).<br>
+                2. Increase frequency to $8.0\text{ Hz}$ and count how many nodal lines appear.
+            </div>
+        </div>
+
+        <div class="card sim-box">
+            <canvas id="waveCanvas"></canvas>
+            <div style="position:absolute; top:10px; left:10px; font-size:11px; color:#94a3b8; pointer-events:none; background:rgba(0,0,0,0.5); padding:5px;">
+                Blue/Bright = Max Displacement | Black = Equilibrium/Node
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Interference Data Log</h3>
+            <div class="table-wrap">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>Trial</th>
+                            <th>f (Hz)</th>
+                            <th>d (px)</th>
+                            <th>Phase</th>
+                            <th>Pattern Note</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <p style="font-size:10px; color:#64748b; margin-top:10px; line-height:1.2;">
+                *Waves follow the <b>Superposition Principle</b>: $y_{net} = y_1 + y_2$.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('waveCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let freq = 2.5, separation = 120, phase = 0, time = 0, trialCount = 0;
+        const waveSpeed = 80;
+
+        // Fix sticky range input
+        window.addEventListener('mouseup', () => { 
+            document.querySelectorAll('input').forEach(i => i.blur());
+        });
+
+        function resize() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight - 40;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Real-time Update Listeners
+        const fIn = document.getElementById('input-f');
+        const dIn = document.getElementById('input-d');
+        const pIn = document.getElementById('input-p');
+
+        fIn.oninput = () => { freq = parseFloat(fIn.value); document.getElementById('f-val').innerText = freq.toFixed(1) + " Hz"; };
+        dIn.oninput = () => { separation = parseInt(dIn.value); document.getElementById('d-val').innerText = separation + " px"; };
+        pIn.oninput = () => { phase = parseInt(pIn.value); document.getElementById('p-val').innerText = phase + "°"; };
+        
+        document.getElementById('btn-reset').onclick = () => { time = 0; };
+
+        document.getElementById('btn-record').onclick = () => {
+            trialCount++;
+            const note = (phase >= 170 && phase <= 190) ? "Destructive Central" : "Constructive Pattern";
+            const row = `<tr><td>#${trialCount}</td><td>${freq}</td><td>${separation}</td><td>${phase}°</td><td>${note}</td></tr>`;
+            const tbody = document.querySelector('#dataTable tbody');
+            tbody.innerHTML = row + tbody.innerHTML;
+        };
+
+        function draw() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const imgData = ctx.createImageData(w, h);
+            const pixels = imgData.data;
+
+            const s1x = w/2; const s1y = h/2 - separation/2;
+            const s2x = w/2; const s2y = h/2 + separation/2;
+            
+            const omega = 2 * Math.PI * freq;
+            const k = (2 * Math.PI) / (waveSpeed / freq);
+            const phiRad = (phase * Math.PI) / 180;
+
+            // Optimization: Skip pixels to maintain high FPS during slider moves
+            for (let y = 0; y < h; y += 2) {
+                for (let x = 0; x < w; x += 2) {
+                    const d1 = Math.sqrt((x-s1x)**2 + (y-s1y)**2);
+                    const d2 = Math.sqrt((x-s2x)**2 + (y-s2y)**2);
+
+                    const amp1 = Math.sin(k * d1 - omega * time);
+                    const amp2 = Math.sin(k * d2 - omega * time + phiRad);
+                    
+                    const total = (amp1 + amp2) / 2; 
+                    const brightness = (total + 1) * 127;
+
+                    for(let dy=0; dy<2; dy++) {
+                        for(let dx=0; dx<2; dx++) {
+                            const idx = ((y+dy) * w + (x+dx)) * 4;
+                            pixels[idx] = brightness * 0.4;   // R
+                            pixels[idx+1] = brightness * 0.2; // G
+                            pixels[idx+2] = brightness;       // B
+                            pixels[idx+3] = 255;              // A
+                        }
+                    }
+                }
+            }
+
+            ctx.putImageData(imgData, 0, 0);
+
+            // Source Labels
+            ctx.fillStyle = "white"; ctx.font = "bold 12px Arial";
+            ctx.beginPath(); ctx.arc(s1x, s1y, 4, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(s2x, s2y, 4, 0, Math.PI*2); ctx.fill();
+            ctx.fillText("Source 1", s1x+10, s1y);
+            ctx.fillText("Source 2", s2x+10, s2y);
+
+            time += 0.04;
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+    </script>
+</body>
+</html>

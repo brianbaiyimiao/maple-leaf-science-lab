@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mass Spectrometer Simulator</title>
+    <style>
+        :root { --ml-blue: #1e3a8a; --ml-gold: #fbbf24; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-blue); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1400px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 420px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow-y: auto;}
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: flex; justify-content: space-between; font-weight: bold; color: #475569; margin-bottom: 8px; font-size: 0.95rem; }
+        .control-group input[type="range"] { width: 100%; padding: 8px; cursor: pointer;}
+        
+        .btn { background: var(--ml-blue); color: white; border: none; padding: 12px; border-radius: 8px; font-size: 1rem; cursor: pointer; font-weight: bold; transition: 0.2s; width: 100%; margin-top: 10px;}
+        .btn:hover { background: #1e40af; }
+
+        /* 计算推导黑板 */
+        .calc-board { background: #0f172a; color: #38bdf8; padding: 20px; border-radius: 8px; font-family: 'Consolas', monospace; font-size: 0.9rem; line-height: 1.6; margin-top: 15px; border: 3px solid #334155;}
+        .calc-title { color: #f59e0b; font-weight: bold; border-bottom: 1px dashed #475569; padding-bottom: 5px; margin-bottom: 10px;}
+        .math-res { color: #22c55e; font-weight: bold; font-size: 1.1rem;}
+
+        .visual-container { display: flex; flex-direction: column; gap: 15px; }
+        .canvas-box { background: #000; border-radius: 12px; border: 4px solid #cbd5e1; overflow: hidden; position: relative; box-shadow: inset 0 0 50px rgba(0,0,0,1); height: 100%; min-height: 550px;}
+        canvas { width: 100%; height: 100%; }
+
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; text-align: center;}
+        .data-table th, .data-table td { border: 1px solid #cbd5e1; padding: 8px; }
+        .data-table th { background: #f1f5f9; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit3.html" class="back-link">⬅ Back to Unit 3</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 8: Mass Spectrometer (Lorentz Force)</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Physics</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>1. Chamber Controls</h3>
+            
+            <div class="control-group">
+                <label>Acceleration Voltage (V): <span id="v-val" style="color:#ef4444;">1000 V</span></label>
+                <input type="range" id="v-slider" min="500" max="5000" step="100" value="1000" oninput="updatePhysics()">
+            </div>
+
+            <div class="control-group">
+                <label>Magnetic Field (B): <span id="b-val" style="color:#3b82f6;">0.50 T</span></label>
+                <input type="range" id="b-slider" min="0.1" max="2.0" step="0.05" value="0.5" oninput="updatePhysics()">
+            </div>
+
+            <div class="control-group">
+                <label>Particle Charge (q): <span id="q-val" style="color:#22c55e;">+1 e</span></label>
+                <input type="range" id="q-slider" min="1" max="3" step="1" value="1" oninput="updatePhysics()">
+            </div>
+
+            <h3>2. Derivation Blackboard</h3>
+            <div class="calc-board" id="calc-board">
+                </div>
+
+            <button class="btn" onclick="fireParticle()">🚀 Fire Particle</button>
+
+            <h3 style="margin-top: 20px;">3. Data Notebook</h3>
+            <table class="data-table" id="data-table">
+                <tr>
+                    <th>V (V)</th>
+                    <th>B (T)</th>
+                    <th>Radius R (m)</th>
+                    <th>Mass (kg)</th>
+                </tr>
+            </table>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box">
+                <canvas id="fieldCanvas" width="900" height="600"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('fieldCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        let voltage = 1000;
+        let B_field = 0.5;
+        let charge_e = 1;
+        
+        const q_unit = 1.602e-19; // Elementary charge
+        const m_unit = 1.672e-27; // Proton mass (reference)
+        let particleMass = m_unit; // 默认质子
+
+        let path = [];
+        let isFiring = false;
+        let time = 0;
+
+        function updatePhysics() {
+            voltage = parseFloat(document.getElementById('v-slider').value);
+            B_field = parseFloat(document.getElementById('b-slider').value);
+            charge_e = parseInt(document.getElementById('q-slider').value);
+            
+            document.getElementById('v-val').innerText = voltage + " V";
+            document.getElementById('b-val').innerText = B_field.toFixed(2) + " T";
+            document.getElementById('q-val').innerText = "+" + charge_e + " e";
+
+            // 计算推导过程
+            let q_total = charge_e * q_unit;
+            // 1. 加速阶段: 1/2 * m * v^2 = qV => v = sqrt(2qV/m)
+            let velocity = Math.sqrt((2 * q_total * voltage) / particleMass);
+            // 2. 磁场阶段: qvB = mv^2/R => R = mv / qB
+            let radius = (particleMass * velocity) / (q_total * B_field);
+
+            let board = document.getElementById('calc-board');
+            board.innerHTML = `
+                <div class="calc-title">Step-by-Step Physics:</div>
+                <div><b>1. Velocity (v):</b> &radic;(2qV/m)</div>
+                <div>v &approx; ${velocity.toExponential(2)} m/s</div>
+                <div style="margin-top:8px;"><b>2. Radius (R):</b> mv / qB</div>
+                <div>R = <span class="math-res">${radius.toFixed(3)} m</span></div>
+                <div style="font-size:0.8rem; color:#94a3b8; margin-top:5px;">
+                   Formula: m = (q &middot; B&sup2; &middot; R&sup2;) / 2V
+                </div>
+            `;
+        }
+
+        function fireParticle() {
+            path = [];
+            isFiring = true;
+            time = 0;
+        }
+
+        function drawField() {
+            ctx.fillStyle = '#000'; ctx.fillRect(0,0,900,600);
+
+            // 1. 绘制磁场符号 (X 代表进入纸面)
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.2)'; ctx.lineWidth = 1;
+            for(let x=250; x<900; x+=50) {
+                for(let y=50; y<550; y+=50) {
+                    ctx.beginPath();
+                    ctx.moveTo(x-5, y-5); ctx.lineTo(x+5, y+5);
+                    ctx.moveTo(x+5, y-5); ctx.lineTo(x-5, y+5);
+                    ctx.stroke();
+                }
+            }
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.5)'; ctx.font='12px Arial';
+            ctx.fillText("Uniform Magnetic Field (B) into page", 300, 30);
+
+            // 2. 绘制加速器 (Accelerator Slit)
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(0, 250, 200, 100);
+            ctx.clearRect(180, 295, 30, 10); // 出口缝隙
+            ctx.fillStyle = '#fbbf24'; ctx.font='bold 14px Arial';
+            ctx.fillText("Accelerator (V)", 40, 240);
+
+            // 3. 绘制刻度尺 (Ruler)
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(200, 10); ctx.lineTo(200, 590); ctx.stroke();
+            for(let y=10; y<600; y+=50) {
+                ctx.beginPath(); ctx.moveTo(200, y); ctx.lineTo(215, y); ctx.stroke();
+                let label = ((600-y)/500).toFixed(1);
+                ctx.fillStyle='#94a3b8'; ctx.font='10px Arial'; ctx.fillText(label+"m", 220, y+5);
+            }
+
+            // 4. 计算并绘制轨迹
+            let q_total = charge_e * q_unit;
+            let v = Math.sqrt((2 * q_total * voltage) / particleMass);
+            let R_px = ((particleMass * v) / (q_total * B_field)) * 500; // 映射 1m = 500px
+
+            if(isFiring) {
+                time += 0.05;
+                let angle = time;
+                // 粒子在 (200, 300-R_px) 处圆心运动
+                let currentX = 200 + R_px * Math.sin(angle);
+                let currentY = 300 - R_px + R_px * Math.cos(angle);
+                
+                path.push({x: currentX, y: currentY});
+                
+                // 绘制粒子
+                ctx.fillStyle = '#fbbf24';
+                ctx.beginPath(); ctx.arc(currentX, currentY, 5, 0, Math.PI*2); ctx.fill();
+                ctx.shadowBlur = 15; ctx.shadowColor = '#fbbf24'; ctx.stroke(); ctx.shadowBlur = 0;
+
+                // 碰到边界停止
+                if(currentX < 200 || currentX > 900 || currentY < 0 || currentY > 600) {
+                    isFiring = false;
+                    recordData(R_px/500);
+                }
+            }
+
+            // 绘制完整轨迹线
+            ctx.strokeStyle = 'rgba(251, 191, 36, 0.5)'; ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            if(path.length > 0) {
+                ctx.moveTo(path[0].x, path[0].y);
+                for(let p of path) ctx.lineTo(p.x, p.y);
+            }
+            ctx.stroke(); ctx.setLineDash([]);
+        }
+
+        function recordData(r) {
+            let table = document.getElementById('data-table');
+            let row = table.insertRow(1);
+            row.insertCell(0).innerText = voltage;
+            row.insertCell(1).innerText = B_field;
+            row.insertCell(2).innerText = r.toFixed(3);
+            row.insertCell(3).innerText = particleMass.toExponential(2);
+        }
+
+        function animate() {
+            drawField();
+            requestAnimationFrame(animate);
+        }
+
+        updatePhysics();
+        animate();
+    </script>
+</body>
+</html>

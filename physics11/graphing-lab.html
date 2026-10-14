@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics 11: Motion Graphs Lab</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --text-color: #e2e8f0;
+            --accent: #3b82f6;
+            --color-d: #3b82f6;
+            --color-v: #10b981;
+            --color-a: #ef4444;
+            --border: #334155;
+        }
+
+        body {
+            margin: 0; background-color: var(--bg-color); color: var(--text-color);
+            font-family: 'Segoe UI', monospace; display: flex; height: 100vh; overflow: hidden;
+        }
+
+        /* --- 左侧控制栏 --- */
+        .sidebar {
+            width: 280px; background: var(--panel-bg); padding: 20px;
+            border-right: 1px solid var(--border); display: flex; flex-direction: column;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.5); z-index: 20; overflow-y: auto;
+        }
+
+        .header-nav { padding-bottom: 15px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+        .back-link { color: #94a3b8; text-decoration: none; font-size: 0.85rem; display: flex; align-items: center; gap: 5px; }
+        .back-link:hover { color: white; }
+        h2 { margin: 5px 0 0 0; color: var(--accent); font-size: 1.3rem; }
+
+        .control-group { margin-bottom: 20px; background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid var(--border); }
+        .label-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.8rem; color: #cbd5e1; }
+        input[type=range] { width: 100%; cursor: pointer; margin-bottom: 5px; }
+
+        /* 驾驶踏板 */
+        .pedal-row { display: flex; gap: 10px; margin-bottom: 10px; }
+        .pedal {
+            flex: 1; padding: 25px 5px; border: none; border-radius: 8px;
+            font-weight: bold; color: white; cursor: pointer; font-size: 0.9rem;
+            transition: transform 0.1s; text-transform: uppercase;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.5); text-align: center;
+        }
+        .pedal:active { transform: translateY(4px); box-shadow: none; }
+        .btn-gas { background: var(--color-v); }
+        .btn-brake { background: var(--color-a); }
+        
+        /* 按钮组 */
+        .btn-group { display: flex; gap: 10px; margin-top: 10px; }
+        .btn-ctrl { flex: 1; padding: 10px; border-radius: 6px; border:none; color:white; font-weight:bold; cursor:pointer; transition: background 0.2s; }
+        
+        .btn-reset { background: #64748b; }
+        .btn-reset:hover { background: #475569; }
+        
+        .btn-pause { background: #f59e0b; } /* Orange for Pause */
+        .btn-pause:hover { background: #d97706; }
+        .btn-pause.paused { background: #22c55e; animation: pulse 1.5s infinite; } /* Green for Resume */
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+
+        /* 摩擦力开关 */
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 5px; }
+        .toggle-switch { position: relative; width: 40px; height: 20px; background: #334155; border-radius: 10px; transition: 0.3s; }
+        .toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: 0.3s; }
+        input[type="checkbox"] { display: none; }
+        input:checked + .toggle-switch { background: var(--accent); }
+        input:checked + .toggle-switch::after { transform: translateX(20px); }
+
+        /* 仪表盘 */
+        .stats-box { margin-top: auto; background: #000; padding: 15px; border-radius: 8px; border: 1px solid var(--border); }
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem; }
+        .val { font-weight: bold; font-family: monospace; }
+
+        /* --- 中间视图 --- */
+        .center-view { flex: 1; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border); position: relative; }
+
+        /* 1. 赛道动画 */
+        .track-container {
+            height: 180px; background: #1e293b; position: relative;
+            border-bottom: 2px solid var(--border); overflow: hidden;
+        }
+        #world { position: absolute; top: 0; left: 0; height: 100%; width: 100%; }
+        .road { position: absolute; bottom: 30px; left: -10000px; width: 200000px; height: 4px; background: #64748b; }
+        .tick { position: absolute; bottom: 34px; width: 2px; height: 10px; background: #64748b; }
+        .tick-label { position: absolute; bottom: 10px; font-size: 0.7rem; color: #94a3b8; transform: translateX(-50%); }
+        #car { font-size: 3.5rem; position: absolute; bottom: 32px; left: 80px; transform: scaleX(-1); z-index: 10; filter: drop-shadow(2px 4px 5px rgba(0,0,0,0.5)); }
+        #exhaust { position: absolute; bottom: 40px; left: 60px; font-size: 1.5rem; opacity: 0; transition: opacity 0.2s; }
+
+        /* 暂停遮罩 */
+        #pause-overlay {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(245, 158, 11, 0.9); color: #000;
+            padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 0.9rem;
+            display: none; pointer-events: none; z-index: 50;
+        }
+
+        /* 2. 图表区 */
+        .charts-grid { flex: 1; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; background: #0f172a; }
+        .chart-card { flex: 1; background: #1e293b; border-radius: 6px; padding: 5px 10px; border: 1px solid var(--border); position: relative; min-height: 140px; }
+        
+        /* 3. 公式引导栏 */
+        .insight-bar {
+            background: #111; padding: 10px 20px; border-top: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center; color: #ccc; font-size: 0.9rem;
+        }
+        .formula { color: var(--accent); font-family: 'Times New Roman', serif; font-style: italic; font-size: 1.1rem; }
+
+        /* --- 右侧：实验说明书 & 数据表 --- */
+        .right-panel { width: 380px; background: #111; display: flex; flex-direction: column; z-index: 15; }
+        
+        .panel-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--panel-bg); }
+        .tab-btn {
+            flex: 1; padding: 12px; text-align: center; cursor: pointer; color: #94a3b8; font-weight: bold;
+            border-bottom: 3px solid transparent; transition: all 0.2s; font-size: 0.9rem;
+        }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: #182235; }
+        .tab-btn:hover { background: #334155; color: white; }
+
+        .panel-content { flex: 1; overflow-y: auto; display: none; padding: 0; }
+        .panel-content.active { display: block; }
+
+        /* 说明书样式 */
+        .guide-box { padding: 20px; line-height: 1.6; color: #ccc; font-size: 0.9rem; }
+        .guide-box h3 { color: #fff; margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .guide-box h4 { color: var(--accent); margin: 15px 0 5px 0; }
+        .guide-box ol, .guide-box ul { padding-left: 20px; margin: 5px 0; }
+        .guide-box li { margin-bottom: 5px; }
+
+        /* 数据表样式 */
+        .table-container { height: 100%; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: right; font-family: monospace; font-size: 0.8rem; }
+        th { position: sticky; top: 0; background: #1e293b; color: #94a3b8; padding: 8px; border-bottom: 1px solid var(--border); z-index: 5; }
+        td { padding: 4px 8px; border-bottom: 1px solid #222; color: #ccc; }
+        tr:hover { background: #1e293b; }
+        
+        .copy-btn {
+            width: 100%; padding: 10px; background: #334155; color: white; border: none; cursor: pointer;
+            font-weight: bold; border-top: 1px solid var(--border);
+        }
+        .copy-btn:hover { background: #475569; }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="header-nav">
+            <a href="unit1.html" class="back-link">⬅ Back to Unit 1</a>
+            <h2>📈 Motion Grapher</h2>
+        </div>
+
+        <div class="control-group">
+            <div class="label-row"><span>Acceleration Rate</span><span id="val-acc-set">5 m/s²</span></div>
+            <input type="range" id="slider-acc" min="1" max="20" value="5" oninput="updateSettings()">
+            
+            <div class="label-row" style="margin-top:5px;"><span>Braking Power</span><span id="val-brake-set">10 m/s²</span></div>
+            <input type="range" id="slider-brake" min="1" max="20" value="10" oninput="updateSettings()">
+
+            <div style="margin-top:15px;">
+                <label class="toggle-row">
+                    <span style="font-size:0.85rem; color:#ccc;">Friction (Drag)</span>
+                    <input type="checkbox" id="friction-toggle" onchange="updateSettings()">
+                    <div class="toggle-switch"></div>
+                </label>
+                <div id="friction-text" style="font-size:0.7rem; color:#10b981; margin-top:2px;">OFF: Inertia Mode</div>
+            </div>
+        </div>
+
+        <div class="control-group" style="padding:10px;">
+            <div class="pedal-row">
+                <button class="pedal btn-brake" id="btn-brake" 
+                    onmousedown="setPedal(-1)" onmouseup="setPedal(0)" onmouseleave="setPedal(0)">
+                    BRAKE<br>(-a)
+                </button>
+                <button class="pedal btn-gas" id="btn-gas" 
+                    onmousedown="setPedal(1)" onmouseup="setPedal(0)" onmouseleave="setPedal(0)">
+                    GAS<br>(+a)
+                </button>
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn-ctrl btn-pause" id="btn-pause" onclick="togglePause()">⏸ Pause</button>
+                <button class="btn-ctrl btn-reset" onclick="resetSim()">⏹ Reset</button>
+            </div>
+        </div>
+
+        <div class="stats-box">
+            <div class="stat-row"><span>Time (t):</span><span id="val-t" class="val">0.0 s</span></div>
+            <div class="stat-row" style="color:var(--color-d)"><span>Pos (d):</span><span id="val-d" class="val">0.0 m</span></div>
+            <div class="stat-row" style="color:var(--color-v)"><span>Vel (v):</span><span id="val-v" class="val">0.0 m/s</span></div>
+            <div class="stat-row" style="color:var(--color-a)"><span>Acc (a):</span><span id="val-a" class="val">0.0 m/s²</span></div>
+        </div>
+    </div>
+
+    <div class="center-view">
+        <div class="track-container">
+            <div id="world">
+                <div class="road"></div>
+            </div>
+            <div id="exhaust">💨</div>
+            <div id="car">🏎️</div>
+            
+            <div id="pause-overlay">⏸ PAUSED</div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-card">
+                <canvas id="chartD"></canvas>
+            </div>
+            <div class="chart-card">
+                <canvas id="chartV"></canvas>
+            </div>
+            <div class="chart-card">
+                <canvas id="chartA"></canvas>
+            </div>
+        </div>
+
+        <div class="insight-bar">
+            <span id="insight-text">Status: Stationary</span>
+            <span id="insight-formula" class="formula">v = 0</span>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div class="panel-tabs">
+            <div class="tab-btn active" onclick="switchTab('manual')">📖 Guide</div>
+            <div class="tab-btn" onclick="switchTab('data')">📊 Data Table</div>
+        </div>
+
+        <div id="content-manual" class="panel-content active">
+            <div class="guide-box">
+                <h3>Lab: Kinematic Graphs</h3>
+                
+                <h4>Objective</h4>
+                <p>To investigate how constant acceleration affects Position, Velocity, and Acceleration graphs.</p>
+
+                <h4>Procedure</h4>
+                <ol>
+                    <li>Set <b>Acceleration Rate</b> to 5 m/s².</li>
+                    <li>Turn <b>Friction OFF</b> (Inertia Mode).</li>
+                    <li>Hold <b>GAS</b> for 5 seconds. Observe the v-t graph slope.</li>
+                    <li>Click <b>PAUSE</b> to freeze data and analyze the graphs.</li>
+                    <li>Click <b>RESUME</b>, then release GAS. What happens?</li>
+                </ol>
+            </div>
+        </div>
+
+        <div id="content-data" class="panel-content">
+            <div class="table-container">
+                <table id="data-table">
+                    <thead>
+                        <tr>
+                            <th>t (s)</th>
+                            <th>d (m)</th>
+                            <th>v (m/s)</th>
+                            <th>a (m/s²)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <tr><td colspan="4" style="text-align:center; padding:20px; color:#666;">Press Gas to start...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <button class="copy-btn" onclick="copyData()">📋 Copy Data to Clipboard</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 配置 ---
+        const PX_PER_METER = 10; 
+        const CAR_SCREEN_POS = 80; 
+
+        // 物理状态
+        let state = {
+            t: 0, d: 0, v: 0, a: 0, input: 0,
+            accSet: 5, brakeSet: 10, friction: false
+        };
+
+        let isRunning = false;
+        let isPaused = false; // 暂停状态
+        let lastTime = 0;
+        let lastLogTime = 0;
+        let animationId;
+        
+        let chartD, chartV, chartA;
+        const MAX_DATA = 100;
+
+        window.onload = function() {
+            initWorld();
+            initCharts();
+            updateSettings();
+            resetSim();
+            loop();
+        };
+
+        function initWorld() {
+            const world = document.getElementById('world');
+            const fragment = document.createDocumentFragment();
+            for(let i=0; i<=20000; i+=10) { 
+                let tick = document.createElement('div');
+                tick.className = 'tick'; tick.style.left = (i * PX_PER_METER) + "px";
+                fragment.appendChild(tick);
+                if(i%50===0) {
+                    let label = document.createElement('div');
+                    label.className = 'tick-label'; label.innerText = i + "m";
+                    label.style.left = (i * PX_PER_METER) + "px";
+                    fragment.appendChild(label);
+                }
+            }
+            world.appendChild(fragment);
+        }
+
+        function updateSettings() {
+            state.accSet = parseInt(document.getElementById('slider-acc').value);
+            state.brakeSet = parseInt(document.getElementById('slider-brake').value);
+            state.friction = document.getElementById('friction-toggle').checked;
+
+            document.getElementById('val-acc-set').innerText = state.accSet + " m/s²";
+            document.getElementById('val-brake-set').innerText = state.brakeSet + " m/s²";
+            
+            const txt = document.getElementById('friction-text');
+            txt.innerText = state.friction ? "ON: Slows down (Realistic)" : "OFF: Inertia Mode (Ideal)";
+            txt.style.color = state.friction ? "#ef4444" : "#10b981";
+        }
+
+        function setPedal(val) {
+            state.input = val;
+            const exhaust = document.getElementById('exhaust');
+            exhaust.style.opacity = (val === 1) ? 1 : 0;
+            
+            if(val !== 0 && !isRunning) {
+                isRunning = true;
+                lastTime = performance.now();
+                // 清空表格提示
+                document.getElementById('table-body').innerHTML = "";
+            }
+            
+            if (isPaused && val !== 0) {
+                togglePause();
+            }
+        }
+        
+        function togglePause() {
+            if(!isRunning) return; // 没开始不能暂停
+            
+            isPaused = !isPaused;
+            const btn = document.getElementById('btn-pause');
+            const overlay = document.getElementById('pause-overlay');
+            
+            if(isPaused) {
+                btn.innerText = "▶ RESUME";
+                btn.classList.add('paused');
+                overlay.style.display = 'block';
+            } else {
+                btn.innerText = "⏸ PAUSE";
+                btn.classList.remove('paused');
+                overlay.style.display = 'none';
+                lastTime = performance.now(); 
+            }
+        }
+
+        function updatePhysics(dt) {
+            if (state.input === 1) {
+                state.a = state.accSet;
+            } else if (state.input === -1) {
+                if (state.v > 0.1) state.a = -state.brakeSet;
+                else if (state.v < -0.1) state.a = state.brakeSet;
+                else { state.a = 0; state.v = 0; }
+            } else {
+                if (state.friction) {
+                    const drag = 2; // 摩擦系数
+                    if (Math.abs(state.v) > 0.1) state.a = -Math.sign(state.v) * drag;
+                    else { state.v = 0; state.a = 0; }
+                } else {
+                    state.a = 0;
+                }
+            }
+
+            state.v += state.a * dt;
+            if(state.v < 0) state.v = 0; 
+            state.d += state.v * dt;
+            state.t += dt;
+
+            // 3. 记录数据 (每0.2秒)
+            if (state.t - lastLogTime > 0.2) {
+                logData();
+                lastLogTime = state.t;
+            }
+        }
+
+        function updateUI() {
+            let offset = -(state.d * PX_PER_METER) + CAR_SCREEN_POS;
+            document.getElementById('world').style.transform = `translateX(${offset}px)`;
+
+            document.getElementById('val-t').innerText = state.t.toFixed(1) + " s";
+            document.getElementById('val-d').innerText = state.d.toFixed(1) + " m";
+            document.getElementById('val-v').innerText = state.v.toFixed(1) + " m/s";
+            document.getElementById('val-a').innerText = state.a.toFixed(1) + " m/s²";
+
+            // Insight Bar
+            const txt = document.getElementById('insight-text');
+            const form = document.getElementById('insight-formula');
+            
+            if(state.a > 0) {
+                txt.innerText = "Accelerating (Speeding Up)";
+                form.innerHTML = `d = v₀t + ½(${state.a})t²`;
+            } else if(state.a < 0) {
+                txt.innerText = "Decelerating (Slowing Down)";
+                form.innerHTML = `v = v₀ - ${Math.abs(state.a)}t`;
+            } else if(state.v > 0) {
+                txt.innerText = "Constant Velocity (Inertia)";
+                form.innerHTML = `d = v (${state.v.toFixed(1)}) × t`;
+            } else {
+                txt.innerText = "Stationary";
+                form.innerHTML = `v = 0`;
+            }
+        }
+
+        function logData() {
+            const tbody = document.getElementById('table-body');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${state.t.toFixed(1)}</td>
+                <td>${state.d.toFixed(1)}</td>
+                <td>${state.v.toFixed(1)}</td>
+                <td>${state.a.toFixed(1)}</td>
+            `;
+            // 新数据插在最上面
+            tbody.insertBefore(row, tbody.firstChild);
+            if(tbody.children.length > 200) tbody.removeChild(tbody.lastChild);
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.panel-content').forEach(c => c.classList.remove('active'));
+            if(tabName === 'manual') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('content-manual').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('content-data').classList.add('active');
+            }
+        }
+
+        function copyData() {
+            let text = "t,d,v,a\n";
+            const rows = document.querySelectorAll('#table-body tr');
+            for(let i=rows.length-1; i>=0; i--) {
+                const cols = rows[i].querySelectorAll('td');
+                if(cols.length>0) {
+                    let line = []; cols.forEach(c => line.push(c.innerText)); text += line.join(",") + "\n";
+                }
+            }
+            navigator.clipboard.writeText(text).then(() => alert("Data copied! Paste into Excel."));
+        }
+
+        let frameCount = 0;
+        function loop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const dt = (timestamp - lastTime) / 1000; 
+            lastTime = timestamp;
+
+            if (isRunning && !isPaused && dt < 0.1) {
+                updatePhysics(dt);
+                updateUI();
+                frameCount++;
+                if (frameCount % 5 === 0) updateCharts();
+            }
+            animationId = requestAnimationFrame(loop);
+        }
+
+        function resetSim() {
+            isRunning = false;
+            isPaused = false;
+            document.getElementById('btn-pause').innerText = "⏸ PAUSE";
+            document.getElementById('btn-pause').classList.remove('paused');
+            document.getElementById('pause-overlay').style.display = 'none';
+
+            state = { t: 0, d: 0, v: 0, a: 0, input: 0, accSet:state.accSet, brakeSet:state.brakeSet, friction:state.friction };
+            lastLogTime = 0;
+            document.getElementById('world').style.transform = `translateX(${CAR_SCREEN_POS}px)`;
+            document.getElementById('table-body').innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:#666;">Press Gas to start...</td></tr>`;
+            
+            [chartD, chartV, chartA].forEach(c => {
+                c.data.labels = []; c.data.datasets[0].data = []; c.update();
+            });
+            updateUI();
+        }
+
+        function initCharts() {
+            const commonOptions = {
+                responsive: true, maintainAspectRatio: false, animation: false,
+                elements: { point: { radius: 0 } },
+                interaction: { mode: 'index', intersect: false }, // 悬停显示数值
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: { enabled: true } 
+                }
+            };
+
+            // d-t Graph
+            chartD = new Chart(document.getElementById('chartD'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ data: [], borderColor: '#3b82f6', borderWidth: 2, fill: false }] },
+                options: {
+                    ...commonOptions,
+                    scales: {
+                        x: { display: false }, // 隐藏X轴标签节省空间
+                        y: { 
+                            grid: { color: '#334155' }, 
+                            ticks: { color: '#94a3b8' },
+                            title: { display: true, text: 'Position (m)', color: '#3b82f6' }
+                        }
+                    }
+                }
+            });
+
+            // v-t Graph
+            chartV = new Chart(document.getElementById('chartV'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ data: [], borderColor: '#10b981', borderWidth: 2, fill: false }] },
+                options: {
+                    ...commonOptions,
+                    scales: {
+                        x: { display: false },
+                        y: { 
+                            grid: { color: '#334155' }, 
+                            ticks: { color: '#94a3b8' },
+                            title: { display: true, text: 'Velocity (m/s)', color: '#10b981' }
+                        }
+                    }
+                }
+            });
+
+            // a-t Graph
+            chartA = new Chart(document.getElementById('chartA'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ data: [], borderColor: '#ef4444', borderWidth: 2, fill: false, stepped: true }] },
+                options: {
+                    ...commonOptions,
+                    scales: {
+                        x: { 
+                            grid: { color: '#334155' }, 
+                            ticks: { color: '#94a3b8' },
+                            title: { display: true, text: 'Time (s)', color: '#94a3b8' }
+                        },
+                        y: { 
+                            grid: { color: '#334155' }, 
+                            ticks: { color: '#94a3b8' },
+                            title: { display: true, text: 'Accel (m/s²)', color: '#ef4444' },
+                            min: -20, max: 20 
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateCharts() {
+            let label = state.t.toFixed(1);
+            if(chartD.data.labels.length > MAX_DATA) {
+                [chartD, chartV, chartA].forEach(c => { c.data.labels.shift(); c.data.datasets[0].data.shift(); });
+            }
+            
+            [chartD, chartV, chartA].forEach(c => c.data.labels.push(label));
+            chartD.data.datasets[0].data.push(state.d);
+            chartV.data.datasets[0].data.push(state.v);
+            chartA.data.datasets[0].data.push(state.a);
+
+            [chartD, chartV, chartA].forEach(c => c.update('none'));
+        }
+    </script>
+</body>
+</html>

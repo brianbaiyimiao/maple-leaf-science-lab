@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Radioactive Decay Simulator</title>
+    <style>
+        :root { --ml-blue: #1e3a8a; --ml-gold: #fbbf24; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-blue); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1400px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 350px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column;}
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .control-group { margin-bottom: 15px; }
+        .control-group label { display: flex; justify-content: space-between; font-weight: bold; color: #475569; margin-bottom: 8px; font-size: 0.95rem; }
+        .control-group select { width: 100%; padding: 8px; cursor: pointer;}
+        
+        .btn { background: var(--ml-blue); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 1.1rem; margin-top: 10px;}
+        .btn-reset { background: #ef4444; }
+
+        .stat-box { background: #0f172a; color: white; padding: 15px; border-radius: 8px; text-align: center; margin-top: 15px;}
+        .stat-val { font-family: monospace; font-size: 2.5rem; font-weight: bold; color: #fbbf24; margin: 5px 0;}
+
+        .visual-container { display: grid; grid-template-rows: 1fr 1fr; gap: 15px; }
+        .canvas-box { background: #000; border-radius: 12px; border: 4px solid #cbd5e1; overflow: hidden; position: relative;}
+        canvas { width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit5.html" class="back-link">⬅ Back to Unit 5</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 14: Radioactive Decay & Half-Life</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Physics</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Simulation Controls</h3>
+            
+            <div class="control-group">
+                <label>Select Isotope:</label>
+                <select id="isotope-sel" onchange="resetSim()">
+                    <option value="0.02">Carbon-14 (Slow Decay)</option>
+                    <option value="0.05">Iodine-131 (Medium Decay)</option>
+                    <option value="0.15">Polonium-214 (Fast Decay)</option>
+                </select>
+            </div>
+
+            <button class="btn" id="start-btn" onclick="toggleSim()">Start Decay</button>
+            <button class="btn btn-reset" onclick="resetSim()">Reset Nuclei</button>
+
+            <div class="stat-box">
+                <div style="color:#94a3b8; font-size:0.8rem; text-transform:uppercase;">Undecayed Nuclei (N)</div>
+                <div class="stat-val" id="n-val">1000</div>
+                <div style="color:#22c55e; font-size:0.8rem;" id="time-val">Time (t) = 0 s</div>
+            </div>
+
+            <div style="margin-top: 20px; font-size: 0.85rem; color: #475569; line-height: 1.5; background: #f0fdf4; padding: 15px; border-left: 4px solid #22c55e;">
+                <b>Physics Law: N(t) = N<sub>0</sub> &middot; (1/2)<sup>t/t&frac12;</sup></b><br><br>
+                Radioactive decay is a random quantum process for a single atom, but highly predictable statistically for a large population!
+            </div>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box" style="display:flex; flex-wrap:wrap; align-content:flex-start; padding:15px; gap:4px;" id="atom-grid">
+                </div>
+            
+            <div class="canvas-box" style="background:#1e293b;">
+                <canvas id="graphCanvas" width="900" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const graphCvs = document.getElementById('graphCanvas');
+        const gCtx = graphCvs.getContext('2d');
+        const atomGrid = document.getElementById('atom-grid');
+        
+        let decayProb = 0.02; 
+        let totalAtoms = 800;
+        let atoms = [];
+        let undecayedCount = totalAtoms;
+        
+        let time = 0;
+        let isRunning = false;
+        let history = []; // [ {t: 0, n: 800}, ... ]
+        let simInterval;
+
+        function initAtoms() {
+            atomGrid.innerHTML = '';
+            atoms = [];
+            for(let i=0; i<totalAtoms; i++) {
+                let dot = document.createElement('div');
+                dot.style.width = '10px'; dot.style.height = '10px';
+                dot.style.borderRadius = '50%';
+                dot.style.background = '#ef4444'; // Red = Unstable
+                dot.style.boxShadow = '0 0 5px #ef4444';
+                atomGrid.appendChild(dot);
+                atoms.push({ element: dot, decayed: false });
+            }
+            undecayedCount = totalAtoms;
+            time = 0;
+            history = [{t: 0, n: undecayedCount}];
+            updateUI();
+            drawGraph();
+        }
+
+        function toggleSim() {
+            isRunning = !isRunning;
+            document.getElementById('start-btn').innerText = isRunning ? "Pause" : "Resume";
+            document.getElementById('start-btn').style.background = isRunning ? "#f59e0b" : "var(--ml-blue)";
+            
+            if(isRunning) simInterval = setInterval(tick, 100);
+            else clearInterval(simInterval);
+        }
+
+        function resetSim() {
+            decayProb = parseFloat(document.getElementById('isotope-sel').value);
+            isRunning = false;
+            clearInterval(simInterval);
+            document.getElementById('start-btn').innerText = "Start Decay";
+            document.getElementById('start-btn').style.background = "var(--ml-blue)";
+            initAtoms();
+        }
+
+        function tick() {
+            time++;
+            for(let a of atoms) {
+                if(!a.decayed && Math.random() < decayProb) {
+                    a.decayed = true;
+                    a.element.style.background = '#334155'; // Grey = Stable
+                    a.element.style.boxShadow = 'none';
+                    undecayedCount--;
+                }
+            }
+            
+            history.push({t: time, n: undecayedCount});
+            updateUI();
+            drawGraph();
+
+            if(undecayedCount === 0) toggleSim(); // Auto-stop
+        }
+
+        function updateUI() {
+            document.getElementById('n-val').innerText = undecayedCount;
+            document.getElementById('time-val').innerText = `Time (t) = ${time} ticks`;
+        }
+
+        function drawGraph() {
+            gCtx.clearRect(0, 0, 900, 250);
+            
+            // Draw Grid
+            gCtx.strokeStyle = '#334155'; gCtx.lineWidth = 1;
+            gCtx.beginPath(); gCtx.moveTo(50, 20); gCtx.lineTo(50, 220); gCtx.lineTo(850, 220); gCtx.stroke();
+            gCtx.fillStyle = '#94a3b8'; gCtx.font='12px Arial';
+            gCtx.fillText("N₀", 20, 30); gCtx.fillText("0", 30, 225);
+
+            if(history.length < 2) return;
+
+            // Draw exponential curve
+            gCtx.strokeStyle = '#22c55e'; gCtx.lineWidth = 3;
+            gCtx.beginPath();
+            
+            let scaleX = 800 / Math.max(100, time);
+            let scaleY = 200 / totalAtoms;
+
+            for(let i=0; i<history.length; i++) {
+                let px = 50 + history[i].t * scaleX;
+                let py = 220 - history[i].n * scaleY;
+                if(i===0) gCtx.moveTo(px, py);
+                else gCtx.lineTo(px, py);
+            }
+            gCtx.stroke();
+            
+            // Draw Half-life line marker
+            let halfLifeN = totalAtoms / 2;
+            let pyHalf = 220 - halfLifeN * scaleY;
+            gCtx.strokeStyle = 'rgba(239, 68, 68, 0.5)'; gCtx.setLineDash([5,5]);
+            gCtx.beginPath(); gCtx.moveTo(50, pyHalf); gCtx.lineTo(850, pyHalf); gCtx.stroke();
+            gCtx.fillStyle = '#ef4444'; gCtx.fillText("N₀/2 (Half-life)", 60, pyHalf - 5);
+            gCtx.setLineDash([]);
+        }
+
+        resetSim();
+    </script>
+</body>
+</html>

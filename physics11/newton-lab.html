@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics 11: Newton's Laws</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --text-color: #e2e8f0;
+            --accent: #8b5cf6; /* Purple */
+            --force-color: #ef4444; /* Red */
+            --vel-color: #10b981; /* Green */
+            --border: #334155;
+        }
+
+        body {
+            margin: 0; background-color: var(--bg-color); color: var(--text-color);
+            font-family: 'Segoe UI', monospace; display: flex; height: 100vh; overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 320px; background: var(--panel-bg); padding: 20px;
+            border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 10;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.5); overflow-y: auto;
+        }
+
+        .header-nav { padding-bottom: 15px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+        .back-link { color: #94a3b8; text-decoration: none; font-size: 0.85rem; display: flex; align-items: center; gap: 5px; }
+        .back-link:hover { color: white; }
+        h2 { margin: 5px 0 0 0; color: var(--accent); font-size: 1.4rem; }
+
+        .control-group { margin-bottom: 20px; background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid var(--border); }
+        .label-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.85rem; color: #cbd5e1; }
+        input[type=range] { width: 100%; cursor: pointer; margin-bottom: 5px; }
+
+        .btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
+        .btn-action {
+            flex: 1; padding: 12px; font-size: 0.9rem; font-weight: bold;
+            border: none; border-radius: 6px; cursor: pointer;
+            background: var(--accent); color: #fff; transition: filter 0.2s;
+        }
+        .btn-action:hover { filter: brightness(1.1); }
+        
+        .btn-pause { flex: 1; background: #f59e0b; color: white; font-weight: bold; border:none; border-radius:6px; cursor:pointer; }
+        .btn-pause:hover { background: #d97706; }
+        .btn-pause.paused { background: #ef4444; animation: pulse 1.5s infinite; }
+        
+        .btn-stop { background: #ef4444; color:white; width:100%; padding:10px; border-radius:6px; border:none; font-weight:bold; cursor:pointer; }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+
+        /* Toggle Switch */
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-top:10px; font-size: 0.85rem;}
+        .toggle-switch { position: relative; width: 36px; height: 20px; background: #334155; border-radius: 10px; transition: 0.3s; }
+        .toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: 0.3s; }
+        input[type="checkbox"] { display: none; }
+        input:checked + .toggle-switch { background: var(--accent); }
+        input:checked + .toggle-switch::after { transform: translateX(16px); }
+
+        /* Stats */
+        .stats-box { margin-top: auto; background: #000; padding: 15px; border-radius: 8px; border: 1px solid var(--border); }
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem; }
+        .val { font-weight: bold; font-family: monospace; }
+
+        /* Viewport */
+        .center-view {
+            flex: 1; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border);
+        }
+        .sim-container {
+            flex: 5; position: relative; background: radial-gradient(circle at center, #1e293b 0%, #000 100%);
+            overflow: hidden; border-bottom: 2px solid var(--border);
+        }
+        canvas { display: block; width: 100%; height: 100%; }
+        
+        #pause-overlay {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(245, 158, 11, 0.9); color: #000;
+            padding: 5px 15px; border-radius: 20px; font-weight: bold;
+            display: none; pointer-events: none; z-index: 50;
+        }
+
+        /* Calculation Board */
+        .calc-board {
+            flex: 2; background: #0b1120; padding: 15px; display: flex; gap: 15px;
+            border-top: 1px solid var(--border); font-family: 'Courier New', monospace; color:#ccc; font-size:0.9rem;
+            align-items: center; justify-content: center;
+        }
+        .law-card {
+            background: #1e293b; padding: 15px; border-radius: 8px; border: 1px solid var(--border);
+            width: 30%; text-align: center; height: 80%; display: flex; flex-direction: column; justify-content: center;
+            opacity: 0.6; transition: all 0.3s;
+        }
+        .law-card.active { opacity: 1; border-color: #10b981; box-shadow: 0 0 15px rgba(16, 185, 129, 0.2); }
+        .law-title { color: var(--accent); font-weight: bold; margin-bottom: 5px; }
+        .law-desc { font-size: 0.8rem; color: #94a3b8; }
+
+        /* Right Panel */
+        .right-panel { width: 350px; background: #111; display: flex; flex-direction: column; }
+        .panel-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--panel-bg); }
+        .tab-btn {
+            flex: 1; padding: 12px; text-align: center; cursor: pointer; color: #94a3b8; font-weight: bold;
+            border-bottom: 3px solid transparent; transition: all 0.2s; font-size: 0.9rem;
+        }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: #182235; }
+        
+        .panel-content { flex: 1; overflow-y: auto; display: none; padding: 0; }
+        .panel-content.active { display: block; }
+
+        .guide-box { padding: 20px; line-height: 1.6; color: #ccc; font-size: 0.9rem; }
+        .guide-box h3 { color: #fff; margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        
+        .table-container { padding: 10px; }
+        table { width: 100%; border-collapse: collapse; text-align: center; font-family: monospace; font-size: 0.8rem; }
+        th { background: #1e293b; padding: 8px; color: #94a3b8; border-bottom: 1px solid var(--border); position: sticky; top: 0;}
+        td { padding: 6px; border-bottom: 1px solid #222; color: #ccc; }
+
+        .chart-box { padding: 15px; height: 250px; }
+        .copy-btn {
+            width: 100%; padding: 10px; background: #334155; color: white; border: none; cursor: pointer;
+            font-weight: bold; border-top: 1px solid var(--border);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="header-nav">
+            <a href="unit2.html" class="back-link">⬅ Back to Unit 2</a>
+            <h2>🍎 Newton's Laws</h2>
+        </div>
+
+        <div class="control-group">
+            <div class="label-row"><span>Thrust Force (F_app)</span><span id="val-force">0 N</span></div>
+            <input type="range" id="slider-force" min="-500" max="500" step="10" value="0" oninput="updateInput()">
+            <div style="text-align:center; font-size:0.75rem; color:#64748b; margin-top:5px;">
+                Right (+), Left (-)
+            </div>
+        </div>
+
+        <div class="control-group">
+            <div class="label-row"><span>Sled Mass (m)</span><span id="val-mass">50 kg</span></div>
+            <input type="range" id="slider-mass" min="10" max="200" step="5" value="50" oninput="updateInput()">
+            
+            <div class="label-row" style="margin-top:10px;"><span>Friction Coeff (&mu;)</span><span id="val-mu">0.00</span></div>
+            <input type="range" id="slider-mu" min="0" max="0.5" step="0.01" value="0.00" oninput="updateInput()">
+        </div>
+
+        <div class="control-group">
+            <label class="toggle-row">
+                <span>Show Action-Reaction (Law 3)</span>
+                <input type="checkbox" id="check-law3" onchange="updateInput()">
+                <div class="toggle-switch"></div>
+            </label>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn-action" onclick="recordData()">📊 Record Data</button>
+            <button class="btn-pause" id="btn-pause" onclick="togglePause()">⏸ PAUSE</button>
+        </div>
+        <button class="btn-stop" onclick="stopSled()">🛑 STOP & RESET</button>
+
+        <div class="stats-box">
+            <div class="stat-row"><span>Net Force:</span><span id="d-fnet" class="val" style="color:var(--force-color)">0 N</span></div>
+            <div class="stat-row"><span>Accel (a):</span><span id="d-acc" class="val">0.00 m/s²</span></div>
+            <div class="stat-row"><span>Velocity:</span><span id="d-vel" class="val" style="color:var(--vel-color)">0.0 m/s</span></div>
+        </div>
+    </div>
+
+    <div class="center-view">
+        <div class="sim-container" id="viewport">
+            <canvas id="simCanvas"></canvas>
+            <div id="pause-overlay" style="display:none;">PAUSED</div>
+        </div>
+
+        <div class="calc-board">
+            <div class="law-card" id="card-l1">
+                <div class="law-title">1st Law (Inertia)</div>
+                <div class="law-desc">F_net = 0<br>Velocity Constant</div>
+            </div>
+            <div class="law-card" id="card-l2">
+                <div class="law-title">2nd Law (F=ma)</div>
+                <div class="law-desc" id="l2-calc">a = F_net / m<br>0 / 50 = 0</div>
+            </div>
+            <div class="law-card" id="card-l3">
+                <div class="law-title">3rd Law (Pairs)</div>
+                <div class="law-desc" id="l3-stat">Action = -Reaction<br>(Thrust vs Air)</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div class="panel-tabs">
+            <div class="tab-btn active" onclick="switchTab('manual')">📖 Manual</div>
+            <div class="tab-btn" onclick="switchTab('data')">📊 Data</div>
+        </div>
+
+        <div id="content-manual" class="panel-content active">
+            <div class="guide-box">
+                <h3>Lab: Newton's Laws</h3>
+                
+                <h4>1. Law of Inertia</h4>
+                <p>Set Friction = 0. Push the sled, then set Thrust to 0. Does it stop? (No force = No change in motion)</p>
+                
+                <h4>2. F=ma Investigation</h4>
+                <p>Keep mass constant (e.g. 50kg). Increase Thrust. Record Acceleration. Is the relationship linear?</p>
+                
+                <h4>3. Action-Reaction</h4>
+                <p>Enable "Show Action-Reaction". Notice that the force pushing the sled forward is equal and opposite to the force pushing the air backward.</p>
+            </div>
+        </div>
+
+        <div id="content-data" class="panel-content">
+            <div class="chart-box">
+                <canvas id="law2Chart"></canvas>
+            </div>
+            <div class="table-container">
+                <table id="data-table">
+                    <thead>
+                        <tr>
+                            <th>F_net (N)</th>
+                            <th>Mass (kg)</th>
+                            <th>a (m/s²)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <tr><td colspan="3" style="color:#666; padding:10px;">Click 'Record Data' to plot points</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <button class="copy-btn" onclick="copyData()">📋 Copy Data</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        // State
+        let sys = {
+            x: 0, v: 0, a: 0,
+            mass: 50, force: 0, mu: 0,
+            fnet: 0
+        };
+
+        let isPaused = false;
+        let cameraX = 0;
+        let particles = [];
+        let chart;
+
+        window.onload = function() {
+            resize();
+            initChart();
+            updateInput(); // Init
+            animate();
+        };
+        window.onresize = resize;
+
+        function resize() {
+            const container = document.getElementById('viewport');
+            width = canvas.width = container.clientWidth;
+            height = canvas.height = container.clientHeight;
+        }
+
+        function updateInput() {
+            sys.force = parseInt(document.getElementById('slider-force').value);
+            sys.mass = parseInt(document.getElementById('slider-mass').value);
+            sys.mu = parseFloat(document.getElementById('slider-mu').value);
+            
+            document.getElementById('val-force').innerText = sys.force + " N";
+            document.getElementById('val-mass').innerText = sys.mass + " kg";
+            document.getElementById('val-mu').innerText = sys.mu.toFixed(2);
+        }
+
+        function stopSled() {
+            sys.v = 0; sys.a = 0; sys.force = 0;
+            document.getElementById('slider-force').value = 0;
+            updateInput();
+            // Reset chart
+            chart.data.datasets[0].data = [];
+            chart.update();
+            document.getElementById('table-body').innerHTML = `<tr><td colspan="3" style="color:#666; padding:10px;">Click 'Record Data' to plot points</td></tr>`;
+        }
+        
+        function togglePause() {
+            isPaused = !isPaused;
+            const btn = document.getElementById('btn-pause');
+            const overlay = document.getElementById('pause-overlay');
+            if(isPaused) {
+                btn.innerText = "▶ RESUME"; btn.classList.add('paused'); overlay.style.display = 'block';
+            } else {
+                btn.innerText = "⏸ PAUSE"; btn.classList.remove('paused'); overlay.style.display = 'none';
+            }
+        }
+
+        function updatePhysics() {
+            const g = 9.8;
+            let frictionForce = sys.mu * sys.mass * g;
+            
+            // Net Force Calculation
+            let net = sys.force; 
+            
+            // Friction Logic
+            if (Math.abs(sys.v) > 0.01) {
+                // Kinetic: Opposes velocity
+                let fDir = -Math.sign(sys.v);
+                net += fDir * frictionForce;
+            } else {
+                // Static: Opposes force
+                if (Math.abs(sys.force) <= frictionForce) {
+                    net = 0; // Stuck
+                } else {
+                    let fDir = -Math.sign(sys.force);
+                    net += fDir * frictionForce;
+                }
+            }
+
+            sys.fnet = net;
+            sys.a = sys.fnet / sys.mass;
+
+            // Euler integration (Physics Step)
+            let dt = 1/60;
+            sys.v += sys.a * dt;
+            sys.x += sys.v * dt * 50; // Visual scale
+
+            // --- Update Particles (Optimized) ---
+            if(sys.force !== 0 && !isPaused) {
+                // Limit particle spawn rate
+                if(Math.random() > 0.5) { 
+                    particles.push({
+                        x: sys.x - 30 * Math.sign(sys.force), 
+                        y: height/2 + 20 + (Math.random()*10-5),
+                        vx: -Math.sign(sys.force) * (5 + Math.random()*5),
+                        life: 1.0
+                    });
+                }
+            }
+            
+            // Cleanup particles
+            for(let i=particles.length-1; i>=0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.life -= 0.05;
+                if(p.life <= 0) particles.splice(i, 1);
+            }
+
+            // --- UI Updates ---
+            document.getElementById('d-fnet').innerText = Math.round(sys.fnet) + " N";
+            document.getElementById('d-acc').innerText = sys.a.toFixed(2) + " m/s²";
+            document.getElementById('d-vel').innerText = sys.v.toFixed(1) + " m/s";
+
+            // Law Cards Logic
+            // Law 1: Fnet=0, V!=0
+            if(Math.abs(sys.fnet) < 0.1 && Math.abs(sys.v) > 0.1) {
+                document.getElementById('card-l1').classList.add('active');
+            } else {
+                document.getElementById('card-l1').classList.remove('active');
+            }
+
+            // Law 2: Update text
+            document.getElementById('l2-calc').innerHTML = `a = ${Math.round(sys.fnet)} / ${sys.mass}<br>= ${sys.a.toFixed(2)} m/s²`;
+            // Law 2 Active if Accelerating
+            if(Math.abs(sys.a) > 0.01) document.getElementById('card-l2').classList.add('active');
+            else document.getElementById('card-l2').classList.remove('active');
+            
+            // Law 3: Active if Thrusting
+            if(Math.abs(sys.force) > 0) document.getElementById('card-l3').classList.add('active');
+            else document.getElementById('card-l3').classList.remove('active');
+        }
+
+        function animate() {
+            if(!isPaused) {
+                updatePhysics();
+            }
+            
+            ctx.clearRect(0, 0, width, height);
+            
+            // Camera follow
+            ctx.save();
+            cameraX = -sys.x + width/2;
+            ctx.translate(cameraX, 0);
+
+            // Draw Floor
+            let floorY = height/2 + 40;
+            ctx.fillStyle = "#334155";
+            ctx.fillRect(sys.x - width, floorY, width*3, 200);
+            
+            // Grid markers
+            ctx.fillStyle = "#64748b";
+            for(let i = Math.floor(sys.x/100)*100 - 1000; i < sys.x + 1000; i+=100) {
+                ctx.fillRect(i, floorY, 2, 10);
+            }
+
+            // Draw Rocket Sled
+            let cx = sys.x; 
+            let cy = height/2;
+            
+            ctx.fillStyle = "#e2e8f0";
+            ctx.fillRect(cx - 40, cy, 80, 40);
+            ctx.strokeStyle = "#fff"; ctx.strokeRect(cx - 40, cy, 80, 40);
+            
+            // Wheels
+            ctx.fillStyle = "#000";
+            ctx.beginPath(); ctx.arc(cx-30, cy+40, 8, 0, 6.28); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx+30, cy+40, 8, 0, 6.28); ctx.fill();
+
+            // Engine Fire
+            if(Math.abs(sys.force) > 0) {
+                ctx.fillStyle = "#f59e0b";
+                let dir = -Math.sign(sys.force); 
+                let fireLen = Math.abs(sys.force) / 10;
+                ctx.beginPath();
+                ctx.moveTo(cx + 40*dir, cy+10);
+                ctx.lineTo(cx + (40+fireLen)*dir, cy+20);
+                ctx.lineTo(cx + 40*dir, cy+30);
+                ctx.fill();
+            }
+
+            // Text
+            ctx.fillStyle = "#000"; ctx.font = "bold 12px Arial"; ctx.textAlign="center";
+            ctx.fillText(sys.mass + "kg", cx, cy+25);
+
+            // Vectors
+            let showLaw3 = document.getElementById('check-law3').checked;
+            if(Math.abs(sys.force) > 0) {
+                drawArrow(cx, cy-20, sys.force/5, 0, "#ef4444", "F_thrust");
+                if(showLaw3) {
+                    drawArrow(cx, cy-20, -sys.force/5, 0, "#3b82f6", "F_air_reaction");
+                }
+            }
+            
+            if(Math.abs(sys.fnet) > 0) {
+                drawArrow(cx, cy-45, sys.fnet/5, 0, "#10b981", "F_net");
+            }
+
+            // Draw Particles
+            ctx.fillStyle = "rgba(255, 165, 0, 0.6)";
+            for(let p of particles) {
+                ctx.beginPath(); ctx.arc(p.x, p.y, 3*p.life, 0, 6.28); ctx.fill();
+            }
+
+            ctx.restore();
+            requestAnimationFrame(animate);
+        }
+
+        function drawArrow(x, y, len, angleOffset, color, label) {
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + len, y);
+            ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke();
+            
+            let dir = Math.sign(len);
+            let endX = x + len;
+            ctx.beginPath();
+            ctx.moveTo(endX, y);
+            ctx.lineTo(endX - 8*dir, y - 5);
+            ctx.lineTo(endX - 8*dir, y + 5);
+            ctx.fillStyle = color; ctx.fill();
+            
+            ctx.font = "bold 12px Arial"; ctx.fillStyle = color;
+            ctx.fillText(label, x + len/2, y - 8);
+        }
+
+        // --- Data Lab Logic ---
+        function recordData() {
+            if(sys.force === 0 && sys.fnet === 0 && sys.v === 0) {
+                alert("Apply force first!"); return;
+            }
+            
+            // Add point to chart
+            chart.data.datasets[0].data.push({x: sys.fnet, y: sys.a});
+            chart.update();
+
+            // Add to table
+            const tbody = document.getElementById('table-body');
+            // Clear placeholder if it exists
+            if(tbody.rows[0] && tbody.rows[0].cells.length === 1) tbody.innerHTML = "";
+            
+            let row = document.createElement('tr');
+            row.innerHTML = `<td>${sys.fnet.toFixed(1)}</td><td>${sys.mass}</td><td>${sys.a.toFixed(2)}</td>`;
+            tbody.insertBefore(row, tbody.firstChild);
+            
+            switchTab('data');
+        }
+
+        function initChart() {
+            const ctxC = document.getElementById('law2Chart').getContext('2d');
+            chart = new Chart(ctxC, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'a vs F_net',
+                        data: [],
+                        backgroundColor: '#10b981'
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        x: { type: 'linear', position: 'bottom', title: {display:true, text:'Net Force (N)', color:'#aaa'} },
+                        y: { title: {display:true, text:'Acceleration (m/s²)', color:'#aaa'} }
+                    }
+                }
+            });
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.panel-content').forEach(p => p.classList.remove('active'));
+            if(tab==='manual') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('content-manual').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('content-data').classList.add('active');
+            }
+        }
+        
+        function copyData() {
+            let text = "Force,Mass,Accel\n";
+            const rows = document.querySelectorAll('#table-body tr');
+            rows.forEach(r => {
+                let cols = r.querySelectorAll('td');
+                if(cols.length>0) {
+                    let line = []; cols.forEach(c => line.push(c.innerText)); text += line.join(",") + "\n";
+                }
+            });
+            navigator.clipboard.writeText(text).then(()=>alert("Copied!"));
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biology: Membrane Transport</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --text-main: #f1f5f9;
+            --accent-bio: #2ecc71; /* Green */
+            --accent-water: #38bdf8; /* Blue */
+            --accent-solute: #d97706; /* Amber */
+        }
+
+        body {
+            margin: 0; background-color: var(--bg-color); color: var(--text-main);
+            font-family: 'Segoe UI', monospace; display: flex; height: 100vh; overflow: hidden;
+        }
+
+        /* --- 左侧控制 --- */
+        .sidebar {
+            width: 300px; background: var(--panel-bg); padding: 20px;
+            border-right: 2px solid #334155; display: flex; flex-direction: column; z-index: 10;
+            overflow-y: auto;
+        }
+
+        .header-nav { border-bottom: 1px solid #334155; padding-bottom: 15px; margin-bottom: 20px; }
+        .back-link { color: #94a3b8; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: white; }
+        h2 { margin: 5px 0 0 0; color: var(--accent-bio); }
+
+        /* 控制组 */
+        .control-group { margin-bottom: 20px; padding: 15px; background: #253248; border-radius: 8px; }
+        .label-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.85rem; color: #cbd5e1; }
+        
+        input[type=range] { width: 100%; cursor: pointer; margin-bottom: 5px;}
+        select { width: 100%; padding: 8px; background: #0f172a; color: white; border: 1px solid #475569; border-radius: 4px; }
+
+        .btn-action {
+            width: 100%; padding: 12px; font-size: 1rem; font-weight: bold;
+            border: none; border-radius: 6px; cursor: pointer; margin-bottom: 10px;
+            background: var(--accent-bio); color: #0f172a;
+        }
+        .btn-action:hover { filter: brightness(1.1); }
+        .btn-reset { background: #ef4444; color: white; }
+
+        /* 图例 */
+        .legend { display: flex; gap: 15px; margin-top: auto; padding: 10px; background: #000; border-radius: 6px; font-size: 0.8rem; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+        /* --- 主视口 --- */
+        .main-view { flex: 1; display: flex; flex-direction: column; }
+
+        /* 1. 模拟容器 */
+        .sim-container {
+            flex: 6; position: relative;
+            background: linear-gradient(to bottom, #1e293b 0%, #0f172a 100%);
+            border-bottom: 2px solid #334155;
+            display: flex; justify-content: center; align-items: center;
+        }
+        canvas { box-shadow: 0 0 20px rgba(0,0,0,0.5); background: #000; border: 2px solid #475569; border-radius: 4px; }
+
+        /* 2. 图表区 */
+        .chart-container {
+            flex: 4; background: #0f172a; padding: 15px; position: relative;
+        }
+
+        /* 标签覆盖 */
+        .overlay-label {
+            position: absolute; top: 20px; font-size: 1.2rem; font-weight: bold; color: rgba(255,255,255,0.3); pointer-events: none;
+        }
+        #label-outside { left: 25%; }
+        #label-inside { right: 25%; }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="header-nav">
+            <a href="unit-biology.html" class="back-link">⬅ Back to Biology</a>
+            <h2>🧬 Transport Lab</h2>
+            <p style="color:#64748b; font-size:0.8rem;">Diffusion & Osmosis</p>
+        </div>
+
+        <div class="control-group">
+            <div class="label-row"><span>Solute (Left/Outside)</span><span id="val-sol-l">20</span></div>
+            <input type="range" id="slider-sol-l" min="0" max="100" value="20" oninput="updateSetup()">
+            
+            <div class="label-row"><span>Solute (Right/Inside)</span><span id="val-sol-r">0</span></div>
+            <input type="range" id="slider-sol-r" min="0" max="100" value="0" oninput="updateSetup()">
+        </div>
+
+        <div class="control-group">
+            <div class="label-row"><span>Temperature</span><span id="val-temp">Medium</span></div>
+            <input type="range" id="slider-temp" min="1" max="10" value="5" oninput="updateEnv()">
+            
+            <div class="label-row" style="margin-top:10px;"><span>Membrane Type</span></div>
+            <select id="select-membrane" onchange="updateEnv()">
+                <option value="semi">Semi-Permeable (Osmosis)</option>
+                <option value="permeable">Fully Permeable (Diffusion)</option>
+                <option value="impermeable">Impermeable (Blocked)</option>
+            </select>
+            <div style="font-size:0.75rem; color:#64748b; margin-top:5px;" id="mem-desc">Only Water passes. Solute blocked.</div>
+        </div>
+
+        <button class="btn-action btn-reset" onclick="resetSim()">Reset Simulation</button>
+
+        <div class="legend">
+            <div class="legend-item"><div class="dot" style="background:var(--accent-water)"></div> Water</div>
+            <div class="legend-item"><div class="dot" style="background:var(--accent-solute)"></div> Solute</div>
+        </div>
+    </div>
+
+    <div class="main-view">
+        <div class="sim-container">
+            <div id="label-outside" class="overlay-label">OUTSIDE</div>
+            <div id="label-inside" class="overlay-label">INSIDE</div>
+            <canvas id="simCanvas" width="800" height="400"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="chartCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // --- 配置 ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 物理参数
+        let particles = [];
+        let membraneX = canvas.width / 2;
+        let tempSpeed = 2; // 温度系数
+        let membraneType = 'semi'; // semi, permeable, impermeable
+        
+        // 计数器
+        let countL = { water: 0, solute: 0 };
+        let countR = { water: 0, solute: 0 };
+
+        // 图表
+        let chart;
+        let time = 0;
+
+        class Particle {
+            constructor(type, side) {
+                this.type = type; // 'water' or 'solute'
+                this.r = type === 'water' ? 4 : 8; // 溶质比水大
+                this.color = type === 'water' ? '#38bdf8' : '#d97706';
+                
+                // 初始位置 (左边或右边)
+                if(side === 'left') {
+                    this.x = Math.random() * (membraneX - 20) + 10;
+                } else {
+                    this.x = Math.random() * (canvas.width/2 - 20) + membraneX + 10;
+                }
+                this.y = Math.random() * (canvas.height - 20) + 10;
+
+                // 速度 (随机方向)
+                let angle = Math.random() * Math.PI * 2;
+                this.vx = Math.cos(angle);
+                this.vy = Math.sin(angle);
+            }
+
+            update() {
+                // 移动 (受温度影响)
+                let speed = (this.type === 'water' ? 1.5 : 0.8) * tempSpeed; // 溶质重，动得慢
+                this.x += this.vx * speed;
+                this.y += this.vy * speed;
+
+                // 边界反弹
+                if(this.x < this.r || this.x > canvas.width - this.r) this.vx *= -1;
+                if(this.y < this.r || this.y > canvas.height - this.r) this.vy *= -1;
+
+                // 膜碰撞检测 (Membrane at x = membraneX)
+                // 膜厚度 10px
+                let memLeft = membraneX - 5;
+                let memRight = membraneX + 5;
+
+                // 从左往右撞
+                if (this.vx > 0 && this.x + this.r >= memLeft && this.x - this.r <= memLeft) {
+                    if (!this.canPass()) {
+                        this.vx *= -1; 
+                        this.x = memLeft - this.r; // 修正位置
+                    }
+                }
+                // 从右往左撞
+                else if (this.vx < 0 && this.x - this.r <= memRight && this.x + this.r >= memRight) {
+                    if (!this.canPass()) {
+                        this.vx *= -1;
+                        this.x = memRight + this.r; // 修正位置
+                    }
+                }
+            }
+
+            canPass() {
+                if (membraneType === 'impermeable') return false;
+                if (membraneType === 'permeable') return true;
+                if (membraneType === 'semi') {
+                    // 半透膜：只让水过
+                    return this.type === 'water';
+                }
+                return false;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+        }
+
+        // --- 初始化 ---
+        window.onload = function() {
+            initChart();
+            resetSim();
+            animate();
+        };
+
+        function resetSim() {
+            particles = [];
+            // 初始水分子 (两边各 100 个，保持水平衡)
+            for(let i=0; i<80; i++) particles.push(new Particle('water', 'left'));
+            for(let i=0; i<80; i++) particles.push(new Particle('water', 'right'));
+
+            updateSetup(); // 添加溶质
+            
+            // 清空图表
+            chart.data.labels = [];
+            chart.data.datasets.forEach(d => d.data = []);
+            time = 0;
+        }
+
+        function updateSetup() {
+            let numL = parseInt(document.getElementById('slider-sol-l').value);
+            let numR = parseInt(document.getElementById('slider-sol-r').value);
+            
+            document.getElementById('val-sol-l').innerText = numL;
+            document.getElementById('val-sol-r').innerText = numR;
+
+            // 动态调整溶质数量 (简单做法：清除非水粒子，重新加)
+            particles = particles.filter(p => p.type === 'water');
+            
+            for(let i=0; i<numL; i++) particles.push(new Particle('solute', 'left'));
+            for(let i=0; i<numR; i++) particles.push(new Particle('solute', 'right'));
+        }
+
+        function updateEnv() {
+            let tVal = parseInt(document.getElementById('slider-temp').value);
+            tempSpeed = 0.5 + (tVal * 0.3); // 范围 0.8 ~ 3.5
+            document.getElementById('val-temp').innerText = tVal;
+
+            membraneType = document.getElementById('select-membrane').value;
+            
+            let desc = "";
+            if(membraneType==='semi') desc = "Only Water passes (Small). Solute blocked (Large).";
+            else if(membraneType==='permeable') desc = "Everything passes (Big pores).";
+            else desc = "Nothing passes (Solid barrier).";
+            document.getElementById('mem-desc').innerText = desc;
+        }
+
+        // --- 动画循环 ---
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. 绘制膜
+            ctx.fillStyle = "#475569";
+            let gap = 10;
+            // 画虚线膜
+            for(let y=0; y<canvas.height; y+=20) {
+                if(membraneType === 'impermeable') {
+                    ctx.fillRect(membraneX-2, 0, 4, canvas.height); // 实线
+                } else {
+                    // 虚线孔径
+                    let poreSize = membraneType === 'permeable' ? 12 : 4; 
+                    ctx.fillRect(membraneX-2, y, 4, 20-poreSize);
+                }
+            }
+
+            // 2. 更新粒子
+            countL = {water:0, solute:0};
+            countR = {water:0, solute:0};
+
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+
+                // 统计
+                if(p.x < membraneX) {
+                    if(p.type==='water') countL.water++; else countL.solute++;
+                } else {
+                    if(p.type==='water') countR.water++; else countR.solute++;
+                }
+            });
+
+            // 3. 更新图表 (每10帧)
+            time++;
+            if(time % 20 === 0) {
+                updateChart();
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        function initChart() {
+            const ctxC = document.getElementById('chartCanvas').getContext('2d');
+            chart = new Chart(ctxC, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        { label: 'Solute (Left)', borderColor: '#d97706', borderWidth: 2, data: [], pointRadius:0 },
+                        { label: 'Solute (Right)', borderColor: '#fbbf24', borderWidth: 2, data: [], pointRadius:0, borderDash:[5,5] },
+                        // 也可以画水，但为了清晰先画溶质
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: false,
+                    scales: {
+                        x: { display: false },
+                        y: { title: {display:true, text:'Particle Count'}, min: 0, max: 120 }
+                    }
+                }
+            });
+        }
+
+        function updateChart() {
+            if(chart.data.labels.length > 50) {
+                chart.data.labels.shift();
+                chart.data.datasets.forEach(d => d.data.shift());
+            }
+            chart.data.labels.push(time);
+            chart.data.datasets[0].data.push(countL.solute);
+            chart.data.datasets[1].data.push(countR.solute);
+            chart.update('none');
+        }
+
+    </script>
+</body>
+</html>

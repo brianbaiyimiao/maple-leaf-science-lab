@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Snell's Law & TIR Simulator</title>
+    <style>
+        :root { --ml-blue: #1e3a8a; --ml-gold: #fbbf24; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-blue); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1450px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 420px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow-y: auto;}
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: flex; justify-content: space-between; font-weight: bold; color: #475569; margin-bottom: 8px; font-size: 0.95rem; }
+        .control-group select, .control-group input[type="range"] { width: 100%; padding: 8px; cursor: pointer;}
+        
+        .btn { background: var(--ml-blue); color: white; border: none; padding: 12px; border-radius: 8px; font-size: 1rem; cursor: pointer; font-weight: bold; transition: 0.2s; width: 100%; margin-top: 10px;}
+        .btn:hover { background: #1e40af; }
+        .btn-clear { background: #ef4444; margin-top: 10px;}
+        .btn-clear:hover { background: #b91c1c; }
+
+        /* 动态计算黑板 */
+        .calc-board { background: #0f172a; color: #e2e8f0; padding: 20px; border-radius: 8px; font-family: 'Consolas', monospace; font-size: 0.9rem; line-height: 1.6; margin-top: 15px; border: 3px solid #334155; box-shadow: inset 0 0 15px rgba(0,0,0,0.8);}
+        .calc-title { color: #fcd34d; font-weight: bold; border-bottom: 1px dashed #475569; padding-bottom: 5px; margin-bottom: 10px;}
+        .math-res { color: #22c55e; font-weight: bold; font-size: 1.1rem;}
+        .tir-alert { color: #ef4444; font-weight: bold; font-size: 1rem; border: 1px solid #ef4444; padding: 5px; background: rgba(239,68,68,0.1); border-radius: 4px; text-align: center; margin-top: 10px; display: none;}
+
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; text-align: center;}
+        .data-table th, .data-table td { border: 1px solid #cbd5e1; padding: 8px; }
+        .data-table th { background: #f1f5f9; color: #334155;}
+        .data-table tr:nth-child(even) { background: #f8fafc; }
+
+        .visual-container { display: flex; flex-direction: column; gap: 15px; }
+        .canvas-box { background: #000; border-radius: 12px; border: 4px solid #cbd5e1; overflow: hidden; position: relative; box-shadow: inset 0 0 50px rgba(0,0,0,1); height: 100%; min-height: 550px;}
+        canvas { width: 100%; height: 100%; }
+        
+        .angle-readout { position: absolute; top: 20px; right: 20px; background: rgba(15, 23, 42, 0.9); color: white; padding: 15px; border-radius: 8px; border: 2px solid #64748b; font-family: monospace; font-size: 1rem; line-height: 1.5;}
+        .angle-val { color: #38bdf8; font-weight: bold; font-size: 1.2rem;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit4.html" class="back-link">⬅ Back to Unit 4</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 11: Snell's Law & TIR</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Physics</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>1. Optics Bench Controls</h3>
+            
+            <div class="control-group">
+                <label>Medium 1 (Top, n&sub1;):</label>
+                <select id="n1-sel" onchange="updatePhysics()">
+                    <option value="1.000">Air / Vacuum (n = 1.00)</option>
+                    <option value="1.333">Water (n = 1.33)</option>
+                    <option value="1.460">Fused Quartz (n = 1.46)</option>
+                    <option value="1.520">Crown Glass (n = 1.52)</option>
+                    <option value="2.420">Diamond (n = 2.42)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Medium 2 (Bottom, n&sub2;):</label>
+                <select id="n2-sel" onchange="updatePhysics()">
+                    <option value="1.333">Water (n = 1.33)</option>
+                    <option value="1.000">Air / Vacuum (n = 1.00)</option>
+                    <option value="1.460">Fused Quartz (n = 1.46)</option>
+                    <option value="1.520">Crown Glass (n = 1.52)</option>
+                    <option value="2.420">Diamond (n = 2.42)</option>
+                </select>
+            </div>
+
+            <div class="control-group" style="margin-top: 25px;">
+                <label>Incident Angle (&theta;&sub1;): <span id="theta1-val" style="color:#ef4444; font-size: 1.1rem;">45.0&deg;</span></label>
+                <input type="range" id="theta1-slider" min="0" max="89.9" step="0.1" value="45" oninput="updatePhysics()">
+            </div>
+
+            <h3>2. Live Calculation Board</h3>
+            <div class="calc-board" id="calc-board">
+                </div>
+            <div class="tir-alert" id="tir-alert">
+                &#9888; TOTAL INTERNAL REFLECTION
+            </div>
+
+            <h3 style="margin-top: 20px;">3. Data Notebook</h3>
+            <button class="btn" onclick="recordData()">Record Angles</button>
+            <table class="data-table" id="data-table">
+                <tr>
+                    <th>n&sub1;</th>
+                    <th>&theta;&sub1; (Inc)</th>
+                    <th>n&sub2;</th>
+                    <th>&theta;&sub2; (Ref)</th>
+                </tr>
+            </table>
+            <button class="btn btn-clear" onclick="clearData()">Clear Table</button>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box">
+                <div class="angle-readout">
+                    Incidence &theta;&sub1;: <span class="angle-val" id="read-inc">45.0&deg;</span><br>
+                    Refraction &theta;&sub2;: <span class="angle-val" id="read-ref" style="color:#22c55e;">0.0&deg;</span><br>
+                    Reflection &theta;: <span class="angle-val" id="read-refl" style="color:#fcd34d;">45.0&deg;</span>
+                </div>
+                <canvas id="opticsCanvas" width="900" height="600"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('opticsCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        let n1 = 1.0;
+        let n2 = 1.333;
+        let theta1_deg = 45;
+        
+        let theta2_deg = 0;
+        let isTIR = false;
+        let criticalAngle = 0;
+
+        function updatePhysics() {
+            n1 = parseFloat(document.getElementById('n1-sel').value);
+            n2 = parseFloat(document.getElementById('n2-sel').value);
+            theta1_deg = parseFloat(document.getElementById('theta1-slider').value);
+            
+            document.getElementById('theta1-val').innerHTML = theta1_deg.toFixed(1) + "&deg;";
+
+            // --- 核心光学引擎计算 ---
+            let theta1_rad = theta1_deg * (Math.PI / 180);
+            let sinTheta2 = (n1 / n2) * Math.sin(theta1_rad);
+            
+            isTIR = false;
+            criticalAngle = 0;
+
+            if (n1 > n2) {
+                criticalAngle = Math.asin(n2 / n1) * (180 / Math.PI);
+            }
+
+            if (sinTheta2 >= 1.0) {
+                // 全反射 Total Internal Reflection
+                isTIR = true;
+                theta2_deg = 0; // 无折射
+            } else {
+                theta2_deg = Math.asin(sinTheta2) * (180 / Math.PI);
+            }
+
+            updateUI();
+            drawLab();
+        }
+
+        function updateUI() {
+            document.getElementById('read-inc').innerHTML = theta1_deg.toFixed(1) + "&deg;";
+            document.getElementById('read-refl').innerHTML = theta1_deg.toFixed(1) + "&deg;";
+            
+            let board = document.getElementById('calc-board');
+            let alertBox = document.getElementById('tir-alert');
+
+            if (isTIR) {
+                document.getElementById('read-ref').innerHTML = "TIR (None)";
+                document.getElementById('read-ref').style.color = "#ef4444";
+                alertBox.style.display = 'block';
+                
+                board.innerHTML = `
+                    <div class="calc-title">Total Internal Reflection (TIR)</div>
+                    <div>Because n&sub1; > n&sub2;, light bends away from the normal.</div>
+                    <div style="margin-top:10px;"><b>Critical Angle (&theta;<sub>c</sub>) Check:</b></div>
+                    <div>&theta;<sub>c</sub> = arcsin(n&sub2; / n&sub1;)</div>
+                    <div>&theta;<sub>c</sub> = arcsin(${n2} / ${n1}) = <span style="color:#fcd34d; font-weight:bold;">${criticalAngle.toFixed(1)}&deg;</span></div>
+                    <div style="margin-top:10px; color:#ef4444;">Since &theta;&sub1; (${theta1_deg.toFixed(1)}&deg;) &ge; &theta;<sub>c</sub>, no refraction occurs!</div>
+                `;
+            } else {
+                document.getElementById('read-ref').innerHTML = theta2_deg.toFixed(1) + "&deg;";
+                document.getElementById('read-ref').style.color = "#22c55e";
+                alertBox.style.display = 'none';
+
+                let caHtml = n1 > n2 ? `<div style="margin-top:10px; color:#fcd34d;">Critical Angle &theta;<sub>c</sub> = ${criticalAngle.toFixed(1)}&deg;</div>` : '';
+
+                board.innerHTML = `
+                    <div class="calc-title">Snell's Law: n&sub1;sin(&theta;&sub1;) = n&sub2;sin(&theta;&sub2;)</div>
+                    <div class="calc-step">
+                        <b>1. Rearrange for &theta;&sub2;:</b><br>
+                        sin(&theta;&sub2;) = (n&sub1; / n&sub2;) &times; sin(&theta;&sub1;)<br>
+                        sin(&theta;&sub2;) = (${n1} / ${n2}) &times; sin(${theta1_deg.toFixed(1)}&deg;)<br>
+                        sin(&theta;&sub2;) = ${(n1/n2 * Math.sin(theta1_deg * Math.PI/180)).toFixed(4)}
+                    </div>
+                    <div class="calc-step" style="margin-top:10px;">
+                        <b>2. Inverse Sine:</b><br>
+                        &theta;&sub2; = arcsin(${(n1/n2 * Math.sin(theta1_deg * Math.PI/180)).toFixed(4)})<br>
+                        &theta;&sub2; = <span class="math-res">${theta2_deg.toFixed(2)}&deg;</span>
+                    </div>
+                    ${caHtml}
+                `;
+            }
+        }
+
+        function recordData() {
+            let table = document.getElementById('data-table');
+            let row = table.insertRow(-1);
+            row.insertCell(0).innerText = n1;
+            row.insertCell(1).innerHTML = theta1_deg.toFixed(1) + "&deg;";
+            row.insertCell(2).innerText = n2;
+            row.insertCell(3).innerHTML = isTIR ? "<b>TIR</b>" : "<b>" + theta2_deg.toFixed(1) + "&deg;</b>";
+        }
+
+        function clearData() {
+            let table = document.getElementById('data-table');
+            while(table.rows.length > 1) { table.deleteRow(1); }
+        }
+
+        function getMediumColor(n) {
+            // 根据折射率映射背景颜色深度 (n=1 是深空，n=2.4 是明亮的蓝色)
+            if(n === 1.0) return '#0f172a'; // 空气
+            let intensity = Math.min((n - 1.0) / 1.5 * 100, 100);
+            return `hsl(200, 80%, ${10 + intensity}%)`; 
+        }
+
+        function drawLab() {
+            let cx = 450, cy = 300;
+
+            // 1. 绘制两种介质背景
+            ctx.fillStyle = getMediumColor(n1); ctx.fillRect(0, 0, 900, cy);
+            ctx.fillStyle = getMediumColor(n2); ctx.fillRect(0, cy, 900, 300);
+
+            // 绘制介质标签
+            ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = 'bold 24px Arial'; ctx.textAlign = 'left';
+            let n1Name = document.getElementById('n1-sel').options[document.getElementById('n1-sel').selectedIndex].text;
+            let n2Name = document.getElementById('n2-sel').options[document.getElementById('n2-sel').selectedIndex].text;
+            ctx.fillText("Medium 1: " + n1Name, 20, 40);
+            ctx.fillText("Medium 2: " + n2Name, 20, 580);
+
+            // 2. 绘制法线 (Normal Line)
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2; ctx.setLineDash([10, 10]);
+            ctx.beginPath(); ctx.moveTo(cx, 50); ctx.lineTo(cx, 550); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#94a3b8'; ctx.font = '14px Arial'; ctx.textAlign = 'center'; ctx.fillText("Normal", cx, 40);
+
+            // 3. 绘制量角器 (Protractor overlay)
+            ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.arc(cx, cy, 200, 0, Math.PI*2); ctx.stroke();
+            for(let ang=0; ang<360; ang+=10) {
+                let rad = ang * Math.PI / 180;
+                let isMajor = ang % 30 === 0;
+                let r1 = isMajor ? 180 : 190;
+                ctx.beginPath();
+                ctx.moveTo(cx + Math.sin(rad)*r1, cy - Math.cos(rad)*r1); // Top 0 deg is normal
+                ctx.lineTo(cx + Math.sin(rad)*200, cy - Math.cos(rad)*200);
+                ctx.stroke();
+                
+                if(isMajor && ang !== 90 && ang !== 270) {
+                    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '10px Arial';
+                    let displayAng = ang <= 180 ? ang : 360 - ang;
+                    if(displayAng > 90) displayAng = 180 - displayAng;
+                    ctx.fillText(displayAng + "\xB0", cx + Math.sin(rad)*215, cy - Math.cos(rad)*215 + 4);
+                }
+            }
+
+            // --- 4. 光学光路绘制 ---
+            let theta1_rad = theta1_deg * Math.PI / 180;
+            
+            // 激光束发光效果
+            ctx.shadowBlur = 20; ctx.shadowColor = '#ef4444'; ctx.lineCap = 'round';
+
+            // 入射光 (Incident Ray) - 从左上射入中心
+            ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 6;
+            ctx.beginPath(); 
+            ctx.moveTo(cx - 300 * Math.sin(theta1_rad), cy - 300 * Math.cos(theta1_rad));
+            ctx.lineTo(cx, cy); ctx.stroke();
+            // 激光发射器模型
+            ctx.fillStyle = '#334155'; ctx.shadowBlur = 0;
+            let lx = cx - 280 * Math.sin(theta1_rad), ly = cy - 280 * Math.cos(theta1_rad);
+            ctx.save(); ctx.translate(lx, ly); ctx.rotate(Math.PI/2 - theta1_rad);
+            ctx.fillRect(-20, -10, 40, 20); ctx.fillStyle = 'white'; ctx.fillRect(-20, -5, 10, 10);
+            ctx.restore();
+
+            ctx.shadowBlur = 20;
+
+            // 反射光 (Reflected Ray) - 始终存在，TIR时最亮
+            let reflAlpha = isTIR ? 1.0 : 0.2; // TIR时全反射，否则只画出极微弱的反射
+            ctx.strokeStyle = `rgba(239, 68, 68, ${reflAlpha})`; ctx.lineWidth = isTIR ? 6 : 3;
+            ctx.beginPath(); ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + 300 * Math.sin(theta1_rad), cy - 300 * Math.cos(theta1_rad));
+            ctx.stroke();
+
+            // 折射光 (Refracted Ray)
+            if (!isTIR) {
+                let theta2_rad = theta2_deg * Math.PI / 180;
+                ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 5;
+                ctx.beginPath(); ctx.moveTo(cx, cy);
+                ctx.lineTo(cx + 300 * Math.sin(theta2_rad), cy + 300 * Math.cos(theta2_rad));
+                ctx.stroke();
+            }
+
+            ctx.shadowBlur = 0;
+
+            // 绘制界面线 (Interface)
+            ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(900, cy); ctx.stroke();
+        }
+
+        // 初始化
+        updatePhysics();
+    </script>
+</body>
+</html>

@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Physics 11: Energy Park Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg:#0f172a; --panel:#1e293b; --text:#e2e8f0; 
+            --accent:#facc15; /* Energy Yellow */
+            --ep:#3b82f6; /* PE Blue */
+            --ek:#10b981; /* KE Green */
+            --eth:#ef4444; /* Thermal Red */
+            --border:#334155;
+            --font: 'Segoe UI', sans-serif;
+        }
+        body { margin:0; background:var(--bg); color:var(--text); font-family:var(--font); display:flex; height:100vh; overflow:hidden; }
+
+        /* Sidebar */
+        .sidebar { width:380px; background:var(--panel); padding:20px; border-right:1px solid var(--border); display:flex; flex-direction:column; z-index:10; box-shadow:5px 0 15px #000; overflow-y:auto; }
+        .header { border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:15px; }
+        h2 { margin:0; color:var(--accent); }
+        .back { color:#94a3b8; text-decoration:none; font-size:0.85rem; }
+
+        /* Controls */
+        .control-group { background:#111827; padding:12px; border-radius:8px; border:1px solid var(--border); margin-bottom:10px; }
+        .label-row { display:flex; justify-content:space-between; font-size:0.8rem; color:#ccc; margin-bottom:5px; }
+        input[type=range] { width:100%; cursor:pointer; }
+
+        /* Track Controls */
+        .track-ctrl { border-left: 4px solid var(--ep); }
+        /* Launch Controls */
+        .launch-ctrl { border-left: 4px solid var(--ek); }
+
+        /* Buttons */
+        .btn-group { display:flex; gap:10px; margin-top:auto; }
+        .btn { flex:1; padding:15px; border:none; border-radius:6px; font-weight:bold; cursor:pointer; transition:0.2s; font-size:1rem; }
+        .btn-start { background:var(--ek); color:#000; }
+        .btn-start:hover { filter:brightness(1.1); }
+        .btn-pause { background:#f59e0b; color:#000; }
+        .btn-reset { background:#ef4444; color:#fff; }
+        
+        /* Viewport */
+        .viewport { flex:1; position:relative; background:#0b0f19; display:flex; flex-direction:column; }
+        .sim-area { flex:1; position:relative; overflow:hidden; border-bottom:1px solid var(--border); cursor:crosshair; }
+        canvas { display:block; width:100%; height:100%; }
+
+        /* HUD */
+        .energy-bars {
+            position:absolute; top:20px; left:20px; width:240px; background:rgba(0,0,0,0.8);
+            padding:15px; border-radius:8px; border:1px solid #444; pointer-events:none;
+        }
+        .bar-row { margin-bottom:8px; }
+        .bar-label { font-size:0.75rem; display:flex; justify-content:space-between; color:#ccc; }
+        .bar-track { height:10px; background:#333; border-radius:5px; overflow:hidden; margin-top:2px; }
+        .bar-fill { height:100%; transition: width 0.1s linear; }
+        
+        .stats-overlay {
+            position:absolute; top:20px; right:20px; text-align:right; pointer-events:none;
+        }
+        .stat-item { font-family:monospace; color:#888; font-size:0.9rem; margin-bottom:5px; }
+        .stat-val { color:#fff; font-weight:bold; font-size:1.2rem; }
+
+        /* Data Panel */
+        .data-panel { height:200px; background:#111; display:flex; border-top:1px solid var(--border); }
+        .table-container { flex:1; overflow:auto; padding:10px; }
+        table { width:100%; border-collapse:collapse; font-family:monospace; font-size:0.85rem; color:#ccc; text-align:right; }
+        th { position:sticky; top:0; background:#1e293b; padding:8px; color:#94a3b8; text-align:right; }
+        td { padding:4px 8px; border-bottom:1px solid #222; }
+        .btn-copy { position:absolute; bottom:20px; right:20px; padding:8px 15px; background:#333; border:1px solid #555; color:#fff; cursor:pointer; border-radius:4px; }
+
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="header"><a href="unit4.html" class="back">⬅ Back to Unit 4</a><h2>⚡ Energy Park</h2></div>
+
+    <div class="control-group track-ctrl">
+        <div style="color:#fff; font-weight:bold; margin-bottom:10px;">1. Track Shape</div>
+        
+        <div class="label-row"><span>Start Height (Left)</span><span id="val-h1">10 m</span></div>
+        <input type="range" id="slider-h1" min="0" max="20" step="1" value="10" oninput="updateTrack()">
+        
+        <div class="label-row"><span>End Height (Right)</span><span id="val-h2">10 m</span></div>
+        <input type="range" id="slider-h2" min="0" max="20" step="1" value="10" oninput="updateTrack()">
+        
+        <div class="label-row"><span>Curvature</span><span id="val-bend">Valley (U)</span></div>
+        <input type="range" id="slider-bend" min="-20" max="20" step="1" value="-15" oninput="updateTrack()">
+    </div>
+
+    <div class="control-group launch-ctrl">
+        <div style="color:#fff; font-weight:bold; margin-bottom:10px;">2. Launch Conditions</div>
+        
+        <div class="label-row"><span>Start Position (x)</span><span id="val-pos">0 m</span></div>
+        <input type="range" id="slider-pos" min="0" max="100" step="1" value="0" oninput="updateBallStart()">
+        
+        <div class="label-row"><span>Initial Velocity (v0)</span><span id="val-v0">0 m/s</span></div>
+        <input type="range" id="slider-v0" min="-20" max="20" step="1" value="0" oninput="updateBallStart()">
+    </div>
+
+    <div class="control-group">
+        <div class="label-row"><span>Mass (m)</span><span id="val-m">50 kg</span></div>
+        <input type="range" id="slider-m" min="10" max="100" value="50" oninput="updateConfig()">
+        
+        <div class="label-row"><span>Friction (&mu;)</span><span id="val-f">0.0 (None)</span></div>
+        <input type="range" id="slider-f" min="0" max="0.1" step="0.005" value="0" oninput="updateConfig()">
+        
+        <div class="label-row"><span>Gravity (g)</span><span id="val-g">9.8 m/s²</span></div>
+        <input type="range" id="slider-g" min="1" max="25" step="0.1" value="9.8" oninput="updateConfig()">
+    </div>
+
+    <div class="btn-group">
+        <button class="btn btn-start" id="btn-start" onclick="startSim()">▶ LAUNCH</button>
+        <button class="btn btn-pause" id="btn-pause" onclick="togglePause()">⏸</button>
+        <button class="btn btn-reset" onclick="resetSim()">⏹ RESET</button>
+    </div>
+</div>
+
+<div class="viewport">
+    <div class="sim-area" id="sim-box">
+        <canvas id="canvas"></canvas>
+        
+        <div class="energy-bars">
+            <div class="bar-row">
+                <div class="bar-label"><span style="color:var(--ek)">Kinetic (KE)</span><span id="disp-ke">0 J</span></div>
+                <div class="bar-track"><div class="bar-fill" id="bar-ke" style="background:var(--ek); width:0%"></div></div>
+            </div>
+            <div class="bar-row">
+                <div class="bar-label"><span style="color:var(--ep)">Potential (PE)</span><span id="disp-pe">0 J</span></div>
+                <div class="bar-track"><div class="bar-fill" id="bar-pe" style="background:var(--ep); width:0%"></div></div>
+            </div>
+            <div class="bar-row">
+                <div class="bar-label"><span style="color:var(--eth)">Thermal (Heat)</span><span id="disp-th">0 J</span></div>
+                <div class="bar-track"><div class="bar-fill" id="bar-th" style="background:var(--eth); width:0%"></div></div>
+            </div>
+            <div class="bar-row" style="margin-top:5px; padding-top:5px; border-top:1px solid #555;">
+                <div class="bar-label"><span style="color:var(--accent)">Total Energy</span><span id="disp-tot">0 J</span></div>
+                <div class="bar-track"><div class="bar-fill" id="bar-tot" style="background:var(--accent); width:0%"></div></div>
+            </div>
+        </div>
+
+        <div class="stats-overlay">
+            <div class="stat-item">Height <div class="stat-val" id="hud-h">0.0 m</div></div>
+            <div class="stat-item">Speed <div class="stat-val" id="hud-v">0.0 m/s</div></div>
+        </div>
+    </div>
+
+    <div class="data-panel">
+        <div class="table-container">
+            <table id="data-table">
+                <thead>
+                    <tr>
+                        <th>Time (s)</th><th>Height (m)</th><th>Vel (m/s)</th>
+                        <th>PE (J)</th><th>KE (J)</th><th>Total (J)</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    </tbody>
+            </table>
+        </div>
+        <button class="copy-btn" onclick="copyData()">📋 Copy Data</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let W, H;
+
+    // State
+    let config = { m: 50, g: 9.8, mu: 0.0, v0: 0 };
+    let track = []; 
+    let ball = { x:0, y:0, v:0, dragging:false }; 
+    let physics = { t:0, eth:0, etot:0 };
+    
+    let running = false;
+    let paused = false;
+    let lastLogTime = 0;
+
+    // Visual Constants
+    const PX_PER_M = 20; // 20px = 1 meter
+    const DT = 1/60;
+
+    window.onload = () => {
+        resize();
+        updateTrack();
+        updateBallStart();
+        loop();
+        
+        // Mouse Events
+        canvas.addEventListener('mousedown', onDown);
+        canvas.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+    };
+    
+    window.onresize = resize;
+
+    function resize() {
+        const box = document.getElementById('sim-box');
+        W = canvas.width = box.clientWidth;
+        H = canvas.height = box.clientHeight;
+        generateTrackPoints();
+        if(!running) updateBallStart();
+    }
+
+    // --- Track Generation ---
+    function updateTrack() {
+        let h1 = parseInt(document.getElementById('slider-h1').value);
+        let h2 = parseInt(document.getElementById('slider-h2').value);
+        let bend = parseInt(document.getElementById('slider-bend').value);
+        
+        document.getElementById('val-h1').innerText = h1 + " m";
+        document.getElementById('val-h2').innerText = h2 + " m";
+        
+        let bendText = "Straight";
+        if(bend < -2) bendText = "Valley (U)";
+        if(bend > 2) bendText = "Hill (∩)";
+        document.getElementById('val-bend').innerText = bendText;
+
+        generateTrackPoints();
+        if(!running) updateBallStart();
+    }
+
+    function generateTrackPoints() {
+        track = [];
+        let h1 = parseInt(document.getElementById('slider-h1').value);
+        let h2 = parseInt(document.getElementById('slider-h2').value);
+        let bend = parseInt(document.getElementById('slider-bend').value);
+
+        // Generate X every 2px
+        for(let x=0; x<=W; x+=2) {
+            let pct = x / W; // 0 to 1
+            // Linear H
+            let h_lin = h1 + (h2 - h1) * pct;
+            // Curve H (Sine wave 0 to PI)
+            // Hill (Positive bend) means Height increases.
+            // Valley (Negative bend) means Height decreases.
+            let h_curve = bend * Math.sin(pct * Math.PI);
+            
+            let h_final = h_lin + h_curve;
+            if(h_final < 0) h_final = 0;
+            
+            // Map to Canvas Y (Ground at bottom)
+            let y_px = H - 20 - h_final * PX_PER_M;
+            
+            track.push({ x: x, y: y_px, h: h_final });
+        }
+    }
+
+    function updateConfig() {
+        config.m = parseFloat(document.getElementById('slider-m').value);
+        config.g = parseFloat(document.getElementById('slider-g').value);
+        config.mu = parseFloat(document.getElementById('slider-f').value);
+
+        document.getElementById('val-m').innerText = config.m + " kg";
+        document.getElementById('val-g').innerText = config.g + " m/s²";
+        document.getElementById('val-f').innerText = config.mu === 0 ? "None" : config.mu.toFixed(3);
+        
+        if(!running) updateBallStart(); // Recalc energy bars
+    }
+
+    function updateBallStart() {
+        if(running) return;
+        
+        // Get Pos %
+        let posPct = parseInt(document.getElementById('slider-pos').value);
+        let x = (posPct / 100) * W;
+        document.getElementById('val-pos').innerText = (x/PX_PER_M).toFixed(1) + " m";
+        
+        // Get V0
+        config.v0 = parseInt(document.getElementById('slider-v0').value);
+        document.getElementById('val-v0').innerText = config.v0 + " m/s";
+
+        ball.x = x;
+        ball.v = config.v0;
+        
+        // Snap Y
+        let p = getTrackPoint(ball.x);
+        ball.y = p.y;
+        
+        // Calc Init Energy
+        let pe = config.m * config.g * p.h;
+        let ke = 0.5 * config.m * ball.v * ball.v;
+        physics.etot = pe + ke;
+        physics.eth = 0;
+        
+        updateHUD(p.h, ball.v);
+    }
+
+    // --- Simulation Logic ---
+    function startSim() {
+        if(running) return;
+        running = true;
+        paused = false;
+        ball.active = true;
+        physics.t = 0;
+        physics.eth = 0;
+        
+        // Set V0
+        ball.v = config.v0;
+        
+        // Fix Total Energy at launch
+        let p = getTrackPoint(ball.x);
+        let pe = config.m * config.g * p.h;
+        let ke = 0.5 * config.m * ball.v * ball.v;
+        physics.etot = pe + ke;
+        
+        document.getElementById('table-body').innerHTML = "";
+        logData(p.h, ball.v);
+        document.getElementById('btn-start').disabled = true;
+    }
+
+    function togglePause() {
+        if(!running) return;
+        paused = !paused;
+        document.getElementById('btn-pause').innerText = paused ? "▶ RESUME" : "⏸ PAUSE";
+    }
+
+    function resetSim() {
+        running = false;
+        paused = false;
+        ball.active = false;
+        physics.t = 0;
+        physics.eth = 0;
+        document.getElementById('btn-start').disabled = false;
+        document.getElementById('btn-pause').innerText = "⏸ PAUSE";
+        document.getElementById('table-body').innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:#666;">Ready</td></tr>`;
+        
+        updateBallStart();
+    }
+
+    function getTrackPoint(x) {
+        let idx = Math.floor(x / 2);
+        if (idx < 0) idx = 0;
+        if (idx >= track.length) idx = track.length - 1;
+        return track[idx];
+    }
+
+    function getSlope(idx) {
+        if (idx <= 1 || idx >= track.length - 2) return 0;
+        let p1 = track[idx-2];
+        let p2 = track[idx+2];
+        let dy = p2.y - p1.y; // pixel dy
+        let dx = p2.x - p1.x;
+        // Angle of tangent
+        return Math.atan2(dy, dx);
+    }
+
+    function physicsStep() {
+        if(!running || paused) return;
+
+        let p = getTrackInfo(ball.x);
+        let slope = p.slope;
+        
+        // Forces
+        // Gravity component along track: Fg_t = m * g * sin(theta)
+        // Canvas Y down, Physics H up.
+        // Slope angle is dy/dx in Canvas. Down slope is +angle.
+        // Gravity helps velocity if slope > 0.
+        
+        let gravityForce = config.m * config.g * Math.sin(slope);
+        
+        // Friction
+        let normalForce = config.m * config.g * Math.cos(slope);
+        let frictionForce = config.mu * normalForce;
+        
+        // Apply Forces
+        let F_net = gravityForce;
+        
+        if (Math.abs(ball.v) > 0.01 || Math.abs(gravityForce) > frictionForce) {
+             // Friction opposes velocity (or gravity if static)
+             let dir = Math.sign(ball.v);
+             if(ball.v === 0) dir = Math.sign(gravityForce);
+             
+             let f = -dir * frictionForce;
+             F_net += f;
+             
+             // Heat Loss
+             let dist = Math.abs(ball.v * DT);
+             physics.eth += Math.abs(f * dist * 0.2); // scale factor
+        } else {
+             ball.v = 0; // Stick
+             F_net = 0;
+        }
+        
+        let a = F_net / config.m;
+        ball.v += a * DT * 20; // Visual scale
+
+        // Energy Correction (Tunneling fix)
+        // If new KE would be < 0 (climbing too high), stop.
+        let nextX = ball.x + ball.v * DT * 20;
+        let nextP = getTrackPoint(nextX);
+        let nextPE = config.m * config.g * nextP.h;
+        let availE = physics.etot - physics.eth;
+        
+        if (nextPE > availE) {
+             // Hit max height
+             ball.v = 0;
+        } else {
+             ball.x = nextX;
+        }
+
+        // Bounds
+        if(ball.x <= 0) { ball.x = 0; ball.v *= -0.5; } 
+        if(ball.x >= W) { ball.x = W; ball.v *= -0.5; }
+        
+        // Snap Y
+        let newP = getTrackPoint(ball.x);
+        ball.y = newP.y;
+        
+        physics.t += DT;
+
+        if(physics.t - lastLogTime > 0.2) {
+            logData(newP.h, ball.v, a);
+            lastLogTime = physics.t;
+        }
+        
+        updateHUD(newP.h, ball.v);
+    }
+    
+    function getTrackInfo(x) {
+        let idx = Math.floor(x / 2);
+        if(idx < 0) idx = 0;
+        if(idx >= track.length) idx = track.length - 1;
+        return { ...track[idx], slope: getSlope(idx) };
+    }
+
+    function updateHUD(h, v) {
+        // Calculate Energies
+        let pe = config.m * config.g * h;
+        let ke = 0.5 * config.m * (v/20)**2; 
+        let real_v = v / 20; // Meter/s
+        let ke_real = 0.5 * config.m * real_v**2;
+        
+        let th = physics.eth;
+        let tot = pe + ke_real + th; 
+        
+        let max = Math.max(physics.etot, 1);
+        
+        document.getElementById('bar-pe').style.width = (pe/max*100)+"%";
+        document.getElementById('disp-pe').innerText = Math.round(pe);
+        
+        document.getElementById('bar-ke').style.width = (ke_real/max*100)+"%";
+        document.getElementById('disp-ke').innerText = Math.round(ke_real);
+        
+        document.getElementById('bar-th').style.width = (th/max*100)+"%";
+        document.getElementById('disp-th').innerText = Math.round(th);
+        
+        document.getElementById('bar-tot').style.width = "100%";
+        document.getElementById('disp-tot').innerText = Math.round(tot)+" J";
+
+        document.getElementById('hud-h').innerText = h.toFixed(2) + " m";
+        document.getElementById('hud-v').innerText = real_v.toFixed(2) + " m/s";
+    }
+
+    function logData(h, v, a) {
+        let real_v = v/20;
+        let ep = config.m * config.g * h;
+        let ek = 0.5 * config.m * real_v**2;
+        let tot = ep + ek + physics.eth;
+
+        const tbody = document.getElementById('table-body');
+        let row = `<tr>
+            <td>${physics.t.toFixed(1)}</td>
+            <td>${h.toFixed(2)}</td>
+            <td>${real_v.toFixed(2)}</td>
+            <td>${ep.toFixed(0)}</td>
+            <td>${ek.toFixed(0)}</td>
+            <td>${tot.toFixed(0)}</td>
+        </tr>`;
+        tbody.insertAdjacentHTML('afterbegin', row);
+        if(tbody.children.length > 50) tbody.lastChild.remove();
+    }
+
+    function loop() {
+        physicsStep();
+        
+        ctx.clearRect(0,0,W,H);
+        
+        // Track
+        ctx.beginPath();
+        ctx.strokeStyle = "#64748b"; ctx.lineWidth = 5;
+        if(track.length>0) {
+            ctx.moveTo(track[0].x, track[0].y);
+            for(let p of track) ctx.lineTo(p.x, p.y);
+        }
+        ctx.stroke();
+        
+        // Ground
+        ctx.fillStyle = "#334155"; ctx.fillRect(0, H-20, W, 20);
+
+        // Ball
+        let r = 15;
+        ctx.fillStyle = ball.dragging ? "#fff" : "var(--ek)";
+        ctx.beginPath(); ctx.arc(ball.x, ball.y - r, r, 0, 6.28); ctx.fill();
+        ctx.strokeStyle = "#fff"; ctx.lineWidth=2; ctx.stroke();
+        
+        // V Vector
+        if(Math.abs(ball.v) > 1) {
+             let p = getTrackInfo(ball.x);
+             let vx = ball.v * Math.cos(p.slope);
+             let vy = ball.v * Math.sin(p.slope);
+             let ex = ball.x + vx * 2; // scale
+             let ey = (ball.y-r) + vy * 2;
+             ctx.strokeStyle="#10b981"; ctx.lineWidth=3;
+             ctx.beginPath(); ctx.moveTo(ball.x, ball.y-r); ctx.lineTo(ex, ey); ctx.stroke();
+        }
+
+        requestAnimationFrame(loop);
+    }
+    
+    // Drag Logic (Only if not running)
+    function onDown(e) {
+        if(running) return;
+        let rect = canvas.getBoundingClientRect();
+        let mx = e.clientX - rect.left;
+        let my = e.clientY - rect.top;
+        if (Math.hypot(mx-ball.x, my-(ball.y-15)) < 30) {
+            ball.dragging = true;
+        }
+    }
+    function onMove(e) {
+        if(!ball.dragging) return;
+        let rect = canvas.getBoundingClientRect();
+        let mx = e.clientX - rect.left;
+        mx = Math.max(0, Math.min(W, mx));
+        
+        // Update Slider
+        document.getElementById('slider-pos').value = (mx/W)*100;
+        updateBallStart();
+    }
+    function onUp() { ball.dragging = false; }
+    
+    function copyData() { alert("Copied to clipboard (Mock)"); }
+
+</script>
+</body>
+</html>

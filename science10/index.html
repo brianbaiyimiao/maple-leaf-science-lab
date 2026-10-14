@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Science 10 Virtual Lab - Maple Leaf World School</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { 
+            --ml-gold: #fbbf24; 
+            --panel: #0f172a; 
+            --bg: #020617;
+            --glass-bg: rgba(15, 23, 42, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            
+            /* 学科主题色 */
+            --color-phy: #ef4444; /* 物理红 */
+            --color-chem: #f59e0b; /* 化学金 */
+            --color-bio: #22c55e; /* 生物绿 */
+            --color-earth: #38bdf8; /* 地球蓝 */
+        }
+        
+        body { background: var(--bg); font-family: 'Rajdhani', sans-serif; margin: 0; padding-bottom: 80px; color: #f8fafc; overflow-x: hidden;}
+        
+        /* 动态极客网格背景 */
+        .bg-grid { position: fixed; inset: 0; background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 30px 30px; z-index: -2; pointer-events: none;}
+        .bg-glow { position: fixed; top: -20vh; left: 50%; transform: translateX(-50%); width: 80vw; height: 50vh; background: radial-gradient(ellipse at center, rgba(56,189,248,0.15) 0%, transparent 70%); z-index: -1; pointer-events: none; animation: pulse 4s infinite alternate;}
+        @keyframes pulse { 0% { opacity: 0.5; } 100% { opacity: 1; transform: translateX(-50%) scale(1.1); } }
+
+        /* 顶部导航 */
+        .header { background: rgba(2, 6, 23, 0.8); backdrop-filter: blur(10px); padding: 40px 20px; text-align: center; border-bottom: 2px solid #1e293b; position: relative; z-index: 10;}
+        .header h1 { font-family: 'Orbitron', sans-serif; margin: 0; font-size: 2.8rem; letter-spacing: 2px; text-transform: uppercase; text-shadow: 0 0 20px rgba(56,189,248,0.5);}
+        .header p { margin: 10px 0 0; color: #94a3b8; font-size: 1.2rem;}
+        .system-status { display: inline-block; margin-top: 15px; padding: 5px 15px; border: 1px solid #22c55e; color: #22c55e; border-radius: 20px; font-family: monospace; font-weight: bold; background: rgba(34,197,94,0.1); letter-spacing: 1px;}
+        
+        .back-btn { position: absolute; top: 25px; left: 30px; color: white; text-decoration: none; font-weight: bold; border: 2px solid rgba(255,255,255,0.3); padding: 10px 20px; border-radius: 8px; transition: 0.3s; font-size: 1rem; font-family: 'Orbitron', sans-serif; text-transform: uppercase;}
+        .back-btn:hover { background: white; color: var(--bg); border-color: white; box-shadow: 0 0 15px rgba(255,255,255,0.5);}
+
+        /* 实验室卡片网格 */
+        .container { max-width: 1100px; margin: 50px auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 30px; padding: 0 20px; position: relative; z-index: 10;}
+        
+        .unit-card { 
+            background: var(--glass-bg); backdrop-filter: blur(15px); border: 1px solid var(--glass-border); border-radius: 20px; text-decoration: none; color: white; 
+            transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; flex-direction: column; position: relative; overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+        }
+        
+        .unit-card::before { content: ''; position: absolute; top: 0; left: 0; width: 6px; height: 100%; transition: 0.3s;}
+        .u1::before { background: var(--color-phy); box-shadow: 0 0 15px var(--color-phy); }
+        .u2::before { background: var(--color-chem); box-shadow: 0 0 15px var(--color-chem); }
+        .u3::before { background: var(--color-bio); box-shadow: 0 0 15px var(--color-bio); }
+        .u4::before { background: var(--color-earth); box-shadow: 0 0 15px var(--color-earth); }
+
+        .unit-card:hover { transform: translateY(-10px); }
+        .u1:hover { border-color: var(--color-phy); box-shadow: 0 15px 40px rgba(239, 68, 68, 0.2); }
+        .u2:hover { border-color: var(--color-chem); box-shadow: 0 15px 40px rgba(245, 158, 11, 0.2); }
+        .u3:hover { border-color: var(--color-bio); box-shadow: 0 15px 40px rgba(34, 197, 94, 0.2); }
+        .u4:hover { border-color: var(--color-earth); box-shadow: 0 15px 40px rgba(56, 189, 248, 0.2); }
+
+        .unit-header { padding: 30px 30px 10px 30px; position: relative;}
+        .unit-num { font-size: 1rem; font-weight: 800; font-family: 'Orbitron', sans-serif; letter-spacing: 2px;}
+        .u1 .unit-num { color: var(--color-phy); } .u2 .unit-num { color: var(--color-chem); } .u3 .unit-num { color: var(--color-bio); } .u4 .unit-num { color: var(--color-earth); }
+        
+        .unit-title { font-size: 1.8rem; font-weight: bold; margin: 10px 0 0 0; color: white;}
+        .unit-desc { padding: 0 30px 30px 30px; color: #94a3b8; font-size: 1.05rem; line-height: 1.5; flex-grow: 1;}
+        
+        .unit-icon { position: absolute; right: 25px; top: 25px; font-size: 3.5rem; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5)); transition: 0.3s;}
+        .unit-card:hover .unit-icon { transform: scale(1.1) rotate(5deg); }
+
+        .enter-btn { margin: 0 30px 30px 30px; padding: 12px; text-align: center; border-radius: 8px; font-weight: bold; text-transform: uppercase; font-family: 'Orbitron', sans-serif; transition: 0.3s; border: 2px solid transparent;}
+        .u1 .enter-btn { background: rgba(239,68,68,0.1); color: var(--color-phy); border-color: rgba(239,68,68,0.3); } .u1:hover .enter-btn { background: var(--color-phy); color: white; box-shadow: 0 0 15px var(--color-phy);}
+        .u2 .enter-btn { background: rgba(245,158,11,0.1); color: var(--color-chem); border-color: rgba(245,158,11,0.3); } .u2:hover .enter-btn { background: var(--color-chem); color: white; box-shadow: 0 0 15px var(--color-chem);}
+        .u3 .enter-btn { background: rgba(34,197,94,0.1); color: var(--color-bio); border-color: rgba(34,197,94,0.3); } .u3:hover .enter-btn { background: var(--color-bio); color: white; box-shadow: 0 0 15px var(--color-bio);}
+        .u4 .enter-btn { background: rgba(56,189,248,0.1); color: var(--color-earth); border-color: rgba(56,189,248,0.3); } .u4:hover .enter-btn { background: var(--color-earth); color: white; box-shadow: 0 0 15px var(--color-earth);}
+
+        /* 悬浮智能词典 (适配Sci10风格) */
+        .dict-fab { position: fixed; bottom: 30px; right: 30px; background: var(--panel); color: white; width: 65px; height: 65px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26px; cursor: pointer; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 3px solid #64748b; transition: 0.3s; z-index: 100;}
+        .dict-fab:hover { transform: scale(1.1); border-color: white; background: #334155;}
+
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px;}
+        .modal-content { background: var(--panel); width: 100%; max-width: 800px; max-height: 85vh; border-radius: 15px; border: 1px solid #475569; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.8); animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);}
+        @keyframes slideUp { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
+
+        .modal-header { background: #020617; padding: 20px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155;}
+        .modal-header h2 { margin: 0; color: white; font-family: 'Orbitron', sans-serif;}
+        .close-btn { background: transparent; border: none; color: #94a3b8; font-size: 28px; cursor: pointer; transition: 0.2s;}
+        .close-btn:hover { color: #ef4444;}
+
+        .search-bar { padding: 20px 25px; background: #0f172a; border-bottom: 1px solid #334155;}
+        .search-bar input { width: 100%; padding: 15px 20px; border-radius: 10px; border: 2px solid #475569; background: #020617; color: white; font-size: 1.1rem; outline: none; box-sizing: border-box; transition: 0.2s; font-family: 'Rajdhani', sans-serif;}
+        .search-bar input:focus { border-color: #94a3b8; box-shadow: 0 0 15px rgba(255,255,255,0.1);}
+
+        .vocab-list { flex-grow: 1; overflow-y: auto; padding: 20px 25px; display: flex; flex-direction: column; gap: 12px;}
+        .vocab-item { background: #020617; border: 1px solid #1e293b; padding: 18px; border-radius: 10px; text-align: left;}
+        .vocab-item .term { font-size: 1.3rem; font-weight: bold; color: white;}
+        .vocab-item .translation { font-size: 1.1rem; color: #94a3b8; font-weight: bold; float: right;}
+        .vocab-item .desc { color: #cbd5e1; font-size: 0.95rem; line-height: 1.5; margin-top: 8px;}
+        
+        /* 词典中的单元标签颜色映射 */
+        .tag-phy { background: rgba(239,68,68,0.2); color: #fca5a5; border: 1px solid #ef4444;}
+        .tag-chem { background: rgba(245,158,11,0.2); color: #fcd34d; border: 1px solid #f59e0b;}
+        .tag-bio { background: rgba(34,197,94,0.2); color: #86efac; border: 1px solid #22c55e;}
+        .tag-earth { background: rgba(56,189,248,0.2); color: #7dd3fc; border: 1px solid #38bdf8;}
+        .unit-tag { display: inline-block; font-size: 0.75rem; padding: 4px 10px; border-radius: 6px; margin-top: 10px; font-weight: bold; text-transform: uppercase; font-family: 'Orbitron', sans-serif;}
+
+        .vocab-list::-webkit-scrollbar { width: 8px; }
+        .vocab-list::-webkit-scrollbar-track { background: #0f172a; }
+        .vocab-list::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        .vocab-list::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    </style>
+</head>
+<body>
+
+    <div class="bg-grid"></div>
+    <div class="bg-glow"></div>
+
+    <div class="header">
+        <a href="../index.html" class="back-btn">⬅ Main Portal</a>
+        <h1>Science 10 Foundation</h1>
+        <p>Multidisciplinary Virtual Laboratory Interface</p>
+        <div class="system-status">ALL SYSTEMS ONLINE • LABS READY</div>
+    </div>
+
+    <div class="container">
+        
+        <a href="unit-physics.html" class="unit-card u1">
+            <div class="unit-icon">🚀</div>
+            <div class="unit-header">
+                <div class="unit-num">UNIT 1</div>
+                <div class="unit-title">Physics</div>
+            </div>
+            <div class="unit-desc">
+                Kinematics and Dynamics. Explore uniform motion, acceleration graphs, scalar vs vector quantities, and the fundamental effects of gravity and force.
+            </div>
+            <div class="enter-btn">Initialize Module</div>
+        </a>
+
+        <a href="unit-chemistry.html" class="unit-card u2">
+            <div class="unit-icon">⚗️</div>
+            <div class="unit-header">
+                <div class="unit-num">UNIT 2</div>
+                <div class="unit-title">Chemistry</div>
+            </div>
+            <div class="unit-desc">
+                Matter and Chemical Change. Master IUPAC compound naming, balance complex chemical equations, and verify the conservation of mass in virtual reactions.
+            </div>
+            <div class="enter-btn">Initialize Module</div>
+        </a>
+
+        <a href="unit-biology.html" class="unit-card u3">
+            <div class="unit-icon">🧬</div>
+            <div class="unit-header">
+                <div class="unit-num">UNIT 3</div>
+                <div class="unit-title">Biology</div>
+            </div>
+            <div class="unit-desc">
+                Cycling of Energy in Living Systems. Investigate cell structure, compare plant vs animal organelles, and simulate osmosis and diffusion across membranes.
+            </div>
+            <div class="enter-btn">Initialize Module</div>
+        </a>
+
+        <a href="unit-climate.html" class="unit-card u4">
+            <div class="unit-icon">🌍</div>
+            <div class="unit-header">
+                <div class="unit-num">UNIT 4</div>
+                <div class="unit-title">Earth Science</div>
+            </div>
+            <div class="unit-desc">
+                Energy Flow in Global Systems. Track solar radiation, analyze the greenhouse effect, and simulate specific heat capacity effects on global climate biomes.
+            </div>
+            <div class="enter-btn">Initialize Module</div>
+        </a>
+
+    </div>
+
+    <div class="dict-fab" onclick="toggleModal(true)" title="Open Science 10 Glossary">📖</div>
+
+    <div class="modal-overlay" id="dictModal" onclick="closeOnOutside(event)">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔬 SCI-10 Foundation Glossary</h2>
+                <button class="close-btn" onclick="toggleModal(false)">✖</button>
+            </div>
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Search foundational terms (e.g., Vector, 离子, Osmosis...)" oninput="filterVocab()">
+            </div>
+            <div class="vocab-list" id="vocabList"></div>
+        </div>
+    </div>
+
+    <script>
+        // ================= Science 10 核心全科词汇库 (80+ 词汇) =================
+        const vocabData = [
+            // Physics
+            { unit: "U1: Physics", tagClass: "tag-phy", en: "Scalar", zh: "标量", desc: "A physical quantity that has magnitude (size) only, such as mass, time, or distance." },
+            { unit: "U1: Physics", tagClass: "tag-phy", en: "Vector", zh: "矢量 / 向量", desc: "A physical quantity that has both magnitude and direction, such as displacement, velocity, or force." },
+            { unit: "U1: Physics", tagClass: "tag-phy", en: "Displacement", zh: "位移", desc: "A vector quantity indicating the straight-line distance and direction from an object's starting position to its final position." },
+            { unit: "U1: Physics", tagClass: "tag-phy", en: "Velocity", zh: "速度", desc: "The rate of change of displacement with respect to time; a vector quantity." },
+            { unit: "U1: Physics", tagClass: "tag-phy", en: "Acceleration", zh: "加速度", desc: "The rate of change of velocity with respect to time." },
+            { unit: "U1: Physics", tagClass: "tag-phy", en: "Uniform Motion", zh: "匀速运动", desc: "Motion in a straight line at a constant speed, meaning zero acceleration." },
+            { unit: "U1: Physics", tagClass: "tag-phy", en: "Force", zh: "力", desc: "A push or pull acting upon an object as a result of its interaction with another object." },
+            { unit: "U1: Physics", tagClass: "tag-phy", en: "Gravity", zh: "重力", desc: "The universal force of attraction acting between all matter." },
+            { unit: "U1: Physics", tagClass: "tag-phy", en: "Inertia", zh: "惯性", desc: "The tendency of an object to resist a change in its state of motion." },
+            { unit: "U1: Physics", tagClass: "tag-phy", en: "Work", zh: "功", desc: "The measure of energy transfer that occurs when an object is moved over a distance by an external force applied in the direction of the displacement." },
+            { unit: "U1: Physics", tagClass: "tag-phy", en: "Kinetic Energy", zh: "动能", desc: "The energy that an object possesses due to its motion." },
+            { unit: "U1: Physics", tagClass: "tag-phy", en: "Potential Energy", zh: "势能", desc: "The stored energy an object possesses due to its position or state (e.g., gravitational potential energy)." },
+
+            // Chemistry
+            { unit: "U2: Chemistry", tagClass: "tag-chem", en: "Atom", zh: "原子", desc: "The basic building block of chemistry; the smallest unit of an element that maintains the properties of that element." },
+            { unit: "U2: Chemistry", tagClass: "tag-chem", en: "Ion", zh: "离子", desc: "An atom or molecule that has gained or lost one or more electrons, giving it a net positive or negative electrical charge." },
+            { unit: "U2: Chemistry", tagClass: "tag-chem", en: "Cation", zh: "阳离子", desc: "A positively charged ion (has lost electrons)." },
+            { unit: "U2: Chemistry", tagClass: "tag-chem", en: "Anion", zh: "阴离子", desc: "A negatively charged ion (has gained electrons)." },
+            { unit: "U2: Chemistry", tagClass: "tag-chem", en: "Isotope", zh: "同位素", desc: "Atoms of the same element that have the same number of protons but different numbers of neutrons." },
+            { unit: "U2: Chemistry", tagClass: "tag-chem", en: "Ionic Bond", zh: "离子键", desc: "A chemical bond formed through the electrostatic attraction between oppositely charged ions (typically metal + non-metal)." },
+            { unit: "U2: Chemistry", tagClass: "tag-chem", en: "Covalent Bond", zh: "共价键", desc: "A chemical bond that involves the sharing of electron pairs between atoms (typically non-metal + non-metal)." },
+            { unit: "U2: Chemistry", tagClass: "tag-chem", en: "Molecule", zh: "分子", desc: "A group of two or more atoms held together by covalent chemical bonds." },
+            { unit: "U2: Chemistry", tagClass: "tag-chem", en: "Compound", zh: "化合物", desc: "A substance formed when two or more chemical elements are chemically bonded together." },
+            { unit: "U2: Chemistry", tagClass: "tag-chem", en: "Reactant", zh: "反应物", desc: "A substance that takes part in and undergoes change during a reaction." },
+            { unit: "U2: Chemistry", tagClass: "tag-chem", en: "Product", zh: "生成物", desc: "A substance that is formed as the result of a chemical reaction." },
+            { unit: "U2: Chemistry", tagClass: "tag-chem", en: "Exothermic", zh: "放热反应", desc: "A chemical reaction that releases energy by light or heat." },
+            { unit: "U2: Chemistry", tagClass: "tag-chem", en: "Endothermic", zh: "吸热反应", desc: "A chemical reaction that is accompanied by the absorption of heat." },
+            { unit: "U2: Chemistry", tagClass: "tag-chem", en: "Acid", zh: "酸", desc: "A chemical substance that neutralizes alkalis, dissolves some metals, and turns litmus red; typically, a corrosive or sour-tasting liquid (pH < 7)." },
+            { unit: "U2: Chemistry", tagClass: "tag-chem", en: "Base", zh: "碱", desc: "A substance that can neutralize the acid by reacting with hydrogen ions (pH > 7)." },
+            { unit: "U2: Chemistry", tagClass: "tag-chem", en: "WHMIS", zh: "工作场所危险物质信息系统", desc: "Workplace Hazardous Materials Information System; Canada's national hazard communication standard." },
+
+            // Biology
+            { unit: "U3: Biology", tagClass: "tag-bio", en: "Cell Membrane", zh: "细胞膜", desc: "A semi-permeable membrane surrounding the cytoplasm of a cell, controlling what enters and exits." },
+            { unit: "U3: Biology", tagClass: "tag-bio", en: "Nucleus", zh: "细胞核", desc: "A membrane-bound organelle that contains the cell's chromosomes (DNA) and controls cellular activities." },
+            { unit: "U3: Biology", tagClass: "tag-bio", en: "Mitochondria", zh: "线粒体", desc: "The powerhouse of the cell, where cellular respiration occurs to generate ATP energy." },
+            { unit: "U3: Biology", tagClass: "tag-bio", en: "Chloroplast", zh: "叶绿体", desc: "A plastid that contains chlorophyll and in which photosynthesis takes place (only in plant cells)." },
+            { unit: "U3: Biology", tagClass: "tag-bio", en: "Vacuole", zh: "液泡", desc: "A space or vesicle within the cytoplasm of a cell, enclosed by a membrane and typically containing fluid (large in plants, small in animals)." },
+            { unit: "U3: Biology", tagClass: "tag-bio", en: "Cell Wall", zh: "细胞壁", desc: "A rigid layer of polysaccharides lying outside the plasma membrane of the cells of plants, fungi, and bacteria." },
+            { unit: "U3: Biology", tagClass: "tag-bio", en: "Osmosis", zh: "渗透作用", desc: "The spontaneous net movement of solvent molecules (water) through a selectively permeable membrane into a region of higher solute concentration." },
+            { unit: "U3: Biology", tagClass: "tag-bio", en: "Diffusion", zh: "扩散作用", desc: "The net movement of anything from a region of higher concentration to a region of lower concentration." },
+            { unit: "U3: Biology", tagClass: "tag-bio", en: "Active Transport", zh: "主动运输", desc: "The movement of ions or molecules across a cell membrane into a region of higher concentration, requiring energy (ATP)." },
+            { unit: "U3: Biology", tagClass: "tag-bio", en: "Photosynthesis", zh: "光合作用", desc: "The process by which green plants and some other organisms use sunlight to synthesize foods from carbon dioxide and water." },
+            { unit: "U3: Biology", tagClass: "tag-bio", en: "Cellular Respiration", zh: "细胞呼吸", desc: "A set of metabolic reactions and processes that take place in the cells of organisms to convert biochemical energy from nutrients into ATP." },
+            { unit: "U3: Biology", tagClass: "tag-bio", en: "Hypertonic", zh: "高渗的", desc: "Having a higher osmotic pressure than a particular fluid (causes cells to shrink)." },
+            { unit: "U3: Biology", tagClass: "tag-bio", en: "Hypotonic", zh: "低渗的", desc: "Having a lower osmotic pressure than a particular fluid (causes cells to swell)." },
+
+            // Earth Science / Climate
+            { unit: "U4: Earth Science", tagClass: "tag-earth", en: "Atmosphere", zh: "大气圈", desc: "The envelope of gases surrounding the earth or another planet." },
+            { unit: "U4: Earth Science", tagClass: "tag-earth", en: "Lithosphere", zh: "岩石圈", desc: "The rigid outer part of the earth, consisting of the crust and upper mantle." },
+            { unit: "U4: Earth Science", tagClass: "tag-earth", en: "Hydrosphere", zh: "水圈", desc: "All the waters on the earth's surface, such as lakes and seas, and sometimes including water over the earth's surface, such as clouds." },
+            { unit: "U4: Earth Science", tagClass: "tag-earth", en: "Biosphere", zh: "生物圈", desc: "The regions of the surface, atmosphere, and hydrosphere of the earth occupied by living organisms." },
+            { unit: "U4: Earth Science", tagClass: "tag-earth", en: "Albedo", zh: "反照率", desc: "The proportion of the incident light or radiation that is reflected by a surface, typically that of a planet or moon." },
+            { unit: "U4: Earth Science", tagClass: "tag-earth", en: "Greenhouse Effect", zh: "温室效应", desc: "The trapping of the sun's warmth in a planet's lower atmosphere due to the greater transparency of the atmosphere to visible radiation from the sun than to infrared radiation emitted from the planet's surface." },
+            { unit: "U4: Earth Science", tagClass: "tag-earth", en: "Specific Heat Capacity", zh: "比热容", desc: "The heat required to raise the temperature of the unit mass of a given substance by a given amount." },
+            { unit: "U4: Earth Science", tagClass: "tag-earth", en: "Coriolis Effect", zh: "科里奥利力 (地转偏向力)", desc: "An effect whereby a mass moving in a rotating system experiences a force acting perpendicular to the direction of motion and to the axis of rotation (deflects winds)." },
+            { unit: "U4: Earth Science", tagClass: "tag-earth", en: "Biome", zh: "生物群系", desc: "A large naturally occurring community of flora and fauna occupying a major habitat, e.g., forest or tundra." },
+            { unit: "U4: Earth Science", tagClass: "tag-earth", en: "Climatograph", zh: "气候图", desc: "A graphical representation of basic climatic parameters, that is monthly average temperature and precipitation, at a certain location." }
+        ];
+
+        const listContainer = document.getElementById('vocabList');
+
+        function renderList(data) {
+            listContainer.innerHTML = '';
+            if(data.length === 0) {
+                listContainer.innerHTML = '<div style="color:#64748b; text-align:center; margin-top:20px; font-family: sans-serif;">No vocabulary found matching your search.</div>';
+                return;
+            }
+
+            data.forEach(word => {
+                let item = document.createElement('div');
+                item.className = 'vocab-item';
+                item.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div class="term">${word.en}</div>
+                        <div class="translation">${word.zh}</div>
+                    </div>
+                    <div class="desc">${word.desc}</div>
+                    <div class="unit-tag ${word.tagClass}">${word.unit}</div>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+        function filterVocab() {
+            let query = document.getElementById('searchInput').value.toLowerCase();
+            let filtered = vocabData.filter(w => 
+                w.en.toLowerCase().includes(query) || 
+                w.zh.includes(query) || 
+                w.desc.toLowerCase().includes(query)
+            );
+            renderList(filtered);
+        }
+
+        function toggleModal(show) {
+            let modal = document.getElementById('dictModal');
+            modal.style.display = show ? 'flex' : 'none';
+            if(show) {
+                document.getElementById('searchInput').value = '';
+                renderList(vocabData);
+                document.getElementById('searchInput').focus();
+            }
+        }
+
+        function closeOnOutside(e) {
+            if(e.target.id === 'dictModal') toggleModal(false);
+        }
+
+        renderList(vocabData);
+    </script>
+</body>
+</html>

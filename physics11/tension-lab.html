@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics 11: Tension Lab</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --text-color: #e2e8f0;
+            --accent: #f43f5e; /* Red/Pink for Tension */
+            --arrow-force: #f43f5e; /* Tension */
+            --arrow-grav: #8b5cf6; /* Gravity */
+            --arrow-fric: #f59e0b; /* Friction */
+            --border: #334155;
+            --math-font: 'Courier New', monospace;
+        }
+
+        body {
+            margin: 0; background-color: var(--bg-color); color: var(--text-color);
+            font-family: 'Segoe UI', monospace; display: flex; height: 100vh; overflow: hidden;
+        }
+
+        /* 左侧控制栏 */
+        .sidebar {
+            width: 320px; background: var(--panel-bg); padding: 20px;
+            border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 10;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.5); overflow-y: auto;
+        }
+
+        .header-nav { padding-bottom: 15px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+        .back-link { color: #94a3b8; text-decoration: none; font-size: 0.85rem; display: flex; align-items: center; gap: 5px; }
+        .back-link:hover { color: white; }
+        h2 { margin: 5px 0 0 0; color: var(--accent); font-size: 1.4rem; }
+
+        .control-group { margin-bottom: 20px; background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid var(--border); }
+        .label-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.85rem; color: #cbd5e1; }
+        input[type=range] { width: 100%; cursor: pointer; margin-bottom: 5px; }
+
+        /* 按钮组 */
+        .btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
+        .btn-action {
+            flex: 1; padding: 12px; font-size: 1rem; font-weight: bold;
+            border: none; border-radius: 6px; cursor: pointer;
+            background: var(--accent); color: #fff; transition: filter 0.2s;
+        }
+        .btn-action:hover { filter: brightness(1.1); }
+        
+        .btn-pause { flex: 1; background: #f59e0b; color: white; font-weight: bold; border:none; border-radius:6px; cursor:pointer; }
+        .btn-pause:hover { background: #d97706; }
+        .btn-pause.paused { background: #ef4444; animation: pulse 1.5s infinite; }
+
+        .btn-reset { background: #334155; color: white; width: 100%; padding: 10px; border-radius: 6px; border:none; font-weight:bold; cursor:pointer; margin-top:5px;}
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+
+        /* 中间：主视图 */
+        .center-view {
+            flex: 1; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border);
+        }
+
+        .sim-container {
+            flex: 5; position: relative; background: radial-gradient(circle at center, #1e293b 0%, #000 100%);
+            overflow: hidden; border-bottom: 2px solid var(--border);
+        }
+        canvas { display: block; width: 100%; height: 100%; }
+
+        #pause-overlay {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(245, 158, 11, 0.9); color: #000;
+            padding: 5px 15px; border-radius: 20px; font-weight: bold;
+            display: none; pointer-events: none; z-index: 50;
+        }
+
+        .legend {
+            position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.8);
+            padding: 10px; border-radius: 6px; font-size: 0.8rem; pointer-events: none;
+            border-left: 3px solid var(--accent);
+        }
+        .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+        /* 计算板 */
+        .calc-board {
+            flex: 3; background: #0b1120; padding: 15px; display: flex; gap: 15px;
+            border-top: 1px solid var(--border); overflow-x: auto;
+        }
+        .calc-card {
+            flex: 1; background: #1e293b; border-radius: 8px; padding: 12px; border: 1px solid var(--border);
+            min-width: 240px; display: flex; flex-direction: column;
+        }
+        .calc-title { 
+            color: #94a3b8; font-weight: bold; font-size: 0.9rem; margin-bottom: 8px; 
+            border-bottom: 1px solid #333; padding-bottom: 5px; text-transform: uppercase;
+        }
+        .math-content { 
+            font-family: var(--math-font); color: #cbd5e1; font-size: 0.85rem; line-height: 1.6; 
+        }
+        .step { color: #64748b; font-size: 0.75rem; display: block; margin-top: 8px; margin-bottom: 2px;}
+        .result { color: var(--accent); font-weight: bold; }
+
+        /* 右侧面板 */
+        .right-panel { width: 400px; background: #111; display: flex; flex-direction: column; }
+        .panel-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--panel-bg); }
+        .tab-btn {
+            flex: 1; padding: 12px; text-align: center; cursor: pointer; color: #94a3b8; font-weight: bold;
+            border-bottom: 3px solid transparent; transition: all 0.2s; font-size: 0.9rem;
+        }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: #182235; }
+        .panel-content { flex: 1; overflow-y: auto; display: none; padding: 0; }
+        .panel-content.active { display: block; }
+
+        .guide-box { padding: 20px; line-height: 1.6; color: #ccc; font-size: 0.9rem; }
+        .guide-box h3 { color: #fff; margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .guide-box h4 { color: var(--accent); margin: 15px 0 5px 0; }
+
+        /* 表格 */
+        .table-container { width: 100%; }
+        table { width: 100%; border-collapse: collapse; text-align: center; font-family: monospace; font-size: 0.8rem; }
+        th { position: sticky; top: 0; background: #1e293b; color: #94a3b8; padding: 8px; border-bottom: 1px solid var(--border); }
+        td { padding: 6px 8px; border-bottom: 1px solid #222; color: #ccc; }
+        tr:hover { background: #1e293b; }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="header-nav">
+            <a href="unit2.html" class="back-link">⬅ Back to Unit 2</a>
+            <h2>⛓ Tension Lab</h2>
+        </div>
+
+        <div class="control-group">
+            <div class="label-row"><span>Cart Mass (M)</span><span id="val-m1">5.0 kg</span></div>
+            <input type="range" id="slider-m1" min="1" max="10" step="0.5" value="5" oninput="updateConfig()">
+            
+            <div class="label-row"><span>Hanging Mass (m)</span><span id="val-m2">2.0 kg</span></div>
+            <input type="range" id="slider-m2" min="0.5" max="5" step="0.1" value="2" oninput="updateConfig()">
+
+            <div class="label-row"><span>Friction (&mu;)</span><span id="val-mu">0.0</span></div>
+            <input type="range" id="slider-mu" min="0" max="0.5" step="0.05" value="0" oninput="updateConfig()">
+        </div>
+
+        <div class="btn-group">
+            <button class="btn-action" onclick="startSim()">🚀 START</button>
+            <button class="btn-pause" id="btn-pause" onclick="togglePause()">⏸ PAUSE</button>
+        </div>
+        <button class="btn-reset" onclick="resetSim()">Reset</button>
+
+        <div style="margin-top:20px; font-size:0.8rem; color:#64748b; text-align:center;">
+            *Gravity (g) = 9.8 m/s²
+        </div>
+    </div>
+
+    <div class="center-view">
+        <div class="sim-container" id="viewport">
+            <div class="legend">
+                <div class="legend-item"><div class="dot" style="background:var(--arrow-force)"></div> Tension (T)</div>
+                <div class="legend-item"><div class="dot" style="background:var(--arrow-grav)"></div> Gravity (mg)</div>
+                <div class="legend-item"><div class="dot" style="background:var(--arrow-fric)"></div> Friction (f)</div>
+            </div>
+            <canvas id="simCanvas"></canvas>
+            <div id="pause-overlay">PAUSED</div>
+        </div>
+
+        <div class="calc-board">
+            <div class="calc-card">
+                <div class="calc-title">1. Driving Forces</div>
+                <div class="math-content" id="math-forces">Waiting...</div>
+            </div>
+            
+            <div class="calc-card">
+                <div class="calc-title">2. System Acceleration</div>
+                <div class="math-content" id="math-acc">Waiting...</div>
+            </div>
+
+            <div class="calc-card">
+                <div class="calc-title">3. String Tension</div>
+                <div class="math-content" id="math-tension">Waiting...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div class="panel-tabs">
+            <div class="tab-btn active" onclick="switchTab('manual')">📖 Manual</div>
+            <div class="tab-btn" onclick="switchTab('data')">📊 Data</div>
+        </div>
+
+        <div id="content-manual" class="panel-content active">
+            <div class="guide-box">
+                <h3>Lab: The Atwood Machine</h3>
+                <h4>Objective</h4>
+                <p>Investigate the relationship between total mass, net force, and acceleration in a connected system.</p>
+                
+                <h4>Theory</h4>
+                <p>
+                    $F_{net} = m_{hang}g - f_{friction}$<br>
+                    $a = \frac{F_{net}}{M_{cart} + m_{hang}}$<br>
+                    $T = M_{cart}a + f_{friction}$
+                </p>
+
+                <h4>Procedure</h4>
+                <ol>
+                    <li>Start with friction $\mu = 0$.</li>
+                    <li>Increase hanging mass. Observe how acceleration increases.</li>
+                    <li>Note that Tension $T$ is NOT equal to the weight of the hanging mass ($mg$).</li>
+                    <li>Add friction and repeat.</li>
+                </ol>
+            </div>
+        </div>
+
+        <div id="content-data" class="panel-content">
+            <div class="table-container">
+                <table id="data-table">
+                    <thead>
+                        <tr>
+                            <th>Trial</th>
+                            <th>M (Cart)</th>
+                            <th>m (Hang)</th>
+                            <th>a (m/s&sup2;)</th>
+                            <th>T (N)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <tr><td colspan="5" style="text-align:center; padding:20px; color:#666;">Ready...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <button onclick="copyData()" style="width:100%; padding:10px; background:#334; color:white; border:none; cursor:pointer; font-weight:bold; border-top:1px solid #555;">📋 Copy Data</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        // State
+        let config = { m1: 5, m2: 2, mu: 0 };
+        let sys = { x: 50, v: 0, moving: false };
+        let isPaused = false;
+        let trialCount = 0;
+        const g = 9.8;
+        const SCALE = 50; // px per meter
+
+        window.onload = function() {
+            resize();
+            updateConfig();
+            draw();
+        };
+        window.onresize = resize;
+
+        function resize() {
+            const container = document.getElementById('viewport');
+            width = canvas.width = container.clientWidth;
+            height = canvas.height = container.clientHeight;
+            draw();
+        }
+
+        function updateConfig() {
+            if(sys.moving) return;
+
+            config.m1 = parseFloat(document.getElementById('slider-m1').value);
+            config.m2 = parseFloat(document.getElementById('slider-m2').value);
+            config.mu = parseFloat(document.getElementById('slider-mu').value);
+
+            document.getElementById('val-m1').innerText = config.m1 + " kg";
+            document.getElementById('val-m2').innerText = config.m2 + " kg";
+            document.getElementById('val-mu').innerText = config.mu.toFixed(2);
+
+            updateMath();
+            draw();
+        }
+
+        function updateMath() {
+            let Fg2 = config.m2 * g;
+            let FN = config.m1 * g;
+            let Ff = config.mu * FN;
+            
+            let Fnet = Fg2 - Ff;
+            let a = 0;
+            let T = 0; // Tension
+
+            if(Fnet > 0) {
+                a = Fnet / (config.m1 + config.m2);
+                // T from cart FBD: T - f = ma => T = ma + f
+                T = config.m1 * a + Ff;
+            } else {
+                a = 0;
+                // Static equilibrium: T balances pulling force Fg2
+                // But actually T balances friction?
+                // If static, T = Fg2 (holding the mass up).
+                // Friction on cart balances T. f_static = T = Fg2.
+                T = Fg2; 
+            }
+
+            document.getElementById('math-forces').innerHTML = 
+                `<span class="step">Driving Force ($F_{g2}$):</span> ${Fg2.toFixed(1)} N<br>` +
+                `<span class="step">Friction ($f = \mu Mg$):</span> ${Ff.toFixed(1)} N<br>` +
+                `<span class="step">Net Force ($F_{net}$):</span> <span class="result">${Math.max(0, Fnet).toFixed(1)} N</span>`;
+
+            document.getElementById('math-acc').innerHTML = 
+                `<span class="step">Total Mass:</span> ${config.m1} + ${config.m2} = ${(config.m1+config.m2).toFixed(1)} kg<br>` +
+                `<span class="step">Acceleration ($a = F/m$):</span> <span class="result">${a.toFixed(2)} m/s&sup2;</span>`;
+
+            document.getElementById('math-tension').innerHTML = 
+                `<span class="step">Formula ($T = Ma + f$):</span><br>` +
+                `${config.m1} &times; ${a.toFixed(2)} + ${Ff.toFixed(1)} = <span class="result" style="color:#f43f5e">${T.toFixed(1)} N</span><br>` +
+                `<span class="step">Compare: Weight = ${Fg2.toFixed(1)} N</span>`;
+
+            return { a, T };
+        }
+
+        function startSim() {
+            if(sys.moving) return;
+            
+            isPaused = false;
+            document.getElementById('btn-pause').innerText = "⏸ PAUSE";
+            document.getElementById('btn-pause').classList.remove('paused');
+            document.getElementById('pause-overlay').style.display = 'none';
+
+            let phys = updateMath();
+            
+            if(phys.a > 0) {
+                sys.moving = true;
+                logData(phys.a, phys.T);
+                switchTab('data');
+                animate();
+            } else {
+                alert("Friction is too strong! Reduce friction or increase hanging mass.");
+                logData(0, config.m2*g);
+            }
+        }
+
+        function togglePause() {
+            if(!sys.moving) return;
+            isPaused = !isPaused;
+            const btn = document.getElementById('btn-pause');
+            const overlay = document.getElementById('pause-overlay');
+            
+            if(isPaused) {
+                btn.innerText = "▶ RESUME";
+                btn.classList.add('paused');
+                overlay.style.display = 'block';
+            } else {
+                btn.innerText = "⏸ PAUSE";
+                btn.classList.remove('paused');
+                overlay.style.display = 'none';
+            }
+        }
+
+        function animate() {
+            if(!sys.moving) return;
+
+            if(!isPaused) {
+                let phys = updateMath();
+                let dt = 1/60;
+                sys.v += phys.a * dt;
+                sys.x += sys.v * dt * SCALE;
+                
+                if(sys.x > width - 150) {
+                    sys.moving = false;
+                }
+            }
+            
+            draw();
+            if(sys.moving) requestAnimationFrame(animate);
+        }
+
+        function logData(a, T) {
+            trialCount++;
+            const tbody = document.getElementById('table-body');
+            if(trialCount === 1) tbody.innerHTML = "";
+            const row = document.createElement('tr');
+            row.innerHTML = `<td>${trialCount}</td><td>${config.m1}</td><td>${config.m2}</td><td>${a.toFixed(2)}</td><td>${T.toFixed(2)}</td>`;
+            tbody.insertBefore(row, tbody.firstChild);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, width, height);
+
+            let tableY = 250; // Lower table
+            let pulleyX = width - 100;
+            let pulleyR = 25;
+
+            // Table
+            ctx.fillStyle = "#334155";
+            ctx.fillRect(0, tableY, pulleyX, 10);
+            
+            // Pulley
+            ctx.beginPath(); ctx.arc(pulleyX, tableY - pulleyR, pulleyR, 0, Math.PI*2);
+            ctx.fillStyle = "#475569"; ctx.fill(); ctx.stroke();
+            // Pulley Spoke (Visual rotation)
+            ctx.beginPath(); ctx.moveTo(pulleyX, tableY-pulleyR); 
+            let rot = sys.x / pulleyR; // Rotation based on distance
+            ctx.lineTo(pulleyX + pulleyR*Math.cos(rot), (tableY-pulleyR) + pulleyR*Math.sin(rot));
+            ctx.strokeStyle="#94a3b8"; ctx.stroke();
+
+            // Cart (M1)
+            let cartW = 60 + (config.m1 * 2); // Size based on mass
+            if(cartW > 100) cartW = 100;
+            let cartH = 40;
+            let cartX = sys.x;
+            let cartY = tableY - cartH;
+            
+            ctx.fillStyle = "#3b82f6";
+            ctx.fillRect(cartX, cartY, cartW, cartH);
+            ctx.strokeStyle = "#fff"; ctx.lineWidth=2; ctx.strokeRect(cartX, cartY, cartW, cartH);
+            ctx.fillStyle = "#fff"; ctx.font = "bold 12px Arial"; ctx.fillText("M", cartX+5, cartY+15);
+
+            // String Horizontal
+            ctx.strokeStyle = "#e2e8f0"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(cartX + cartW, cartY + cartH/2); ctx.lineTo(pulleyX, tableY - pulleyR); ctx.stroke();
+
+            // Hanging Mass (m2)
+            let massX = pulleyX + pulleyR;
+            let massY = (tableY - pulleyR) + (sys.x * 0.8) + 50; // Drop logic
+            
+            // String Vertical
+            ctx.beginPath(); ctx.moveTo(pulleyX, tableY - pulleyR); 
+            ctx.arc(pulleyX, tableY - pulleyR, pulleyR, -Math.PI/2, 0);
+            ctx.lineTo(massX, massY); ctx.stroke();
+
+            // Draw m2
+            let massSize = 30 + (config.m2 * 2);
+            ctx.fillStyle = "#ef4444";
+            ctx.fillRect(massX - massSize/2, massY, massSize, massSize);
+            ctx.strokeStyle="#fff"; ctx.strokeRect(massX - massSize/2, massY, massSize, massSize);
+            ctx.fillStyle="#fff"; ctx.fillText("m", massX-5, massY+15);
+
+            // --- Vectors ---
+            const vScale = 1.5;
+            let phys = updateMath(); // Recalc forces
+
+            // Friction (on Cart, Left)
+            let Ff = config.mu * config.m1 * g;
+            if(Ff > 0) drawArrow(cartX, cartY+cartH/2, Ff*vScale*2, Math.PI, "#f59e0b", "f");
+
+            // Tension (on Cart, Right)
+            drawArrow(cartX+cartW, cartY+cartH/2, phys.T*vScale, 0, "#f43f5e", "T");
+
+            // Tension (on Mass, Up)
+            drawArrow(massX, massY, phys.T*vScale, -Math.PI/2, "#f43f5e", "T");
+
+            // Gravity (on Mass, Down)
+            let Fg2 = config.m2 * g;
+            drawArrow(massX, massY+massSize, Fg2*vScale, Math.PI/2, "#8b5cf6", "mg");
+        }
+
+        function drawArrow(x, y, len, angle, color, label) {
+            if(len < 10) return; // Too small
+            let ex = x + len * Math.cos(angle);
+            let ey = y + len * Math.sin(angle);
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey);
+            ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke();
+            
+            ctx.beginPath(); ctx.moveTo(ex, ey);
+            ctx.lineTo(ex - 8*Math.cos(angle-Math.PI/6), ey - 8*Math.sin(angle-Math.PI/6));
+            ctx.lineTo(ex - 8*Math.cos(angle+Math.PI/6), ey - 8*Math.sin(angle+Math.PI/6));
+            ctx.fillStyle = color; ctx.fill();
+            
+            ctx.fillStyle = color; ctx.font = "bold 14px Arial"; ctx.fillText(label, ex+10, ey);
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.panel-content').forEach(p => p.classList.remove('active'));
+            if(tab==='manual') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('content-manual').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('content-data').classList.add('active');
+            }
+        }
+
+        function resetSim() {
+            sys.moving = false; sys.x = 50; sys.v = 0;
+            isPaused = false;
+            document.getElementById('btn-pause').innerText = "⏸ PAUSE";
+            document.getElementById('btn-pause').classList.remove('paused');
+            document.getElementById('pause-overlay').style.display = 'none';
+            
+            updateConfig();
+            switchTab('manual');
+        }
+
+        function copyData() {
+            let text = "Trial,M,m,Accel,Tension\n";
+            const rows = document.querySelectorAll('#table-body tr');
+            for(let i=rows.length-1; i>=0; i--) {
+                const cols = rows[i].querySelectorAll('td');
+                if(cols.length>0) {
+                    let line = []; cols.forEach(c => line.push(c.innerText)); text += line.join(",") + "\n";
+                }
+            }
+            navigator.clipboard.writeText(text).then(()=>alert("Data Copied!"));
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Young's Modulus Experiment</title>
+    <style>
+        :root { --ml-blue: #1e3a8a; --ml-gold: #fbbf24; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-blue); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1350px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 420px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow-y: auto;}
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: flex; justify-content: space-between; font-weight: bold; color: #475569; margin-bottom: 8px; font-size: 0.95rem; }
+        .control-group select, .control-group input[type="range"] { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer;}
+        
+        .btn { background: var(--ml-blue); color: white; border: none; padding: 12px; border-radius: 8px; font-size: 1rem; cursor: pointer; font-weight: bold; transition: 0.2s; width: 100%; margin-top: 10px;}
+        .btn:hover { background: #1e40af; }
+        .btn-clear { background: #ef4444; margin-top: 10px;}
+        .btn-clear:hover { background: #b91c1c; }
+
+        /* 动态计算黑板样式 */
+        .calc-board { background: #0f172a; color: #38bdf8; padding: 20px; border-radius: 8px; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.9rem; line-height: 1.6; margin-top: 15px; border: 3px solid #334155; box-shadow: inset 0 0 15px rgba(0,0,0,0.8);}
+        .calc-title { color: #f59e0b; font-weight: bold; border-bottom: 1px dashed #475569; padding-bottom: 5px; margin-bottom: 10px;}
+        .calc-step { margin-bottom: 8px; }
+        .calc-highlight { color: #22c55e; font-weight: bold;}
+
+        /* 数据记录表样式 */
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; text-align: center;}
+        .data-table th, .data-table td { border: 1px solid #cbd5e1; padding: 8px; }
+        .data-table th { background: #f1f5f9; color: #334155; }
+        .data-table tr:nth-child(even) { background: #f8fafc; }
+
+        .visual-container { display: flex; flex-direction: column; gap: 15px; }
+        .canvas-box { background: #e2e8f0; border-radius: 12px; border: 4px solid #cbd5e1; overflow: hidden; position: relative; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 0 20px rgba(0,0,0,0.1); height: 100%; min-height: 500px;}
+        canvas { width: 100%; height: 100%; }
+
+        /* 虚拟千分尺读数器 */
+        .micrometer-display { position: absolute; top: 20px; right: 20px; background: #0f172a; color: #22c55e; padding: 15px 25px; border-radius: 8px; font-family: monospace; font-size: 1.8rem; border: 3px solid #334155; font-weight: bold; text-shadow: 0 0 10px #22c55e; display: flex; flex-direction: column; align-items: flex-end; z-index: 10;}
+        .micrometer-label { font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; text-shadow: none; margin-bottom: 5px;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit1.html" class="back-link">⬅ Back to Unit 1</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 1: Young's Modulus & Deformation</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Physics</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>1. Apparatus Controls</h3>
+            
+            <div class="control-group">
+                <label>Material (Modulus Y):</label>
+                <select id="material-sel" onchange="updatePhysics()">
+                    <option value="steel">Steel (Y = 200 GPa)</option>
+                    <option value="copper">Copper (Y = 110 GPa)</option>
+                    <option value="aluminium">Aluminium (Y = 69 GPa)</option>
+                    <option value="glass">Glass (Y = 70 GPa)</option>
+                    <option value="bone">Bone - Compression (Y = 18 GPa)</option>
+                    <option value="nylon">Nylon (Y = 3 GPa)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Wire Length (L&sub0;): <span id="len-val" style="color:var(--ml-blue);">2.0 m</span></label>
+                <input type="range" id="len-slider" min="1.0" max="5.0" step="0.5" value="2.0" oninput="updatePhysics()">
+            </div>
+
+            <div class="control-group">
+                <label>Wire Diameter (d): <span id="dia-val" style="color:var(--ml-blue);">1.0 mm</span></label>
+                <input type="range" id="dia-slider" min="0.5" max="3.0" step="0.1" value="1.0" oninput="updatePhysics()">
+            </div>
+
+            <div class="control-group" style="margin-top: 25px;">
+                <label>Applied Mass (m): <span id="mass-val" style="color:#ef4444; font-size: 1.1rem;">0.0 kg</span></label>
+                <input type="range" id="mass-slider" min="0" max="100" step="1" value="0" oninput="updatePhysics()">
+            </div>
+
+            <h3>2. Live Calculation Board</h3>
+            <div class="calc-board" id="calc-board">
+                </div>
+
+            <h3 style="margin-top: 20px;">3. Data Notebook</h3>
+            <button class="btn" onclick="recordData()">Record Current Data</button>
+            <table class="data-table" id="data-table">
+                <tr>
+                    <th>Material</th>
+                    <th>Force (N)</th>
+                    <th>Area (m&sup2;)</th>
+                    <th>Ext. &Delta;L (mm)</th>
+                </tr>
+            </table>
+            <button class="btn btn-clear" onclick="clearData()">Clear Table</button>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box">
+                <div class="micrometer-display">
+                    <span class="micrometer-label">Micrometer (&Delta;L extension)</span>
+                    <span id="micro-val">0.000 mm</span>
+                </div>
+                <canvas id="labCanvas" width="800" height="600"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('labCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        // 可变参数
+        let mass = 0; // kg
+        let material = 'steel';
+        let lengthL0 = 2.0; // m
+        let diameter_mm = 1.0; // mm
+        
+        let extension_m = 0; // meters
+        let extension_mm = 0; // mm
+        let time = 0;
+
+        const g = 9.81; // m/s^2
+
+        // 杨氏模量数据库 (GPa = 1e9 Pa)
+        const materials = {
+            'steel': { Y: 200, color: '#94a3b8', name: 'Steel' },
+            'copper': { Y: 110, color: '#b45309', name: 'Copper' },
+            'aluminium': { Y: 69, color: '#e2e8f0', name: 'Aluminium' },
+            'glass': { Y: 70, color: '#7dd3fc', name: 'Glass' },
+            'bone': { Y: 18, color: '#fef08a', name: 'Bone' },
+            'nylon': { Y: 3, color: '#d8b4fe', name: 'Nylon' }
+        };
+
+        function updatePhysics() {
+            // 获取输入值
+            material = document.getElementById('material-sel').value;
+            lengthL0 = parseFloat(document.getElementById('len-slider').value);
+            diameter_mm = parseFloat(document.getElementById('dia-slider').value);
+            mass = parseFloat(document.getElementById('mass-slider').value);
+            
+            // 更新 UI 标签
+            document.getElementById('len-val').innerText = lengthL0.toFixed(1) + ' m';
+            document.getElementById('dia-val').innerText = diameter_mm.toFixed(1) + ' mm';
+            document.getElementById('mass-val').innerText = mass.toFixed(1) + ' kg';
+
+            // --- 物理引擎核心计算 ---
+            let radius_m = (diameter_mm / 2) * 1e-3;
+            let area = Math.PI * Math.pow(radius_m, 2); // m^2
+            let force = mass * g; // N
+            let Y_Pa = materials[material].Y * 1e9; // Pa
+            
+            // 伸长量 &Delta;L = (F * L0) / (A * Y)
+            extension_m = (force * lengthL0) / (area * Y_Pa);
+            extension_mm = extension_m * 1000; 
+
+            // 如果挂了质量且材料是尼龙，可能因为形变过大拉断，这里做个简单限制展示
+            if (extension_mm > 50) extension_mm = 50.0; // 限制视觉最大值
+
+            // 更新千分尺
+            document.getElementById('micro-val').innerText = extension_mm.toFixed(3) + ' mm';
+
+            // --- 更新计算黑板 ---
+            updateCalcBoard(area, force, Y_Pa);
+        }
+
+        function updateCalcBoard(area, force, Y_Pa) {
+            let board = document.getElementById('calc-board');
+            let d_m = (diameter_mm * 1e-3).toExponential(2);
+            let a_str = area.toExponential(2);
+            let Y_str = materials[material].Y + " &times; 10<sup>9</sup>";
+
+            // 使用纯 HTML 实体，避免任何乱码
+            board.innerHTML = `
+                <div class="calc-title">Calculation Steps:</div>
+                <div class="calc-step">
+                    <b>1. Area (A):</b> &pi; &times; (d/2)<sup>2</sup><br>
+                    A = 3.1416 &times; (${d_m} / 2)<sup>2</sup><br>
+                    A = <span class="calc-highlight">${a_str} m<sup>2</sup></span>
+                </div>
+                <div class="calc-step" style="margin-top: 10px;">
+                    <b>2. Force (F):</b> m &times; g<br>
+                    F = ${mass.toFixed(1)} &times; 9.81 = <span class="calc-highlight">${force.toFixed(1)} N</span>
+                </div>
+                <div class="calc-step" style="margin-top: 10px;">
+                    <b>3. Extension (&Delta;L):</b> (F &times; L<sub>0</sub>) / (A &times; Y)<br>
+                    &Delta;L = (${force.toFixed(1)} &times; ${lengthL0.toFixed(1)}) / (${a_str} &times; ${Y_str})<br>
+                    &Delta;L = ${extension_m.toExponential(3)} m<br>
+                    <span style="color:white;">&Delta;L = <span class="calc-highlight">${extension_mm.toFixed(3)} mm</span></span>
+                </div>
+            `;
+        }
+
+        function recordData() {
+            if(mass === 0) {
+                alert("Force is 0 N. Please add some mass to record meaningful deformation.");
+                return;
+            }
+            let table = document.getElementById('data-table');
+            let row = table.insertRow(-1);
+            let force = (mass * g).toFixed(1);
+            let radius_m = (diameter_mm / 2) * 1e-3;
+            let area = Math.PI * Math.pow(radius_m, 2);
+            
+            row.insertCell(0).innerText = materials[material].name;
+            row.insertCell(1).innerText = force;
+            row.insertCell(2).innerText = area.toExponential(2);
+            row.insertCell(3).innerHTML = "<b>" + extension_mm.toFixed(3) + "</b>";
+        }
+
+        function clearData() {
+            let table = document.getElementById('data-table');
+            while(table.rows.length > 1) { table.deleteRow(1); }
+        }
+
+        function drawLab() {
+            // 背景
+            ctx.fillStyle = '#f1f5f9'; ctx.fillRect(0,0,800,600);
+
+            // 天花板固定架
+            ctx.fillStyle = '#334155'; ctx.fillRect(250, 0, 300, 30);
+            
+            // 绘制金属丝
+            let startX = 400;
+            let startY = 30;
+            // 视觉放大：长度受 L0 影响，伸长受 extension_mm 影响，粗细受 diameter 影响
+            let visualBaseLen = 200 + (lengthL0 * 40); 
+            // 夸张伸长量以产生视觉效果 (放大了大约10-50倍)
+            let visualExt = extension_mm * 10; 
+            let endY = startY + visualBaseLen + visualExt;
+
+            ctx.strokeStyle = materials[material].color;
+            ctx.lineWidth = diameter_mm * 2; // 线宽随直径改变
+            ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(startX, endY); ctx.stroke();
+
+            // 绘制测微游标卡尺基准器
+            ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
+            let refY = startY + visualBaseLen;
+            ctx.beginPath(); ctx.moveTo(200, refY); ctx.lineTo(500, refY); ctx.stroke(); ctx.setLineDash([]);
+            ctx.fillStyle = '#ef4444'; ctx.font = '14px Arial'; ctx.fillText("Zero Ref (0.000 mm)", 200, refY - 5);
+
+            // 绘制拉伸后的当前位置线
+            ctx.strokeStyle = '#10b981'; ctx.lineWidth = 2; 
+            ctx.beginPath(); ctx.moveTo(320, endY); ctx.lineTo(480, endY); ctx.stroke();
+            
+            // 绘制托盘与砝码
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(350, endY, 100, 10); // 托盘
+            ctx.beginPath(); ctx.moveTo(startX, endY); ctx.lineTo(350, endY+10); ctx.moveTo(startX, endY); ctx.lineTo(450, endY+10); ctx.stroke(); // 吊绳
+            
+            // 砝码堆积 (每个10kg代表一块)
+            if(mass > 0) {
+                ctx.fillStyle = '#1e293b';
+                let blocks = Math.ceil(mass / 10);
+                for(let i=0; i<blocks; i++) {
+                    ctx.fillRect(360, endY - 20 - (i*20), 80, 20);
+                }
+                ctx.fillStyle = 'white'; ctx.font = 'bold 14px Arial'; ctx.textAlign='center';
+                ctx.fillText(mass.toFixed(0) + " kg", 400, endY - 5);
+                ctx.textAlign='left'; 
+            }
+
+            // 受力向量箭头
+            if(mass > 0) {
+                let arrowY = endY + 30 + (mass/100)*60; 
+                ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.moveTo(480, endY+10); ctx.lineTo(480, arrowY); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(473, arrowY-15); ctx.lineTo(480, arrowY); ctx.lineTo(487, arrowY-15); ctx.stroke();
+                ctx.fillStyle = '#ef4444'; ctx.font = 'bold 16px Arial';
+                ctx.fillText("F = " + (mass*g).toFixed(0) + " N", 495, (endY+10 + arrowY)/2);
+            }
+
+            // 右上角状态显示
+            ctx.fillStyle = '#64748b'; ctx.font = '14px Arial';
+            ctx.fillText("Current Material: " + materials[material].name, 20, 20);
+            ctx.fillText("Length (L0): " + lengthL0.toFixed(1) + " m", 20, 40);
+        }
+
+        function animate() {
+            time += 0.05;
+            drawLab();
+            requestAnimationFrame(animate);
+        }
+
+        // 初始化
+        updatePhysics();
+        animate();
+    </script>
+</body>
+</html>

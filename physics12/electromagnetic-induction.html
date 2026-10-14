@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Faraday's Law & Lenz's Law Simulator</title>
+    <style>
+        :root { --ml-blue: #1e3a8a; --ml-gold: #fbbf24; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .nav { background: var(--ml-blue); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1400px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 420px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow-y: auto;}
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: flex; justify-content: space-between; font-weight: bold; color: #475569; margin-bottom: 8px; font-size: 0.95rem; }
+        .control-group input[type="range"] { width: 100%; cursor: pointer;}
+        
+        /* 检流计样式 */
+        .galvanometer { background: #1e293b; border: 6px solid #475569; border-radius: 50% 50% 10px 10px; height: 180px; position: relative; margin: 20px 0; overflow: hidden;}
+        .scale { position: absolute; width: 100%; top: 40px; text-align: center; color: white; font-family: monospace; font-weight: bold;}
+        .needle { position: absolute; width: 4px; height: 100px; background: #ef4444; left: calc(50% - 2px); bottom: 10px; transform-origin: bottom center; transition: transform 0.1s ease-out; box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);}
+        .center-dot { position: absolute; width: 12px; height: 12px; background: #94a3b8; border-radius: 50%; left: calc(50% - 6px); bottom: 5px;}
+
+        .calc-board { background: #0f172a; color: #e2e8f0; padding: 15px; border-radius: 8px; font-family: 'Consolas', monospace; font-size: 0.9rem; line-height: 1.6; margin-top: 10px; border: 2px solid #334155;}
+        .math-sym { color: #fcd34d; font-weight: bold; }
+
+        .visual-container { display: flex; flex-direction: column; gap: 15px; }
+        .canvas-box { background: #111827; border-radius: 12px; border: 4px solid #334155; overflow: hidden; position: relative; box-shadow: inset 0 0 50px rgba(0,0,0,1); height: 100%; min-height: 550px;}
+        canvas { width: 100%; height: 100%; cursor: grab; }
+        canvas:active { cursor: grabbing; }
+
+        .hint { color: #64748b; font-size: 0.85rem; margin-top: 5px; font-style: italic;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit3.html" class="back-link">⬅ Back to Unit 3</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 9: Faraday's Law & Induction</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Physics</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>1. Galvanometer (EMF)</h3>
+            <div class="galvanometer">
+                <div class="scale">-50 &nbsp; &nbsp; 0 &nbsp; &nbsp; +50</div>
+                <div class="needle" id="needle"></div>
+                <div class="center-dot"></div>
+            </div>
+            
+            <div class="control-group">
+                <label>Coil Turns (N): <span id="n-val">200</span></label>
+                <input type="range" id="n-slider" min="50" max="500" step="50" value="200" oninput="updateSettings()">
+            </div>
+
+            <button class="btn" style="background:#475569; color:white; padding:10px; border:none; border-radius:5px; cursor:pointer;" onclick="flipMagnet()">🔄 Flip Magnet Polarity</button>
+
+            <h3>2. Physics Logic</h3>
+            <div class="calc-board">
+                <div><span class="math-sym">&epsilon; = -N &times; (&Delta;&Phi; / &Delta;t)</span></div>
+                <div style="font-size:0.8rem; color:#94a3b8; margin-top:5px;">
+                    &epsilon;: Induced EMF (Volts)<br>
+                    N: Number of loops<br>
+                    &Delta;&Phi;/&Delta;t: Rate of magnetic flux change
+                </div>
+                <div style="border-top:1px solid #334155; margin-top:10px; padding-top:10px;">
+                    <b>Lenz's Law:</b> The negative sign indicates the direction of induced current opposes the change in flux.
+                </div>
+            </div>
+            <p class="hint">Tip: Drag the magnet faster to see a larger deflection!</p>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box">
+                <canvas id="inductionCanvas" width="900" height="600"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('inductionCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        let coilN = 200;
+        let magnetX = 600;
+        let magnetY = 300;
+        let isNorthLeft = true;
+        let lastX = 600;
+        let velocity = 0;
+        let inducedEMF = 0;
+        
+        let isDragging = false;
+        let time = 0;
+
+        function updateSettings() {
+            coilN = parseInt(document.getElementById('n-slider').value);
+            document.getElementById('n-val').innerText = coilN;
+        }
+
+        function flipMagnet() {
+            isNorthLeft = !isNorthLeft;
+        }
+
+        // --- 鼠标交互 ---
+        cvs.addEventListener('mousedown', e => { isDragging = true; });
+        window.addEventListener('mouseup', () => { isDragging = false; velocity = 0; });
+        window.addEventListener('mousemove', e => {
+            if (!isDragging) return;
+            const rect = cvs.getBoundingClientRect();
+            let newX = (e.clientX - rect.left) * (cvs.width / rect.width);
+            velocity = newX - magnetX;
+            magnetX = newX;
+        });
+
+        function calculateInduction() {
+            // 只有当磁铁在靠近线圈（x=300处）移动时才产生感应
+            let distanceToCoil = Math.abs(magnetX - 300);
+            let fluxFactor = Math.exp(-distanceToCoil / 100); // 距离线圈越近磁场越强
+            
+            // 法拉第定律核心: EMF 与速度(delta t)和圈数(N)成正比
+            // 极性处理: 进入和离开产生的电流方向相反
+            let polarity = isNorthLeft ? 1 : -1;
+            inducedEMF = -velocity * fluxFactor * (coilN / 100) * polarity * 5;
+
+            // 更新检流计指针 (限制角度在 -60 到 60 度)
+            let angle = Math.max(-60, Math.min(60, inducedEMF));
+            document.getElementById('needle').style.transform = `rotate(${angle}deg)`;
+        }
+
+        function drawCoil(x, y) {
+            ctx.strokeStyle = '#d97706'; // 铜色
+            ctx.lineWidth = 3;
+            for(let i=0; i<10; i++) {
+                ctx.beginPath();
+                ctx.ellipse(x, y, 40, 100, 0, 0, Math.PI * 2);
+                ctx.stroke();
+                x += 5; // 模拟螺旋线圈
+            }
+            // 连线到检流计 (抽象表达)
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath(); ctx.moveTo(300, 400); ctx.lineTo(100, 400); ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function drawMagnet(x, y) {
+            let w = 150, h = 50;
+            // South Pole
+            ctx.fillStyle = isNorthLeft ? '#1e3a8a' : '#ef4444';
+            ctx.fillRect(x, y - h/2, w/2, h);
+            // North Pole
+            ctx.fillStyle = isNorthLeft ? '#ef4444' : '#1e3a8a';
+            ctx.fillRect(x + w/2, y - h/2, w/2, h);
+            
+            ctx.fillStyle = 'white'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center';
+            ctx.fillText(isNorthLeft ? "N" : "S", x + w*0.75, y+7);
+            ctx.fillText(isNorthLeft ? "S" : "N", x + w*0.25, y+7);
+
+            // 绘制磁感线 (抽象)
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            for(let i=-3; i<=3; i++) {
+                ctx.beginPath();
+                ctx.ellipse(x + w/2, y, w*1.2, Math.abs(i*30), 0, 0, Math.PI*2);
+                ctx.stroke();
+            }
+        }
+
+        function animate() {
+            ctx.fillStyle = '#111827'; ctx.fillRect(0,0,900,600);
+            
+            calculateInduction();
+            drawCoil(300, 300);
+            drawMagnet(magnetX - 75, 300);
+
+            // 绘制电流流向 (小微粒)
+            if(Math.abs(inducedEMF) > 0.5) {
+                time += inducedEMF * 0.1;
+                ctx.fillStyle = '#fbbf24';
+                for(let i=0; i<5; i++) {
+                    let pY = 300 + Math.sin(time + i) * 100;
+                    ctx.beginPath(); ctx.arc(310, pY, 4, 0, Math.PI*2); ctx.fill();
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>

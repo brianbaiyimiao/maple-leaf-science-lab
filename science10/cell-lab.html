@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Biology: Animal vs Plant Cells</title>
+    <style>
+        :root { --bg-color: #1a1a1a; --panel-color: #2d2d2d; --text-main: #e0e0e0; --highlight: #f1c40f; --plant-green: #2ecc71; --animal-pink: #e08283; }
+        body { background-color: var(--bg-color); color: var(--text-main); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        .sidebar { width: 350px; background: var(--panel-color); padding: 20px; display: flex; flex-direction: column; border-right: 2px solid #444; box-shadow: 5px 0 15px rgba(0,0,0,0.5); z-index: 20; }
+        .sidebar h2 { margin-top: 0; border-bottom: 2px solid var(--highlight); padding-bottom: 10px; color: var(--highlight); }
+        .organelle-list { flex: 1; overflow-y: auto; margin-bottom: 20px; }
+        .list-item { padding: 12px; margin-bottom: 6px; background: #3a3a3a; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; border-left: 4px solid transparent; }
+        .list-item:hover { background: #4a4a4a; }
+        .list-item.active { background: #34495e; border-left-color: var(--highlight); color: white; }
+        .badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        .b-plant { background: var(--plant-green); color: #000; }
+        .b-animal { background: var(--animal-pink); color: #000; }
+        .b-both { background: #95a5a6; color: #fff; }
+        .info-card { background: #eee; color: #222; padding: 15px; border-radius: 8px; min-height: 150px; }
+        .info-title { font-weight: bold; font-size: 1.2rem; margin-bottom: 5px; color: #d35400; }
+        .info-desc { font-size: 0.9rem; line-height: 1.5; }
+        .viewport { flex: 1; position: relative; display: flex; justify-content: space-around; align-items: center; background: radial-gradient(circle at center, #2c3e50, #000); padding: 20px; flex-direction: column; }
+        .cell-wrapper { width: 45%; height: 90%; display: flex; flex-direction: column; align-items: center; position: relative; }
+        .cell-label { font-size: 1.5rem; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 2px; }
+        svg { width: 100%; height: 100%; filter: drop-shadow(0 0 10px rgba(0,0,0,0.5)); overflow: visible; }
+        .part { transition: all 0.3s; cursor: pointer; opacity: 0.9; }
+        .part:hover, .part.active { stroke: white; stroke-width: 3px; filter: drop-shadow(0 0 10px var(--highlight)) brightness(1.4); z-index: 100; opacity: 1; }
+        .fill-membrane { fill: rgba(255,255,255,0.1); stroke: #bdc3c7; stroke-width: 3px; }
+        .fill-wall { fill: transparent; stroke: #2ecc71; stroke-width: 15px; stroke-linejoin: round; }
+        .fill-cytoplasm { fill: rgba(255,255,255,0.03); }
+        .fill-nucleus { fill: #8e44ad; } .fill-nucleolus { fill: #c0392b; }
+        .fill-mito { fill: #e67e22; } .fill-rough-er { fill: none; stroke: #d35400; stroke-width: 8px; stroke-linecap: round; }
+        .fill-smooth-er { fill: none; stroke: #e59866; stroke-width: 8px; stroke-linecap: round; }
+        .fill-golgi { fill: none; stroke: #f1c40f; stroke-width: 6px; stroke-linecap: round; }
+        .fill-vacuole-big { fill: #aed6f1; opacity: 0.9; } .fill-vacuole-small { fill: #aed6f1; }
+        .fill-lyso { fill: #c0392b; } .fill-chloro { fill: #27ae60; } .fill-centriole { fill: #f39c12; } .fill-ribo { fill: #ecf0f1; }
+        .rough-dots { stroke: #ecf0f1; stroke-width: 2px; stroke-dasharray: 0 10; stroke-linecap: round; fill: none; pointer-events: none; }
+        
+        /* 导航栏样式 */
+        .top-bar { width: 100%; padding: 10px 20px; display: flex; justify-content: flex-start; }
+        .back-link { color: white; text-decoration: none; border: 1px solid #666; padding: 5px 15px; border-radius: 4px; background: rgba(0,0,0,0.5); }
+        .back-link:hover { background: #666; }
+        .cells-container { display: flex; width: 100%; height: 90%; justify-content: space-around; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>🔬 Structure & Function</h2>
+        <div class="organelle-list" id="menu-list"></div>
+        <div class="info-card">
+            <div class="info-title" id="info-title">Interactive Lab</div>
+            <div class="info-desc" id="info-desc">Click any structure to learn its function.</div>
+        </div>
+    </div>
+
+    <div class="viewport">
+        <div class="top-bar">
+            <a href="index.html" class="back-link">⬅ Back to Science 10</a>
+        </div>
+
+        <div class="cells-container">
+            <div class="cell-wrapper">
+                <div class="cell-label" style="color: #e08283;">Animal Cell</div>
+                <svg viewBox="0 0 400 400">
+                    <path d="M 50 200 Q 50 80 180 50 Q 300 30 350 120 Q 380 250 300 340 Q 180 380 80 320 Q 20 280 50 200 Z" class="part fill-membrane part-membrane" onclick="selectItem('membrane')"/>
+                    <path d="M 55 200 Q 55 85 180 55 Q 295 35 345 120 Q 375 245 295 335 Q 180 375 85 315 Q 25 275 55 200 Z" class="fill-cytoplasm" style="pointer-events: none;"/>
+                    <g class="part part-nucleus" onclick="selectItem('nucleus')"><circle cx="160" cy="160" r="45" class="fill-nucleus"/><circle cx="160" cy="160" r="15" class="fill-nucleolus"/></g>
+                    <g class="part part-rough-er" onclick="selectItem('rough-er')"><path d="M 100 160 Q 80 100 140 90 M 220 160 Q 240 220 180 230" class="fill-rough-er"/><path d="M 100 160 Q 80 100 140 90 M 220 160 Q 240 220 180 230" class="rough-dots"/></g>
+                    <path d="M 230 120 Q 260 100 270 140 M 240 100 Q 280 80 290 120" class="part fill-smooth-er part-smooth-er" onclick="selectItem('smooth-er')"/>
+                    <path d="M 260 260 Q 280 240 300 260 M 255 270 Q 280 250 305 270 M 265 250 Q 280 230 295 250" class="part fill-golgi part-golgi" onclick="selectItem('golgi')"/>
+                    <g transform="translate(100, 280) rotate(20)" class="part part-mito" onclick="selectItem('mito')"><ellipse cx="0" cy="0" rx="25" ry="12" class="fill-mito"/><path d="M -15 0 L -5 5 L 5 -5 L 15 0" stroke="rgba(255,255,255,0.6)" stroke-width="2" fill="none"/></g>
+                    <g transform="translate(300, 180) rotate(-45)" class="part part-mito" onclick="selectItem('mito')"><ellipse cx="0" cy="0" rx="25" ry="12" class="fill-mito"/><path d="M -15 0 L -5 5 L 5 -5 L 15 0" stroke="rgba(255,255,255,0.6)" stroke-width="2" fill="none"/></g>
+                    <g transform="translate(220, 100)" class="part part-centriole" onclick="selectItem('centriole')"><rect x="0" y="0" width="20" height="8" rx="2" class="fill-centriole"/><rect x="6" y="-6" width="8" height="20" rx="2" class="fill-centriole"/></g>
+                    <circle cx="80" cy="220" r="10" class="part fill-lyso part-lyso" onclick="selectItem('lyso')"/><circle cx="280" cy="80" r="10" class="part fill-lyso part-lyso" onclick="selectItem('lyso')"/>
+                    <circle cx="120" cy="320" r="8" class="part fill-vacuole-small part-vacuole" onclick="selectItem('vacuole')"/>
+                    <g class="part part-ribo" onclick="selectItem('ribo')"><circle cx="200" cy="80" r="3" class="fill-ribo"/><circle cx="330" cy="300" r="3" class="fill-ribo"/></g>
+                </svg>
+            </div>
+
+            <div class="cell-wrapper">
+                <div class="cell-label" style="color: #2ecc71;">Plant Cell</div>
+                <svg viewBox="0 0 400 400">
+                    <rect x="50" y="50" width="300" height="300" rx="20" ry="20" class="part fill-wall part-wall" onclick="selectItem('wall')"/>
+                    <rect x="65" y="65" width="270" height="270" rx="10" ry="10" class="part fill-membrane part-membrane" onclick="selectItem('membrane')" style="stroke-width:2px;"/>
+                    <rect x="68" y="68" width="264" height="264" rx="8" ry="8" class="fill-cytoplasm" style="pointer-events: none;"/>
+                    <path d="M 100 100 H 260 Q 280 100 280 120 V 240 Q 280 260 260 260 H 120 Q 100 260 100 240 Z" class="part fill-vacuole-big part-vacuole" onclick="selectItem('vacuole')"/>
+                    <g class="part part-nucleus" onclick="selectItem('nucleus')"><circle cx="300" cy="280" r="35" class="fill-nucleus"/><circle cx="300" cy="280" r="12" class="fill-nucleolus"/></g>
+                    <g class="part part-rough-er" onclick="selectItem('rough-er')"><path d="M 250 280 Q 230 250 200 270" class="fill-rough-er"/><path d="M 250 280 Q 230 250 200 270" class="rough-dots"/></g>
+                    <path d="M 330 230 Q 350 200 350 180" class="part fill-smooth-er part-smooth-er" onclick="selectItem('smooth-er')"/>
+                    <g transform="translate(90, 280) rotate(-20)" class="part part-chloro" onclick="selectItem('chloro')"><ellipse cx="0" cy="0" rx="30" ry="15" class="fill-chloro"/><path d="M -15 0 H 15 M -10 -5 H 10 M -10 5 H 10" stroke="rgba(255,255,255,0.5)" stroke-width="2"/></g>
+                    <g transform="translate(300, 90) rotate(45)" class="part part-chloro" onclick="selectItem('chloro')"><ellipse cx="0" cy="0" rx="30" ry="15" class="fill-chloro"/><path d="M -15 0 H 15 M -10 -5 H 10 M -10 5 H 10" stroke="rgba(255,255,255,0.5)" stroke-width="2"/></g>
+                    <g transform="translate(90, 150) rotate(10)" class="part part-chloro" onclick="selectItem('chloro')"><ellipse cx="0" cy="0" rx="30" ry="15" class="fill-chloro"/><path d="M -15 0 H 15 M -10 -5 H 10 M -10 5 H 10" stroke="rgba(255,255,255,0.5)" stroke-width="2"/></g>
+                    <g transform="translate(180, 80)" class="part part-mito" onclick="selectItem('mito')"><ellipse cx="0" cy="0" rx="20" ry="10" class="fill-mito"/><path d="M -10 0 L 10 0" stroke="rgba(255,255,255,0.6)" stroke-width="2" fill="none"/></g>
+                    <path d="M 120 280 Q 140 260 160 280 M 115 290 Q 140 270 165 290" class="part fill-golgi part-golgi" onclick="selectItem('golgi')"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const structures = [
+            { id: "nucleus", name: "Nucleus (细胞核)", type: "both", desc: "The control center. Contains DNA/Chromosomes." },
+            { id: "rough-er", name: "Rough ER (粗面内质网)", type: "both", desc: "Covered in ribosomes. Synthesizes and transports proteins." },
+            { id: "smooth-er", name: "Smooth ER (滑面内质网)", type: "both", desc: "No ribosomes. Synthesizes lipids (fats) and detoxifies." },
+            { id: "mito", name: "Mitochondria (线粒体)", type: "both", desc: "Powerhouse. Performs cellular respiration (Glucose -> ATP)." },
+            { id: "chloro", name: "Chloroplast (叶绿体)", type: "plant", desc: "PLANT ONLY. Uses sunlight to make sugar (Photosynthesis)." },
+            { id: "wall", name: "Cell Wall (细胞壁)", type: "plant", desc: "PLANT ONLY. Rigid outer layer made of cellulose. Provides support." },
+            { id: "membrane", name: "Cell Membrane (细胞膜)", type: "both", desc: "Semi-permeable barrier controlling what enters/exits the cell." },
+            { id: "vacuole", name: "Vacuole (液泡)", type: "both", desc: "Storage.\n• Plant: ONE Large Central Vacuole.\n• Animal: Many small temporary vacuoles." },
+            { id: "centriole", name: "Centrioles (中心体)", type: "animal", desc: "ANIMAL ONLY. Helps with cell division (Mitosis)." },
+            { id: "golgi", name: "Golgi Apparatus (高尔基体)", type: "both", desc: "Packages and ships proteins out of the cell." },
+            { id: "lyso", name: "Lysosome (溶酶体)", type: "both", desc: "Contains digestive enzymes to break down waste." },
+            { id: "ribo", name: "Ribosomes (核糖体)", type: "both", desc: "Synthesizes proteins. Found on Rough ER or floating freely." }
+        ];
+
+        window.onload = function() {
+            const menu = document.getElementById('menu-list');
+            structures.forEach(item => {
+                let badgeClass = item.type === 'plant' ? 'b-plant' : (item.type === 'animal' ? 'b-animal' : 'b-both');
+                let badgeText = item.type === 'plant' ? 'Plant Only' : (item.type === 'animal' ? 'Animal Only' : 'Both');
+                let div = document.createElement('div');
+                div.className = 'list-item'; div.setAttribute('data-target', item.id);
+                div.innerHTML = `<span>${item.name}</span><span class="badge ${badgeClass}">${badgeText}</span>`;
+                div.onclick = () => selectItem(item.id);
+                menu.appendChild(div);
+            });
+        };
+
+        function selectItem(id) {
+            const data = structures.find(s => s.id === id);
+            document.querySelectorAll('.part').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll(`.part-${id}`).forEach(el => el.classList.add('active'));
+            document.querySelectorAll('.list-item').forEach(el => el.classList.remove('active'));
+            const menuBtn = document.querySelector(`.list-item[data-target="${id}"]`); if(menuBtn) menuBtn.classList.add('active');
+            const title = document.getElementById('info-title'); title.innerText = data.name;
+            title.style.color = data.type === 'plant' ? '#2ecc71' : (data.type === 'animal' ? '#e08283' : '#d35400');
+            document.getElementById('info-desc').innerText = data.desc;
+        }
+    </script>
+</body>
+</html>

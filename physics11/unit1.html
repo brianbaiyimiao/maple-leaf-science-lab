@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Unit 1: Kinematics Labs</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        body { background: #f0f2f5; font-family: 'Segoe UI', sans-serif; text-align: center; margin: 0; }
+        .top-nav { background: #3b82f6; padding: 15px 30px; display: flex; align-items: center; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .back-btn { text-decoration: none; color: white; border: 1px solid white; padding: 5px 15px; border-radius: 5px; font-weight: bold; }
+        .back-btn:hover { background: rgba(255,255,255,0.2); }
+        .container { max-width: 1000px; margin: 50px auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; padding: 0 20px; }
+        
+        .lab-entry {
+            background: white; padding: 30px; border-radius: 12px; text-decoration: none; color: #333;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05); transition: transform 0.2s; border-top: 6px solid #3b82f6;
+            min-height: 200px; display: flex; flex-direction: column; align-items: center;
+        }
+        .lab-entry:hover { transform: translateY(-8px); }
+        .icon { font-size: 3rem; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <div class="top-nav">
+        <a href="index.html" class="back-btn">⬅ Back to Units</a>
+        <h2 style="margin-left: 20px; flex: 1;">📉 Unit 1: Kinematics</h2>
+    </div>
+
+    <div class="container">
+        
+        <a href="projectile-lab.html" class="lab-entry">
+            <div class="icon">🚀</div>
+            <h2>Projectile Motion</h2>
+            <p>2D Data Analysis & Vectors</p>
+        </a>
+
+        <a href="graphing-lab.html" class="lab-entry">
+            <div class="icon">📈</div>
+            <h2>Motion Grapher</h2>
+            <p>d-t, v-t, a-t Real-time Graphs</p>
+        </a>
+
+        <a href="relative-lab.html" class="lab-entry">
+            <div class="icon">🚤</div>
+            <h2>Relative Motion</h2>
+            <p>River Crossing & Vector Addition</p>
+        </a>
+
+    </div>
+</body>
+</html>

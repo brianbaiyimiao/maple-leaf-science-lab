@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics Lab: Gravity Graphs</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --panel-bg: #151b2b;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --text-main: #e2e8f0;
+            --border-color: #334155;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Segoe UI', Roboto, monospace;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- 左侧设置栏 --- */
+        .sidebar {
+            width: 300px;
+            background: var(--panel-bg);
+            border-right: 1px solid var(--border-color);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 20;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.3);
+        }
+
+        .header-nav { margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+        .back-link { color: #94a3b8; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; }
+        .back-link:hover { color: #fff; }
+        h2 { color: var(--accent-blue); margin: 5px 0 0 0; font-size: 1.5rem; }
+
+        /* 星球网格 */
+        .planet-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px;
+        }
+
+        .planet-btn {
+            background: #1e293b; border: 1px solid var(--border-color); color: #cbd5e1;
+            padding: 8px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+            text-align: center; transition: all 0.2s;
+        }
+        .planet-btn:hover { background: #334155; }
+        .planet-btn.active { background: var(--accent-blue); color: white; border-color: var(--accent-blue); font-weight: bold; transform: scale(1.02); }
+        .g-val { display: block; font-size: 0.7rem; opacity: 0.8; margin-top: 2px; }
+
+        /* 高度控制 */
+        .input-group { margin-bottom: 25px; background: #1e293b; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); }
+        .input-label { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.9rem; color: #94a3b8; }
+        input[type=range] { width: 100%; cursor: pointer; }
+        input[type=number] { background: #0f172a; border: 1px solid var(--border-color); color: white; padding: 5px; border-radius: 4px; width: 70px; text-align: center; }
+
+        /* 按钮 */
+        .btn-main { width: 100%; padding: 12px; font-size: 1.1rem; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 10px; transition: transform 0.1s; }
+        .btn-start { background: var(--accent-green); color: white; }
+        .btn-start:hover { background: #059669; }
+        .btn-reset { background: var(--accent-red); color: white; }
+        .btn-reset:hover { background: #dc2626; }
+
+        /* --- 中间：动画区 --- */
+        .viewport {
+            flex: 1; position: relative;
+            background: linear-gradient(to bottom, #1e293b 0%, #0f172a 100%);
+            overflow: hidden; border-right: 1px solid var(--border-color);
+        }
+
+        #ruler { position: absolute; left: 60px; top: 20px; bottom: 50px; width: 2px; background: rgba(255,255,255,0.3); }
+        .tick { position: absolute; left: 0; width: 10px; height: 1px; background: rgba(255,255,255,0.5); }
+        .tick-text { position: absolute; left: -50px; top: -6px; font-size: 0.75rem; color: #94a3b8; text-align: right; width: 45px; }
+
+        #ball {
+            width: 30px; height: 30px;
+            background: radial-gradient(circle at 30% 30%, #fff, #ef4444);
+            border-radius: 50%;
+            position: absolute; left: 100px; top: 20px;
+            transform: translateY(-50%);
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
+            z-index: 10;
+        }
+
+        .ground {
+            position: absolute; bottom: 0; width: 100%; height: 50px;
+            background: #334155; border-top: 2px solid #64748b;
+            display: flex; align-items: center; justify-content: center;
+            color: #94a3b8; font-size: 0.8rem;
+        }
+
+        /* --- 右侧：图表区 --- */
+        .graph-sidebar {
+            width: 400px; /* 加宽一点以显示图表 */
+            background: var(--panel-bg);
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            gap: 15px;
+        }
+
+        .chart-container {
+            background: #1e293b;
+            border-radius: 8px;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            flex: 1; /* 两个图表平分高度 */
+            position: relative;
+            min-height: 0; /* 防止溢出 */
+        }
+        
+        .chart-title {
+            position: absolute;
+            top: 5px; left: 10px;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            font-weight: bold;
+        }
+
+        /* 实时数据展示 */
+        .status-display {
+            background: #000;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid var(--accent-green);
+            color: var(--accent-green);
+            font-family: monospace;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="header-nav">
+            <a href="index.html" class="back-link">⬅ Back to Menu</a>
+            <h2>Gravity Lab</h2>
+        </div>
+
+        <label style="color:#94a3b8; font-size:0.8rem; margin-bottom:5px; display:block;">Select Celestial Body:</label>
+        <div class="planet-grid" id="planet-container">
+            </div>
+
+        <div class="input-group">
+            <div class="input-label">
+                <span>Drop Height (m)</span>
+                <input type="number" id="height-input" value="100" min="1" max="5000" onchange="syncHeight('input')">
+            </div>
+            <input type="range" id="height-slider" min="1" max="5000" value="100" oninput="syncHeight('slider')">
+            <div style="text-align:right; font-size:0.75rem; color:#64748b; margin-top:5px;">Range: 1m - 5000m</div>
+        </div>
+
+        <button class="btn-main btn-start" onclick="startDrop()">Start Experiment</button>
+        <button class="btn-main btn-reset" onclick="resetLab()">Reset Graphs</button>
+    </div>
+
+    <div class="viewport" id="viewport">
+        <div id="ruler"></div>
+        <div id="ball"></div>
+        <div class="ground">GROUND LEVEL (0m)</div>
+    </div>
+
+    <div class="graph-sidebar">
+        <div class="status-display" id="live-data">
+            T: 0.00s | d: 0.00m | v: 0.00m/s
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-title">d-t Graph (Position vs Time)</div>
+            <canvas id="distChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-title">v-t Graph (Velocity vs Time)</div>
+            <canvas id="velChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // --- 物理常数与配置 ---
+        const planets = [
+            { id: 'earth', name: 'Earth', g: 9.81 },
+            { id: 'moon', name: 'Moon', g: 1.62 },
+            { id: 'mars', name: 'Mars', g: 3.72 },
+            { id: 'jupiter', name: 'Jupiter', g: 24.79 },
+            { id: 'pluto', name: 'Pluto', g: 0.62 },
+            { id: 'venus', name: 'Venus', g: 8.87 }
+        ];
+
+        // 状态变量
+        let currentG = 9.81;
+        let dropHeight = 100;
+        let isRunning = false;
+        let startTime = 0;
+        let animationFrame;
+        
+        // 视觉缩放
+        let pixelsPerMeter = 1; 
+        const VIEWPORT_PAD_TOP = 20;
+        const VIEWPORT_PAD_BOTTOM = 50;
+
+        // 图表实例
+        let distChartInstance = null;
+        let velChartInstance = null;
+        let lastGraphUpdate = 0;
+
+        // 初始化
+        window.onload = function() {
+            renderPlanets();
+            initCharts();
+            updateScale();
+            resetLab();
+        };
+
+        // --- 1. 初始化图表 (Chart.js) ---
+        function initCharts() {
+            // 通用配置
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false, // 关闭图表自身动画以提高实时性能
+                elements: { point: { radius: 0 } }, // 不显示点，只显示线
+                scales: {
+                    x: { 
+                        type: 'linear', 
+                        position: 'bottom',
+                        title: { display: true, text: 'Time (s)', color: '#64748b' },
+                        grid: { color: '#334155' },
+                        ticks: { color: '#94a3b8' }
+                    },
+                    y: {
+                        grid: { color: '#334155' },
+                        ticks: { color: '#94a3b8' }
+                    }
+                },
+                plugins: { legend: { display: false } } // 隐藏图例
+            };
+
+            // Distance Chart
+            const ctxD = document.getElementById('distChart').getContext('2d');
+            distChartInstance = new Chart(ctxD, {
+                type: 'line',
+                data: { datasets: [{ label: 'Distance', data: [], borderColor: '#3b82f6', borderWidth: 2, fill: false }] },
+                options: { ...commonOptions, scales: { ...commonOptions.scales, y: { ...commonOptions.scales.y, title: { display: true, text: 'Distance (m)', color: '#64748b' } } } }
+            });
+
+            // Velocity Chart
+            const ctxV = document.getElementById('velChart').getContext('2d');
+            velChartInstance = new Chart(ctxV, {
+                type: 'line',
+                data: { datasets: [{ label: 'Velocity', data: [], borderColor: '#ef4444', borderWidth: 2, fill: false }] },
+                options: { ...commonOptions, scales: { ...commonOptions.scales, y: { ...commonOptions.scales.y, title: { display: true, text: 'Velocity (m/s)', color: '#64748b' } } } }
+            });
+        }
+
+        // --- 2. 界面渲染逻辑 ---
+        function renderPlanets() {
+            const container = document.getElementById('planet-container');
+            planets.forEach(p => {
+                let btn = document.createElement('div');
+                btn.className = 'planet-btn';
+                if(p.id === 'earth') btn.classList.add('active');
+                btn.innerHTML = `<div>${p.name}</div><span class="g-val">${p.g}</span>`;
+                btn.onclick = () => selectPlanet(p, btn);
+                container.appendChild(btn);
+            });
+        }
+
+        function selectPlanet(p, btn) {
+            if(isRunning) return;
+            currentG = p.g;
+            document.querySelectorAll('.planet-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            resetLab();
+        }
+
+        function syncHeight(source) {
+            if(isRunning) return;
+            const slider = document.getElementById('height-slider');
+            const input = document.getElementById('height-input');
+            let val = parseInt(source === 'slider' ? slider.value : input.value);
+            if(val < 1) val = 1; if(val > 5000) val = 5000;
+            dropHeight = val; slider.value = val; input.value = val;
+            updateScale(); resetLab();
+        }
+
+        function updateScale() {
+            const viewportH = document.getElementById('viewport').clientHeight;
+            const availableH = viewportH - VIEWPORT_PAD_TOP - VIEWPORT_PAD_BOTTOM;
+            pixelsPerMeter = availableH / dropHeight;
+            drawRuler();
+        }
+
+        function drawRuler() {
+            const ruler = document.getElementById('ruler');
+            ruler.innerHTML = "";
+            let step = 10;
+            if (dropHeight <= 50) step = 5;
+            else if (dropHeight <= 200) step = 20;
+            else if (dropHeight <= 1000) step = 100;
+            else step = 500;
+
+            for(let h = 0; h <= dropHeight; h += step) {
+                let topPos = h * pixelsPerMeter;
+                let tick = document.createElement('div');
+                tick.className = 'tick'; tick.style.top = topPos + 'px';
+                let text = document.createElement('div');
+                text.className = 'tick-text'; text.innerText = h + 'm';
+                tick.appendChild(text); ruler.appendChild(tick);
+            }
+        }
+
+        // --- 3. 核心物理循环 ---
+        function startDrop() {
+            if(isRunning) return;
+            isRunning = true;
+            startTime = Date.now();
+            
+            // 锁定输入
+            document.getElementById('height-input').disabled = true;
+            document.getElementById('height-slider').disabled = true;
+
+            // 清空图表数据
+            distChartInstance.data.datasets[0].data = [];
+            velChartInstance.data.datasets[0].data = [];
+            
+            // 预设图表的最大范围，让动画看起来不像是在不断重绘坐标轴
+            // (可选优化，这里先不加，让Chart.js自动适应)
+
+            animate();
+        }
+
+        function animate() {
+            if(!isRunning) return;
+
+            let now = Date.now();
+            let t = (now - startTime) / 1000;
+
+            // 物理公式
+            let d = 0.5 * currentG * t * t; 
+            let v = currentG * t;
+
+            // 落地判断
+            if (d >= dropHeight) {
+                d = dropHeight;
+                t = Math.sqrt(2 * dropHeight / currentG);
+                v = currentG * t;
+                finishDrop(t, d, v);
+                return;
+            }
+
+            // 更新小球位置
+            let pixelPos = d * pixelsPerMeter;
+            document.getElementById('ball').style.top = (VIEWPORT_PAD_TOP + pixelPos) + 'px';
+
+            // 更新实时文字
+            updateStatus(t, d, v);
+
+            // 更新图表 (采样：避免每一帧都画，导致浏览器卡死)
+            // 根据总高度动态调整采样率
+            if (t - lastGraphUpdate > getSampleRate()) {
+                addDataToChart(t, d, v);
+                lastGraphUpdate = t;
+            }
+
+            animationFrame = requestAnimationFrame(animate);
+        }
+
+        function getSampleRate() {
+            // 如果运动时间很短(<2s)，每0.05s画一次
+            // 如果运动时间很长(>10s)，每0.2s画一次
+            let totalTime = Math.sqrt(2 * dropHeight / currentG);
+            return totalTime > 10 ? 0.2 : 0.05;
+        }
+
+        function addDataToChart(t, d, v) {
+            // Chart.js 接受 {x, y} 格式的数据
+            distChartInstance.data.datasets[0].data.push({x: t, y: d});
+            velChartInstance.data.datasets[0].data.push({x: t, y: v});
+            
+            distChartInstance.update('none'); // 'none' mode improves performance
+            velChartInstance.update('none');
+        }
+
+        function finishDrop(t, d, v) {
+            isRunning = false;
+            // 最终位置
+            document.getElementById('ball').style.top = (VIEWPORT_PAD_TOP + dropHeight * pixelsPerMeter) + 'px';
+            updateStatus(t, d, v);
+            
+            // 补上最后一个点
+            addDataToChart(t, d, v);
+            
+            // 最终完整刷新一次图表
+            distChartInstance.update();
+            velChartInstance.update();
+        }
+
+        function updateStatus(t, d, v) {
+            document.getElementById('live-data').innerText = 
+                `T: ${t.toFixed(2)}s | d: ${d.toFixed(2)}m | v: ${v.toFixed(2)}m/s`;
+        }
+
+        function resetLab() {
+            isRunning = false;
+            cancelAnimationFrame(animationFrame);
+            lastGraphUpdate = 0;
+
+            // 解锁输入
+            document.getElementById('height-input').disabled = false;
+            document.getElementById('height-slider').disabled = false;
+
+            // 重置小球
+            document.getElementById('ball').style.top = VIEWPORT_PAD_TOP + 'px';
+            
+            // 清空文字
+            document.getElementById('live-data').innerText = "Ready to Drop";
+
+            // 清空图表
+            distChartInstance.data.datasets[0].data = [];
+            velChartInstance.data.datasets[0].data = [];
+            distChartInstance.update();
+            velChartInstance.update();
+        }
+    </script>
+</body>
+</html>

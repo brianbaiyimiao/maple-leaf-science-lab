@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SHM Spring Lab - Maple Leaf Science</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --primary: #ec4899; --dark: #0f172a; --spring: #64748b; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f8fafc; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        .nav { background: var(--dark); color: white; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .back-btn { color: white; text-decoration: none; border: 1px solid #444; padding: 5px 12px; border-radius: 4px; font-size: 13px; }
+
+        .workspace { display: grid; grid-template-columns: 320px 1fr 380px; gap: 15px; padding: 15px; flex: 1; overflow: hidden; }
+        .card { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; display: flex; flex-direction: column; }
+        h3 { margin: 0 0 15px 0; border-left: 5px solid var(--primary); padding-left: 12px; font-size: 16px; }
+
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-size: 12px; font-weight: bold; color: #64748b; margin-bottom: 5px; }
+        input[type="range"] { width: 100%; cursor: pointer; accent-color: var(--primary); }
+        .val-span { float: right; color: var(--primary); font-family: monospace; font-size: 14px; }
+        
+        .btn { border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 10px; transition: 0.2s; }
+        .btn-start { background: var(--primary); color: white; }
+        .btn-record { background: #10b981; color: white; }
+
+        .sim-box { position: relative; background: #fff; border: 1px solid #e2e8f0; overflow: hidden; flex: 1; margin-bottom: 10px; }
+        .graph-box { height: 200px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 5px; }
+        canvas { width: 100%; height: 100%; }
+
+        .table-wrap { flex: 1; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; text-align: center; }
+        th { background: #f8fafc; padding: 8px; position: sticky; top: 0; border-bottom: 2px solid #edf2f7; }
+        td { padding: 8px; border-bottom: 1px solid #f8fafc; font-family: monospace; }
+
+        .data-panel { background: var(--dark); color: #38bdf8; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 12px; margin-top: auto; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit6.html" class="back-btn">⬅ Back to Unit 6</a>
+        <h2 style="margin:0; font-size: 18px;">Physics 11: Simple Harmonic Motion Lab</h2>
+        <span style="font-size: 12px; opacity: 0.8;">Student Virtual Lab</span>
+    </div>
+
+    <div class="workspace">
+        <div class="card">
+            <h3>SHM Parameters</h3>
+            
+            <div class="control-group">
+                <label>Mass ($m$) <span class="val-span" id="m-val">2.0 kg</span></label>
+                <input type="range" id="input-m" min="0.5" max="5.0" step="0.1" value="2.0">
+            </div>
+
+            <div class="control-group">
+                <label>Spring Constant ($k$) <span class="val-span" id="k-val">50 N/m</span></label>
+                <input type="range" id="input-k" min="10" max="100" step="5" value="50">
+            </div>
+
+            <div class="control-group">
+                <label>Amplitude ($A$) <span class="val-span" id="a-val">60 px</span></label>
+                <input type="range" id="input-a" min="20" max="100" step="5" value="60">
+            </div>
+
+            <button class="btn btn-start" id="btn-pause">PAUSE / RESUME</button>
+            <button class="btn btn-start" id="btn-reset" style="background:#64748b;">RESET SYSTEM</button>
+            <button class="btn btn-record" id="btn-record">LOG PERIOD DATA</button>
+
+            <div class="data-panel" id="live-data">
+                Restoring Force: 0.0 N<br>
+                Instant Velocity: 0.0 m/s<br>
+                Theoretical Period: 1.26 s
+            </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            <div class="card sim-box">
+                <h3>Mass-Spring System</h3>
+                <canvas id="springCanvas"></canvas>
+            </div>
+            <div class="card graph-box">
+                <canvas id="shmChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Experimental Data Log</h3>
+            <div class="table-wrap">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>Trial</th>
+                            <th>$m$(kg)</th>
+                            <th>$k$(N/m)</th>
+                            <th>$A$(px)</th>
+                            <th>$T_{calc}$(s)</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <p style="font-size:10px; color:#94a3b8; margin-top:10px;">
+                *Calculation: $T = 2\pi\sqrt{m/k}$
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('springCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let mass = 2.0, k = 50, amplitude = 60;
+        let time = 0, isPaused = false, trialCount = 0;
+        let history = [];
+
+        // Chart.js Setup
+        const chartCtx = document.getElementById('shmChart').getContext('2d');
+        const shmChart = new Chart(chartCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Displacement (px)', data: [], borderColor: '#ec4899', borderWidth: 2, pointRadius: 0, fill: false }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { x: { display: false }, y: { min: -110, max: 110 } }, animation: false }
+        });
+
+        window.addEventListener('mouseup', () => { document.querySelectorAll('input').forEach(i => i.blur()); });
+
+        function resize() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight - 40;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        document.getElementById('input-m').oninput = (e) => { mass = parseFloat(e.target.value); document.getElementById('m-val').innerText = mass.toFixed(1) + " kg"; updateStats(); };
+        document.getElementById('input-k').oninput = (e) => { k = parseInt(e.target.value); document.getElementById('k-val').innerText = k + " N/m"; updateStats(); };
+        document.getElementById('input-a').oninput = (e) => { amplitude = parseInt(e.target.value); document.getElementById('a-val').innerText = amplitude + " px"; updateStats(); };
+        
+        document.getElementById('btn-pause').onclick = () => isPaused = !isPaused;
+        document.getElementById('btn-reset').onclick = () => { time = 0; history = []; shmChart.data.labels = []; shmChart.data.datasets[0].data = []; shmChart.update(); };
+
+        function updateStats() {
+            const T = 2 * Math.PI * Math.sqrt(mass / k);
+            document.getElementById('live-data').innerHTML = `Theoretical Period: ${T.toFixed(2)} s<br>Potential Energy: maxed at apex<br>Restoring Force: F = -kx`;
+        }
+
+        document.getElementById('btn-record').onclick = () => {
+            trialCount++;
+            const T = 2 * Math.PI * Math.sqrt(mass / k);
+            const tbody = document.querySelector('#dataTable tbody');
+            const row = `<tr><td>#${trialCount}</td><td>${mass.toFixed(1)}</td><td>${k}</td><td>${amplitude}</td><td>${T.toFixed(2)}</td></tr>`;
+            tbody.innerHTML = row + tbody.innerHTML;
+        };
+
+        function draw() {
+            if (!isPaused) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const cx = canvas.width / 2;
+                const cy = 50; // Ceiling height
+
+                // SHM Physics: x(t) = A * cos(omega * t)
+                const omega = Math.sqrt(k / mass);
+                const displacement = amplitude * Math.cos(omega * time);
+                const currentY = cy + 150 + displacement;
+
+                // 1. Draw Ceiling
+                ctx.fillStyle = "#334155"; ctx.fillRect(cx - 100, cy - 10, 200, 10);
+
+                // 2. Draw Spring (Zigzag)
+                ctx.beginPath(); ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 2;
+                ctx.moveTo(cx, cy);
+                const segments = 20;
+                const step = (currentY - cy) / segments;
+                for (let i = 1; i <= segments; i++) {
+                    const xOff = (i % 2 === 0) ? 15 : -15;
+                    ctx.lineTo(cx + xOff, cy + (i * step) - (step/2));
+                    ctx.lineTo(cx, cy + (i * step));
+                }
+                ctx.stroke();
+
+                // 3. Draw Mass
+                ctx.fillStyle = "#1e293b"; ctx.fillRect(cx - 30, currentY, 60, 40);
+                ctx.fillStyle = "white"; ctx.font = "10px Arial"; ctx.fillText(mass+"kg", cx-15, currentY+25);
+
+                // 4. Update Chart
+                if (Math.floor(time*10) > Math.floor((time-0.016)*10)) {
+                    shmChart.data.labels.push("");
+                    shmChart.data.datasets[0].data.push(displacement);
+                    if(shmChart.data.labels.length > 50) { shmChart.data.labels.shift(); shmChart.data.datasets[0].data.shift(); }
+                    shmChart.update('none');
+                }
+
+                time += 0.016;
+            }
+            requestAnimationFrame(draw);
+        }
+
+        updateStats();
+        draw();
+    </script>
+</body>
+</html>
