@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Virtual Invertebrate Dissection</title>
+    <style>
+        :root { --ml-red: #881337; --ml-blue: #0284c7; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-blue); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-red);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1250px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 350px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .step-list { list-style: none; padding: 0; margin: 0 0 20px 0; }
+        .step-item { padding: 12px 15px; margin-bottom: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; color: #64748b; font-weight: bold; display: flex; align-items: center; gap: 10px;}
+        .step-item.active { background: #f0f9ff; border-color: var(--ml-blue); color: var(--ml-blue); }
+        .step-item.done { background: #f0fdf4; border-color: #22c55e; color: #166534; text-decoration: line-through;}
+        
+        .btn { background: var(--ml-blue); color: white; border: none; padding: 15px; border-radius: 8px; font-size: 1.1rem; cursor: pointer; font-weight: bold; transition: 0.2s; width: 100%; box-shadow: 0 4px 0 #0369a1;}
+        .btn:active { transform: translateY(4px); box-shadow: none; }
+        .btn:disabled { background: #94a3b8; box-shadow: 0 4px 0 #64748b; cursor: not-allowed; }
+
+        .canvas-container { background: #1e293b; border-radius: 12px; border: 8px solid #475569; overflow: hidden; position: relative; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 0 50px rgba(0,0,0,0.8); height: 500px; cursor: crosshair;}
+        canvas { width: 100%; height: 100%; }
+
+        .info-box { background: #fffbeb; border-left: 5px solid #f59e0b; padding: 20px; border-radius: 0 8px 8px 0; margin-top: auto; font-size: 1rem; line-height: 1.6; color: #b45309; min-height: 180px;}
+        .organ-title { font-size: 1.2rem; font-weight: bold; margin-bottom: 5px; color: #92400e; border-bottom: 1px solid #fcd34d; padding-bottom: 5px;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit4.html" class="back-link">⬅ Back to Unit 4</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 12: Virtual Invertebrate Dissection</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Biology</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Dissection Protocol</h3>
+            
+            <ul class="step-list">
+                <li class="step-item active" id="step-1">1. Make Dorsal Incision (Scalpel)</li>
+                <li class="step-item" id="step-2">2. Pin Body Wall Open (Pins)</li>
+                <li class="step-item" id="step-3">3. Inspect Internal Anatomy</li>
+            </ul>
+
+            <button class="btn" id="action-btn" onclick="performAction()">Use Scalpel 🔪</button>
+
+            <div class="info-box" id="info-box">
+                <div class="organ-title">Specimen: Earthworm (Lumbricus)</div>
+                <div>Earthworms are annelids (segmented worms). They are excellent specimens for studying basic digestive and closed circulatory systems.<br><br><b>Action:</b> Click the button above to make a shallow cut along the dorsal (back) side.</div>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="dissectionCanvas" width="800" height="500"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('dissectionCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        let step = 1; // 1: intact, 2: cut, 3: pinned/inspect
+        let animProgress = 0;
+        let isAnimating = false;
+        
+        // 鼠标交互位置
+        let mouseX = 0;
+        let mouseY = 0;
+
+        // 器官数据库 (用于碰撞检测和信息展示)
+        const organs = [
+            { id: 'pharynx', name: 'Pharynx', x: 200, y: 250, r: 25, color: '#d97706', desc: 'Muscular throat that acts like a suction pump to pull dirt and food into the digestive system.' },
+            { id: 'hearts', name: 'Aortic Arches (Hearts)', x: 280, y: 250, r: 30, color: '#ef4444', desc: 'Five pairs of muscular tubes that act as "hearts" to pump blood through the closed circulatory system.' },
+            { id: 'seminal', name: 'Seminal Vesicles', x: 350, y: 250, r: 25, color: '#fef08a', desc: 'Light-colored reproductive organs that store sperm produced by the worm.' },
+            { id: 'crop', name: 'Crop', x: 420, y: 250, r: 28, color: '#eab308', desc: 'A soft, expandable storage sac where food is temporarily held before moving to the gizzard.' },
+            { id: 'gizzard', name: 'Gizzard', x: 490, y: 250, r: 35, color: '#94a3b8', desc: 'A highly muscular, hard organ that grinds up the food/soil mixture, often using small stones swallowed by the worm.' },
+            { id: 'intestine', name: 'Intestine', x: 620, y: 250, w: 160, h: 40, type: 'rect', color: '#8b5cf6', desc: 'Long tube where digestive enzymes break down food and nutrients are absorbed into the blood.' }
+        ];
+
+        let hoveredOrgan = null;
+
+        cvs.addEventListener('mousemove', (e) => {
+            if(step !== 3) return; // 只有在步骤3才能交互
+            
+            const rect = cvs.getBoundingClientRect();
+            // Scale mouse coordinates to canvas internal resolution
+            const scaleX = cvs.width / rect.width;
+            const scaleY = cvs.height / rect.height;
+            mouseX = (e.clientX - rect.left) * scaleX;
+            mouseY = (e.clientY - rect.top) * scaleY;
+
+            hoveredOrgan = null;
+            
+            // 碰撞检测
+            for(let o of organs) {
+                if(o.type === 'rect') {
+                    if(mouseX > o.x - o.w/2 && mouseX < o.x + o.w/2 && mouseY > o.y - o.h/2 && mouseY < o.y + o.h/2) {
+                        hoveredOrgan = o; break;
+                    }
+                } else {
+                    if(Math.hypot(mouseX - o.x, mouseY - o.y) < o.r) {
+                        hoveredOrgan = o; break;
+                    }
+                }
+            }
+
+            if(hoveredOrgan) {
+                cvs.style.cursor = 'pointer';
+                document.getElementById('info-box').innerHTML = `
+                    <div class="organ-title">🔍 ${hoveredOrgan.name}</div>
+                    <div>${hoveredOrgan.desc}</div>
+                `;
+            } else {
+                cvs.style.cursor = 'crosshair';
+                document.getElementById('info-box').innerHTML = `
+                    <div class="organ-title">Internal Anatomy</div>
+                    <div>Move your mouse over the organs in the tray to identify them and learn their functions. Pay attention to the digestive tract order!</div>
+                `;
+            }
+        });
+
+        function performAction() {
+            if(isAnimating) return;
+            
+            let btn = document.getElementById('action-btn');
+            
+            if(step === 1) {
+                // 执行切割动画
+                isAnimating = true;
+                btn.disabled = true;
+                
+                let cutInterval = setInterval(() => {
+                    animProgress += 0.05;
+                    if(animProgress >= 1) {
+                        clearInterval(cutInterval);
+                        isAnimating = false;
+                        step = 2;
+                        animProgress = 0;
+                        
+                        document.getElementById('step-1').className = 'step-item done';
+                        document.getElementById('step-2').className = 'step-item active';
+                        btn.disabled = false;
+                        btn.innerText = 'Apply Pins 📌';
+                        btn.style.background = '#eab308';
+                        btn.style.boxShadow = '0 4px 0 #ca8a04';
+                        document.getElementById('info-box').innerHTML = `
+                            <div class="organ-title">Incision Made</div>
+                            <div>The dorsal wall is cut. <br><br><b>Action:</b> Now we must pin the skin back to the dissection tray to expose the organs without damaging them. Click the button to apply pins.</div>
+                        `;
+                    }
+                }, 50);
+            } 
+            else if(step === 2) {
+                // 执行钉扎展开动画
+                isAnimating = true;
+                btn.disabled = true;
+                
+                let pinInterval = setInterval(() => {
+                    animProgress += 0.05;
+                    if(animProgress >= 1) {
+                        clearInterval(pinInterval);
+                        isAnimating = false;
+                        step = 3;
+                        animProgress = 0;
+                        
+                        document.getElementById('step-2').className = 'step-item done';
+                        document.getElementById('step-3').className = 'step-item active';
+                        btn.innerText = 'Exploration Mode Active 🔬';
+                        btn.style.background = '#10b981';
+                        btn.style.boxShadow = '0 4px 0 #059669';
+                        document.getElementById('info-box').innerHTML = `
+                            <div class="organ-title">Internal Anatomy</div>
+                            <div>The specimen is prepared. Move your mouse over the organs in the tray to identify them.</div>
+                        `;
+                    }
+                }, 50);
+            }
+        }
+
+        // --- 绘制渲染引擎 ---
+        function drawTray() {
+            // 黑灰色蜡盘
+            ctx.fillStyle = '#1e293b'; ctx.fillRect(0,0,800,500);
+            
+            // 绘制底部的白色解剖纸基准线
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
+            for(let i=0; i<800; i+=20) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 500); ctx.stroke(); }
+            for(let i=0; i<500; i+=20) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(800, i); ctx.stroke(); }
+        }
+
+        function drawIntactWorm() {
+            ctx.fillStyle = '#9a3412'; // 暗红色
+            ctx.strokeStyle = '#7c2d12'; ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            ctx.ellipse(400, 250, 300, 30, 0, 0, Math.PI*2);
+            ctx.fill(); ctx.stroke();
+
+            // 体节环 (Segments)
+            for(let i=-280; i<280; i+=10) {
+                ctx.beginPath(); ctx.moveTo(400+i, 221 + Math.abs(i/300)*5);
+                ctx.quadraticCurveTo(405+i, 250, 400+i, 279 - Math.abs(i/300)*5);
+                ctx.stroke();
+            }
+
+            // 环带 (Clitellum)
+            ctx.fillStyle = '#fdba74';
+            ctx.beginPath(); ctx.ellipse(250, 250, 30, 32, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+
+            // 如果正在切割，绘制刀痕
+            if(step === 1 && isAnimating) {
+                let cutX = 150 + (animProgress * 500);
+                // 绘制虚线的切割线
+                ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
+                ctx.beginPath(); ctx.moveTo(150, 250); ctx.lineTo(650, 250); ctx.stroke(); ctx.setLineDash([]);
+                
+                // 绘制手术刀
+                ctx.fillStyle = '#cbd5e1'; ctx.beginPath(); ctx.moveTo(cutX, 250); ctx.lineTo(cutX+20, 230); ctx.lineTo(cutX+40, 240); ctx.fill();
+                ctx.fillStyle = '#334155'; ctx.fillRect(cutX+30, 210, 80, 20); // 刀柄
+            }
+        }
+
+        function drawPinnedWorm() {
+            let openWidth = step === 2 ? 30 + (animProgress * 50) : 80;
+
+            // 展开的皮肤背景
+            ctx.fillStyle = '#fca5a5'; // 肉粉色
+            ctx.strokeStyle = '#b91c1c'; ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(100, 250);
+            ctx.quadraticCurveTo(400, 250 - openWidth, 700, 250);
+            ctx.quadraticCurveTo(400, 250 + openWidth, 100, 250);
+            ctx.fill(); ctx.stroke();
+
+            // 画皮肤内部的体节线
+            ctx.strokeStyle = 'rgba(185, 28, 28, 0.2)';
+            for(let i=150; i<650; i+=15) {
+                ctx.beginPath(); ctx.moveTo(i, 250 - openWidth*Math.sin(Math.PI*(i-100)/600));
+                ctx.lineTo(i, 250 + openWidth*Math.sin(Math.PI*(i-100)/600));
+                ctx.stroke();
+            }
+
+            // --- 画内部器官 (如果皮肤完全打开) ---
+            if((step === 2 && animProgress > 0.5) || step === 3) {
+                let globalAlpha = step === 2 ? (animProgress - 0.5) * 2 : 1;
+                ctx.globalAlpha = globalAlpha;
+
+                // 1. 肠道 (Intestine)
+                ctx.fillStyle = organs[5].color;
+                ctx.fillRect(organs[5].x - organs[5].w/2, organs[5].y - organs[5].h/2, organs[5].w, organs[5].h);
+                // 肠道表面的黄色细胞
+                ctx.fillStyle = '#fde047';
+                for(let i=550; i<690; i+=10) { ctx.beginPath(); ctx.arc(i, 240, 2, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(i+5, 260, 2, 0, Math.PI*2); ctx.fill(); }
+
+                // 2. 咽部 (Pharynx)
+                ctx.fillStyle = organs[0].color;
+                ctx.beginPath(); ctx.ellipse(organs[0].x, organs[0].y, organs[0].r, 15, 0, 0, Math.PI*2); ctx.fill();
+
+                // 3. 嗉囊 (Crop)
+                ctx.fillStyle = organs[3].color;
+                ctx.beginPath(); ctx.arc(organs[3].x, organs[3].y, organs[3].r, 0, Math.PI*2); ctx.fill();
+
+                // 4. 砂囊 (Gizzard) - Hard, muscular
+                ctx.fillStyle = organs[4].color;
+                ctx.strokeStyle = '#475569'; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.ellipse(organs[4].x, organs[4].y, organs[4].r, 28, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+
+                // 5. 精囊 (Seminal Vesicles) - Whiteish blobs
+                ctx.fillStyle = organs[2].color;
+                ctx.beginPath(); ctx.arc(organs[2].x, organs[2].y - 15, 15, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(organs[2].x, organs[2].y + 15, 15, 0, Math.PI*2); ctx.fill();
+
+                // 6. 5个心脏 (Aortic Arches) - Red arches over esophagus
+                ctx.strokeStyle = organs[1].color; ctx.lineWidth = 6;
+                for(let i=0; i<5; i++) {
+                    ctx.beginPath(); ctx.arc(250 + i*15, 250, 15, Math.PI, 0); ctx.stroke();
+                    ctx.beginPath(); ctx.arc(250 + i*15, 250, 15, 0, Math.PI); ctx.stroke();
+                }
+                
+                // 背血管 (Dorsal Blood Vessel)
+                ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.moveTo(320, 250); ctx.lineTo(700, 250); ctx.stroke();
+
+                // 如果有鼠标悬停，绘制高亮发光效果
+                if(hoveredOrgan && step === 3) {
+                    ctx.shadowColor = 'white';
+                    ctx.shadowBlur = 15;
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 3;
+
+                    if(hoveredOrgan.type === 'rect') {
+                        ctx.strokeRect(hoveredOrgan.x - hoveredOrgan.w/2, hoveredOrgan.y - hoveredOrgan.h/2, hoveredOrgan.w, hoveredOrgan.h);
+                    } else if (hoveredOrgan.id === 'hearts') {
+                        ctx.strokeRect(230, 220, 85, 60); // 框住心脏区域
+                    } else {
+                        ctx.beginPath(); ctx.arc(hoveredOrgan.x, hoveredOrgan.y, hoveredOrgan.r + 5, 0, Math.PI*2); ctx.stroke();
+                    }
+                    ctx.shadowBlur = 0; // 重置
+                }
+
+                ctx.globalAlpha = 1;
+            }
+
+            // 画解剖钉 (Pins)
+            if(step >= 2) {
+                let pinPos = [200, 350, 500, 600];
+                pinPos.forEach(px => {
+                    let pyTop = 250 - openWidth*Math.sin(Math.PI*(px-100)/600);
+                    let pyBot = 250 + openWidth*Math.sin(Math.PI*(px-100)/600);
+                    
+                    // Top Pin
+                    ctx.fillStyle = '#eab308'; // Pin head
+                    ctx.beginPath(); ctx.arc(px+10, pyTop-20, 6, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = 'silver'; ctx.lineWidth = 2; // Pin needle
+                    ctx.beginPath(); ctx.moveTo(px+10, pyTop-20); ctx.lineTo(px, pyTop); ctx.stroke();
+
+                    // Bottom Pin
+                    ctx.fillStyle = '#eab308';
+                    ctx.beginPath(); ctx.arc(px+10, pyBot+20, 6, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = 'silver';
+                    ctx.beginPath(); ctx.moveTo(px+10, pyBot+20); ctx.lineTo(px, pyBot); ctx.stroke();
+                });
+            }
+        }
+
+        function animate() {
+            drawTray();
+            
+            if(step === 1) {
+                drawIntactWorm();
+            } else {
+                drawPinnedWorm();
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // 启动渲染
+        animate();
+    </script>
+</body>
+</html>

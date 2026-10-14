@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 5.1: Viral Replication</title>
+    <style>
+        :root { --ml-green: #16a34a; --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --gold: #fbbf24; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--ml-green); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--gold); }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.3s;}
+        .back-link:hover { background: white; color: var(--ml-green); }
+        
+        .workspace { flex: 1; display: grid; grid-template-columns: 420px 1fr; gap: 20px; padding: 20px; box-sizing: border-box; overflow: hidden; }
+        .panel { background: var(--panel); border-radius: 15px; border: 1px solid #334155; padding: 20px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow-y: auto;}
+        
+        h3 { margin: 0; color: var(--gold); border-bottom: 1px dashed #475569; padding-bottom: 10px; font-size: 1.1rem;}
+
+        .step-box { background: rgba(0,0,0,0.3); border: 1px solid #334155; padding: 15px; border-radius: 8px; transition: 0.3s; opacity: 0.5; pointer-events: none;}
+        .step-box.active { opacity: 1; pointer-events: auto; border-color: #38bdf8; box-shadow: 0 0 15px rgba(56,189,248,0.1);}
+        .step-box.completed { opacity: 0.7; border-color: var(--ml-green); pointer-events: none;}
+        
+        .step-title { font-weight: bold; color: #38bdf8; margin-bottom: 8px;}
+        .step-box.completed .step-title { color: var(--ml-green); }
+
+        .btn { background: #3b82f6; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; text-transform: uppercase; margin-top: 10px;}
+        .btn:hover { background: #2563eb; transform: translateY(-2px);}
+        .btn-red { background: #ef4444;} .btn-red:hover { background: #dc2626;}
+        .btn-purple { background: #8b5cf6;} .btn-purple:hover { background: #7c3aed;}
+        .btn-reset { background: #475569; margin-top: auto;} .btn-reset:hover { background: #334155;}
+
+        .canvas-container { background: #020617; border-radius: 15px; position: relative; overflow: hidden; box-shadow: inset 0 0 50px rgba(0,0,0,0.8); }
+        canvas { width: 100%; height: 100%; display: block; }
+        
+        .tag { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.8); padding: 8px 15px; border-radius: 6px; font-weight: bold; color: var(--gold); font-size: 0.85rem;}
+        
+        .status-hud { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); border: 2px solid #38bdf8; padding: 10px 20px; border-radius: 8px; font-weight: bold; color: white; font-family: monospace; font-size: 1.1rem; text-align: center; width: 80%;}
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="unit5.html" class="back-link">⬅ Back to Unit 5</a>
+        <h2 style="margin:0;">Lab 5.1: Viral Replication Cycles</h2>
+        <span style="font-size: 0.9rem; opacity: 0.8;">Maple Leaf Biological Sciences</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Infection Protocol</h3>
+            
+            <div class="step-box active" id="step-1">
+                <div class="step-title">Phase 1: Attachment & Penetration</div>
+                <div style="font-size:0.85rem; color:#cbd5e1;">The Bacteriophage attaches to specific receptors on the host cell and injects its viral genome.</div>
+                <button class="btn" onclick="triggerInjection()">🧬 Inject Viral DNA</button>
+            </div>
+
+            <div class="step-box" id="step-2">
+                <div class="step-title">Phase 2: Choose Replication Path</div>
+                <div style="font-size:0.85rem; color:#cbd5e1;">How will the virus proceed?</div>
+                <button class="btn btn-red" onclick="triggerLytic()">💥 Lytic Cycle (Hijack & Destroy)</button>
+                <button class="btn btn-purple" onclick="triggerLysogenic()">🕵️ Lysogenic Cycle (Integrate)</button>
+            </div>
+
+            <div class="step-box" id="step-3" style="display: none;">
+                <div class="step-title">Phase 3: Environmental Stress</div>
+                <div style="font-size:0.85rem; color:#cbd5e1;">The prophage is dormant. Apply UV radiation to trigger excision and force the cell into the Lytic cycle.</div>
+                <button class="btn" style="background:#f59e0b;" onclick="triggerExcision()">🔦 Apply UV Radiation</button>
+            </div>
+
+            <button class="btn btn-reset" onclick="resetSim()">🔄 Reset Host Cell</button>
+
+            <div style="margin-top:10px; font-size:0.8rem; color:#64748b; line-height:1.5; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px;">
+                <b>Note:</b> Viruses are obligate intracellular parasites. They cannot reproduce without hijacking the ribosomes and enzymes of a living host cell.
+            </div>
+        </div>
+
+        <div class="canvas-container" id="canvas-wrapper">
+            <div class="tag">ELECTRON MICROSCOPE VIEW (Bacteriophage vs E. coli)</div>
+            <div class="status-hud" id="status-hud">HOST CELL: HEALTHY & METABOLIZING</div>
+            <canvas id="viralCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('viralCanvas');
+        const ctx = cvs.getContext('2d');
+        const wrapper = document.getElementById('canvas-wrapper');
+
+        let bounds = {w:0, h:0};
+        
+        // Animation States
+        let state = 'idle'; // idle, injecting, lytic_building, lysing, lysogenic, excision
+        let animProgress = 0;
+        
+        let newPhages = []; // for lytic cycle
+
+        function resize() {
+            bounds.w = wrapper.offsetWidth; bounds.h = wrapper.offsetHeight;
+            cvs.width = bounds.w; cvs.height = bounds.h;
+            draw();
+        }
+        window.addEventListener('resize', resize);
+
+        function updateHUD(text, color) {
+            let hud = document.getElementById('status-hud');
+            hud.innerText = text;
+            hud.style.borderColor = color;
+            hud.style.color = color;
+        }
+
+        function setStep(num) {
+            document.querySelectorAll('.step-box').forEach(b => b.className = 'step-box');
+            if(num === 1) document.getElementById('step-1').className = 'step-box active';
+            if(num === 2) {
+                document.getElementById('step-1').className = 'step-box completed';
+                document.getElementById('step-2').className = 'step-box active';
+            }
+            if(num === 3) {
+                document.getElementById('step-2').className = 'step-box completed';
+                document.getElementById('step-3').style.display = 'block';
+                document.getElementById('step-3').className = 'step-box active';
+            }
+            if(num === 4) { // Completed all
+                document.querySelectorAll('.step-box').forEach(b => b.className = 'step-box completed');
+            }
+        }
+
+        function triggerInjection() {
+            if(state !== 'idle') return;
+            state = 'injecting';
+            animProgress = 0;
+            updateHUD("VIRAL DNA INJECTION IN PROGRESS...", "#ef4444");
+            requestAnimationFrame(animate);
+        }
+
+        function triggerLytic() {
+            if(state !== 'injected') return;
+            state = 'lytic_building';
+            animProgress = 0;
+            setStep(4);
+            updateHUD("LYTIC CYCLE: HIJACKING HOST RIBOSOMES...", "#ef4444");
+            
+            // Spawn random positions for new phages
+            newPhages = [];
+            for(let i=0; i<15; i++) {
+                newPhages.push({
+                    x: (Math.random() - 0.5) * 200,
+                    y: (Math.random() - 0.5) * 100 + 50
+                });
+            }
+            requestAnimationFrame(animate);
+        }
+
+        function triggerLysogenic() {
+            if(state !== 'injected') return;
+            state = 'lysogenic';
+            animProgress = 0;
+            setStep(3);
+            updateHUD("LYSOGENIC CYCLE: VIRAL DNA INTEGRATED (PROPHAGE)", "#a855f7");
+            requestAnimationFrame(animate);
+        }
+
+        function triggerExcision() {
+            if(state !== 'lysogenic_done') return;
+            state = 'excision';
+            animProgress = 0;
+            setStep(4);
+            updateHUD("STRESS DETECTED! PROPHAGE EXCISING...", "#f59e0b");
+            requestAnimationFrame(animate);
+        }
+
+        function resetSim() {
+            state = 'idle';
+            animProgress = 0;
+            newPhages = [];
+            document.getElementById('step-3').style.display = 'none';
+            setStep(1);
+            updateHUD("HOST CELL: HEALTHY & METABOLIZING", "#22c55e");
+            draw();
+        }
+
+        // --- Drawing Functions ---
+        function drawPhage(ctx, x, y, scale, hasDNA) {
+            ctx.save(); ctx.translate(x, y); ctx.scale(scale, scale);
+            
+            // Tail fibers
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(0, 30); ctx.lineTo(-20, 50); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, 30); ctx.lineTo(20, 50); ctx.stroke();
+            
+            // Tail sheath
+            ctx.fillStyle = '#64748b'; ctx.fillRect(-4, 10, 8, 20);
+            
+            // Capsid (Head)
+            ctx.fillStyle = '#cbd5e1'; ctx.strokeStyle = '#475569';
+            ctx.beginPath(); ctx.moveTo(0, -15); ctx.lineTo(15, -5); ctx.lineTo(15, 10); ctx.lineTo(-15, 10); ctx.lineTo(-15, -5); ctx.closePath();
+            ctx.fill(); ctx.stroke();
+
+            // Viral DNA inside capsid
+            if(hasDNA) {
+                ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(-5, -5); ctx.lineTo(5, 5); ctx.moveTo(5, -5); ctx.lineTo(-5, 5); ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function drawSquiggle(ctx, x, y, radius, color) {
+            ctx.strokeStyle = color; ctx.lineWidth = 3;
+            ctx.beginPath();
+            for(let a=0; a<Math.PI*4; a+=0.5) {
+                let r = radius + Math.sin(a*3)*5;
+                let nx = x + Math.cos(a) * r;
+                let ny = y + Math.sin(a) * r;
+                if(a===0) ctx.moveTo(nx, ny); else ctx.lineTo(nx, ny);
+            }
+            ctx.stroke();
+        }
+
+        function draw() {
+            ctx.clearRect(0,0,bounds.w, bounds.h);
+            let cx = bounds.w / 2;
+            let cy = bounds.h / 2;
+
+            // 1. Draw Bacteria Host
+            ctx.save(); ctx.translate(cx, cy);
+            
+            // Cell Wall (Breaks during lysis)
+            if(state === 'lysing') {
+                ctx.strokeStyle = 'rgba(34, 197, 94, 0.2)'; ctx.setLineDash([20, 30]);
+            } else {
+                ctx.strokeStyle = '#15803d'; ctx.setLineDash([]);
+            }
+            ctx.lineWidth = 15;
+            ctx.beginPath(); ctx.ellipse(0, 50, 180, 120, 0, 0, Math.PI*2); ctx.stroke();
+            
+            // Cytoplasm
+            ctx.fillStyle = state === 'lysing' ? 'rgba(20, 83, 45, 0.3)' : '#14532d';
+            ctx.fill();
+
+            // Host DNA (Nucleoid)
+            if(state === 'lysogenic' || state === 'lysogenic_done') {
+                // Integrated DNA (Blue + Red segment)
+                let r = 50;
+                ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.arc(0, 50, r, 0, Math.PI*1.5); ctx.stroke();
+                
+                // The Red Prophage part
+                ctx.strokeStyle = '#ef4444';
+                let endAngle = state === 'lysogenic' ? Math.PI*1.5 + (animProgress/100)*Math.PI*0.5 : Math.PI*2;
+                ctx.beginPath(); ctx.arc(0, 50, r, Math.PI*1.5, endAngle); ctx.stroke();
+
+            } else {
+                // Normal Host DNA
+                drawSquiggle(ctx, 0, 50, 40, '#38bdf8');
+            }
+
+            // 2. Draw Original Phage on top
+            let originalHasDNA = (state === 'idle');
+            drawPhage(ctx, 0, -120, 1, originalHasDNA);
+
+            // 3. Draw Injecting DNA
+            if(state === 'injecting') {
+                let injectY = -110 + (animProgress/100) * 100;
+                ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(0, -110); ctx.lineTo(0, injectY); ctx.stroke();
+            }
+
+            // 4. Free floating viral DNA (Injected)
+            if(state === 'injected' || state === 'lytic_building' || state === 'excision') {
+                drawSquiggle(ctx, 50, -20, 15, '#ef4444');
+            }
+
+            // 5. Lytic Cycle building & bursting
+            if(state === 'lytic_building' || state === 'lysing') {
+                let limit = (animProgress / 100) * newPhages.length;
+                for(let i=0; i<newPhages.length; i++) {
+                    if(i < limit) {
+                        drawPhage(ctx, newPhages[i].x, newPhages[i].y, 0.6, true);
+                    }
+                }
+            }
+            
+            ctx.restore();
+        }
+
+        function animate() {
+            if(state === 'idle') return;
+
+            animProgress += 1.5;
+
+            if(state === 'injecting' && animProgress >= 100) {
+                state = 'injected';
+                setStep(2);
+                updateHUD("VIRAL GENOME IN HOST CYTOPLASM. WAITING FOR PATH...", "#fbbf24");
+            }
+            
+            else if(state === 'lytic_building' && animProgress >= 100) {
+                state = 'lysing';
+                animProgress = 0;
+                updateHUD("CELL LYSIS! NEW PHAGES RELEASED.", "#ef4444");
+            }
+
+            else if(state === 'lysogenic' && animProgress >= 100) {
+                state = 'lysogenic_done';
+            }
+
+            else if(state === 'excision' && animProgress >= 100) {
+                // Excision complete, switch to lytic automatically
+                state = 'lytic_building';
+                animProgress = 0;
+                updateHUD("EXCISION COMPLETE. ENTERING LYTIC CYCLE...", "#ef4444");
+                
+                newPhages = [];
+                for(let i=0; i<15; i++) {
+                    newPhages.push({
+                        x: (Math.random() - 0.5) * 200,
+                        y: (Math.random() - 0.5) * 100 + 50
+                    });
+                }
+            }
+
+            draw();
+
+            if(state === 'lysing' || state === 'lysogenic_done' || state === 'injected') {
+                // Stop animation loop
+            } else {
+                requestAnimationFrame(animate);
+            }
+        }
+
+        setTimeout(() => { resize(); resetSim(); }, 100);
+    </script>
+</body>
+</html>

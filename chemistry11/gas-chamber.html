@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pro KMT Gas Chamber</title>
+    <style>
+        :root { --ml-red: #881337; --dark: #0f172a; --bg: #f8fafc; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-red); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; }
+        .workspace { flex: 1; display: grid; grid-template-columns: 1fr 350px; gap: 20px; padding: 20px; overflow: hidden; }
+        .panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column;}
+        .canvas-area { display: flex; gap: 20px; flex: 1; justify-content: center; align-items: center;}
+        canvas { background: var(--dark); border-radius: 8px; border: 3px solid #cbd5e1; }
+        .controls label { font-weight: bold; font-size: 0.9rem; color: #475569; display: flex; justify-content: space-between; margin-top: 15px;}
+        input[type=range] { width: 100%; margin-top: 5px; }
+        .explanation { font-size: 0.85rem; color: #64748b; margin-top: 20px; background: #f1f5f9; padding: 15px; border-radius: 8px;}
+        .data-readout { font-size: 1.5rem; font-weight: bold; color: var(--ml-red); text-align: center; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="unit4.html" class="back-link">⬅ Back to Unit 4</a>
+        <h2 style="margin:0;">Lab 14: KMT & Real-Time Gas Behavior</h2>
+    </div>
+    <div class="workspace">
+        <div class="panel">
+            <h3 style="margin-top:0;">Molecular Collision Chamber</h3>
+            <div class="canvas-area">
+                <canvas id="chamber" width="400" height="400"></canvas>
+                <canvas id="chart" width="300" height="400" style="background:white;"></canvas>
+            </div>
+            <div class="explanation">
+                <strong>Kinetic Molecular Theory (KMT) Postulates:</strong><br>
+                1. Gas particles are in constant, random, straight-line motion.<br>
+                2. Collisions with the walls cause <b>Pressure</b>.<br>
+                3. Average kinetic energy is directly proportional to <b>Temperature (K)</b>.
+            </div>
+        </div>
+        <div class="panel controls">
+            <div class="data-readout">Pressure: <span id="p-display">1.00</span> atm</div>
+            <label>Temperature (T): <span id="t-val">300 K</span></label>
+            <input type="range" id="t-slider" min="100" max="1000" value="300">
+            
+            <label>Volume (V): <span id="v-val">100 L</span></label>
+            <input type="range" id="v-slider" min="50" max="200" value="100">
+
+            <label>Moles of Gas (n): <span id="n-val">1.0 mol</span></label>
+            <input type="range" id="n-slider" min="0.1" max="3.0" step="0.1" value="1.0">
+        </div>
+    </div>
+    <script>
+        const ctx = document.getElementById('chamber').getContext('2d');
+        const chartCtx = document.getElementById('chart').getContext('2d');
+        let particles = [];
+        let pressureHistory = [];
+
+        function initParticles(n) {
+            particles = [];
+            let count = Math.floor(n * 50); // Visual representation
+            for(let i=0; i<count; i++) {
+                particles.push({x: 200, y: 200, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4});
+            }
+        }
+        initParticles(1.0);
+
+        document.getElementById('n-slider').addEventListener('input', (e) => initParticles(e.target.value));
+
+        function draw() {
+            let T = document.getElementById('t-slider').value;
+            let V = document.getElementById('v-slider').value;
+            let n = document.getElementById('n-slider').value;
+            
+            document.getElementById('t-val').innerText = T + ' K';
+            document.getElementById('v-val').innerText = V + ' L';
+            document.getElementById('n-val').innerText = n + ' mol';
+
+            // P = nRT/V (using arbitrary R for scaling)
+            let P = (n * 8.21 * T) / V; 
+            let displayP = (P / 24.63).toFixed(2); // Normalize so 300K, 100L, 1mol = 1atm
+            document.getElementById('p-display').innerText = displayP;
+
+            // Track history for chart
+            pressureHistory.push(displayP);
+            if(pressureHistory.length > 60) pressureHistory.shift();
+
+            // Draw Chamber
+            let boxSize = 400 * Math.sqrt(V/200);
+            let speedMult = Math.sqrt(T / 300);
+            
+            ctx.clearRect(0,0,400,400);
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 4;
+            ctx.strokeRect((400-boxSize)/2, (400-boxSize)/2, boxSize, boxSize);
+
+            ctx.fillStyle = '#f43f5e';
+            particles.forEach(p => {
+                p.x += p.vx * speedMult; p.y += p.vy * speedMult;
+                let minX = (400-boxSize)/2 + 4; let maxX = 400 - minX;
+                if(p.x < minX || p.x > maxX) p.vx *= -1;
+                if(p.y < minX || p.y > maxX) p.vy *= -1;
+                p.x = Math.max(minX, Math.min(p.x, maxX));
+                p.y = Math.max(minX, Math.min(p.y, maxX));
+                ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI*2); ctx.fill();
+            });
+
+            // Draw Chart
+            chartCtx.clearRect(0,0,300,400);
+            chartCtx.strokeStyle = '#881337'; chartCtx.lineWidth = 2;
+            chartCtx.beginPath();
+            for(let i=0; i<pressureHistory.length; i++) {
+                let x = i * 5;
+                let y = 350 - (pressureHistory[i] * 50); // Scale for canvas
+                if(i===0) chartCtx.moveTo(x, y); else chartCtx.lineTo(x, y);
+            }
+            chartCtx.stroke();
+            chartCtx.fillStyle = '#64748b'; chartCtx.font = "12px Arial";
+            chartCtx.fillText("Pressure vs. Time (Live)", 10, 20);
+            chartCtx.fillText("3 atm", 5, 200); chartCtx.fillText("0 atm", 5, 365);
+            chartCtx.strokeStyle = '#e2e8f0'; chartCtx.strokeRect(30, 30, 260, 330);
+
+            requestAnimationFrame(draw);
+        }
+        draw();
+    </script>
+</body>
+</html>

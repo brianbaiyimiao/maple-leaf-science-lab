@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 3.3: ICE Table & Keq Solver</title>
+    <style>
+        :root { --ml-red: #b91c1c; --ml-gold: #fbbf24; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-red); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1400px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 500px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow-y: auto;}
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; font-size: 1.2rem;}
+        
+        .eq-banner { background: #0f172a; color: #fbbf24; padding: 15px; border-radius: 8px; text-align: center; font-size: 1.5rem; font-family: monospace; font-weight: bold; margin-bottom: 20px; letter-spacing: 2px;}
+
+        /* ICE 表格样式 */
+        .ice-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; text-align: center; font-size: 1.1rem; }
+        .ice-table th, .ice-table td { border: 2px solid #cbd5e1; padding: 12px; }
+        .ice-table th { background: #f1f5f9; color: #1e293b; font-weight: bold;}
+        .ice-table td input { width: 60px; padding: 5px; text-align: center; font-size: 1rem; border: 1px solid #94a3b8; border-radius: 4px;}
+        .col-r { color: #b91c1c; font-weight: bold;} .col-p { color: #16a34a; font-weight: bold;}
+
+        .btn { background: var(--ml-red); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 1.1rem; width: 100%; text-transform: uppercase;}
+        .btn:hover { background: #991b1b; }
+
+        .result-box { background: #e0f2fe; border-left: 5px solid #0284c7; padding: 15px; border-radius: 0 8px 8px 0; margin-top: 15px; display: none;}
+
+        .canvas-box { background: #ffffff; border-radius: 12px; border: 4px solid #cbd5e1; overflow: hidden; position: relative; box-shadow: inset 0 0 30px rgba(0,0,0,0.05); display: flex; justify-content: center; align-items: center; flex-direction: column; padding: 20px;}
+        canvas { width: 100%; height: 80%; display: block; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit3.html" class="back-link">⬅ Back to Unit 3 Labs</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 3.3: Interactive ICE Table Solver</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Chemistry</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Reaction Setup</h3>
+            <div class="eq-banner">
+                H₂ <span style="font-size:1rem;color:#94a3b8;">(g)</span> + I₂ <span style="font-size:1rem;color:#94a3b8;">(g)</span> &rightleftharpoons; 2HI <span style="font-size:1rem;color:#94a3b8;">(g)</span>
+            </div>
+
+            <table class="ice-table">
+                <tr>
+                    <th>Step</th>
+                    <th class="col-r">H₂</th>
+                    <th class="col-r">I₂</th>
+                    <th class="col-p">HI</th>
+                </tr>
+                <tr>
+                    <td><b>I</b>nitial</td>
+                    <td><input type="number" id="i_h2" value="1.00" step="0.1"></td>
+                    <td><input type="number" id="i_i2" value="1.00" step="0.1"></td>
+                    <td><input type="number" id="i_hi" value="0.00" step="0.1"></td>
+                </tr>
+                <tr>
+                    <td><b>C</b>hange</td>
+                    <td style="color:#64748b;">-x</td>
+                    <td style="color:#64748b;">-x</td>
+                    <td style="color:#64748b;">+2x</td>
+                </tr>
+                <tr>
+                    <td><b>E</b>quilibrium</td>
+                    <td id="e_h2" class="col-r">1.00 - x</td>
+                    <td id="e_i2" class="col-r">1.00 - x</td>
+                    <td id="e_hi" class="col-p">2x</td>
+                </tr>
+            </table>
+
+            <div style="margin-bottom: 20px; display:flex; align-items:center; justify-content:space-between; font-weight:bold; font-size:1.1rem; color:#0f172a;">
+                <label>Target K<sub>eq</sub>:</label>
+                <input type="number" id="k_val" value="50.0" step="1.0" style="width:100px; padding:8px; font-size:1.1rem; text-align:center; border:2px solid #cbd5e1; border-radius:6px;">
+            </div>
+
+            <button class="btn" onclick="solveICE()">Solve for 'x' & Plot</button>
+
+            <div class="result-box" id="result-box">
+                </div>
+        </div>
+
+        <div class="canvas-box">
+            <h3 style="color:#1e293b; margin-top:0;">Equilibrium Mixture Bar Chart</h3>
+            <canvas id="barCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('barCanvas');
+        const ctx = cvs.getContext('2d');
+
+        function resize() {
+            cvs.width = cvs.offsetWidth; cvs.height = cvs.offsetHeight;
+        }
+        window.addEventListener('resize', resize);
+
+        function solveICE() {
+            let i_h2 = parseFloat(document.getElementById('i_h2').value);
+            let i_i2 = parseFloat(document.getElementById('i_i2').value);
+            let i_hi = parseFloat(document.getElementById('i_hi').value);
+            let K = parseFloat(document.getElementById('k_val').value);
+
+            // K = (i_hi + 2x)^2 / ((i_h2 - x)(i_i2 - x))
+            // 这是一个标准的二次方程 Ax^2 + Bx + C = 0
+            // (i_hi + 2x)^2 = i_hi^2 + 4*i_hi*x + 4x^2
+            // Denom = i_h2*i_i2 - x(i_h2 + i_i2) + x^2
+            // K * Denom = K(i_h2*i_i2) - K(i_h2+i_i2)x + Kx^2
+            // 整理: (4 - K)x^2 + (4*i_hi + K(i_h2+i_i2))x + (i_hi^2 - K*i_h2*i_i2) = 0
+
+            let A = 4.0 - K;
+            let B = 4.0 * i_hi + K * (i_h2 + i_i2);
+            let C = Math.pow(i_hi, 2) - K * i_h2 * i_i2;
+
+            let root1 = (-B + Math.sqrt(B*B - 4*A*C)) / (2*A);
+            let root2 = (-B - Math.sqrt(B*B - 4*A*C)) / (2*A);
+
+            // 选择合理的物理根 (浓度不能为负数，且 x 不能大于初始反应物浓度)
+            let x = 0;
+            let isValid = (val) => (i_h2 - val >= 0) && (i_i2 - val >= 0) && (i_hi + 2*val >= 0);
+            
+            if(isValid(root1) && !isValid(root2)) x = root1;
+            else if(!isValid(root1) && isValid(root2)) x = root2;
+            else if(isValid(root1) && isValid(root2)) {
+                // 如果两个都大于0，取较小的那个偏移量
+                x = Math.abs(root1) < Math.abs(root2) ? root1 : root2;
+            } else {
+                // K=4 的特殊情况 (A=0)
+                x = -C / B;
+            }
+
+            let e_h2 = i_h2 - x;
+            let e_i2 = i_i2 - x;
+            let e_hi = i_hi + 2*x;
+
+            // 更新 UI 表格
+            document.getElementById('e_h2').innerHTML = `<b>${e_h2.toFixed(3)}</b>`;
+            document.getElementById('e_i2').innerHTML = `<b>${e_i2.toFixed(3)}</b>`;
+            document.getElementById('e_hi').innerHTML = `<b>${e_hi.toFixed(3)}</b>`;
+
+            // 更新结果面板
+            let resBox = document.getElementById('result-box');
+            resBox.style.display = 'block';
+            resBox.innerHTML = `
+                <div style="font-size:0.9rem; color:#64748b; margin-bottom:5px;">Quadratic Equation Solved:</div>
+                <div>Calculated shift (x) = <b>${x.toFixed(4)} M</b></div>
+                <div style="margin-top:10px; font-size:0.85rem;">Check: Keq = (${e_hi.toFixed(3)})² / (${e_h2.toFixed(3)} * ${e_i2.toFixed(3)}) = ${ (Math.pow(e_hi, 2) / (e_h2 * e_i2)).toFixed(1) }</div>
+            `;
+
+            drawChart(e_h2, e_i2, e_hi);
+        }
+
+        function drawChart(h2, i2, hi) {
+            ctx.clearRect(0,0,cvs.width, cvs.height);
+            let w = cvs.width; let h = cvs.height;
+            let baseY = h - 40;
+
+            let maxC = Math.max(h2, i2, hi) * 1.2;
+            if(maxC === 0) maxC = 1;
+
+            let toY = (val) => baseY - (val / maxC) * (h - 80);
+
+            // Axes
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(50, 20); ctx.lineTo(50, baseY); ctx.lineTo(w-20, baseY); ctx.stroke();
+
+            // Y Ticks
+            ctx.fillStyle = '#64748b'; ctx.font = '14px Arial'; ctx.textAlign = 'right'; ctx.textBaseline='middle';
+            for(let i=0; i<=4; i++) {
+                let val = (maxC/4)*i;
+                let py = toY(val);
+                ctx.fillText(val.toFixed(2), 40, py);
+                ctx.beginPath(); ctx.moveTo(45, py); ctx.lineTo(50, py); ctx.stroke();
+            }
+
+            // Draw Bars
+            let barW = 80;
+            let gap = (w - 100 - barW*3) / 4;
+
+            function drawBar(idx, val, color, label) {
+                let px = 50 + gap*(idx+1) + barW*idx;
+                let barH = baseY - toY(val);
+                
+                ctx.fillStyle = color;
+                ctx.fillRect(px, toY(val), barW, barH);
+                
+                ctx.fillStyle = '#0f172a'; ctx.textAlign = 'center'; ctx.font = 'bold 16px Arial';
+                ctx.fillText(label, px + barW/2, baseY + 20);
+                
+                ctx.fillStyle = '#ffffff'; ctx.fillText(val.toFixed(3), px + barW/2, toY(val) + 20);
+            }
+
+            drawBar(0, h2, '#b91c1c', 'H₂');
+            drawBar(1, i2, '#9333ea', 'I₂');
+            drawBar(2, hi, '#16a34a', 'HI');
+        }
+
+        setTimeout(() => { resize(); solveICE(); }, 100);
+    </script>
+</body>
+</html>

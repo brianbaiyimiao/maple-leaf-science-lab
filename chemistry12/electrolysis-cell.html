@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 5.3: Electrolysis & Electroplating</title>
+    <style>
+        :root { --ml-red: #b91c1c; --ml-gold: #fbbf24; --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--ml-red); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold); }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.3s;}
+
+        .workspace { flex: 1; display: grid; grid-template-columns: 400px 1fr; gap: 20px; padding: 20px; box-sizing: border-box; }
+        .panel { background: var(--panel); border-radius: 15px; border: 1px solid #334155; padding: 25px; display: flex; flex-direction: column; gap: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow-y: auto;}
+        
+        h3 { margin: 0; color: var(--ml-gold); border-bottom: 1px solid #334155; padding-bottom: 10px; font-size: 1.1rem;}
+
+        .control-group label { display: flex; justify-content: space-between; font-size: 0.95rem; margin-bottom: 8px; color: #cbd5e1; font-weight: bold;}
+        input[type="range"] { width: 100%; accent-color: var(--ml-gold); cursor: pointer; }
+
+        .power-supply { background: #020617; border: 3px solid #ef4444; padding: 20px; border-radius: 10px; text-align: center; position: relative;}
+        .voltage-val { font-family: monospace; font-size: 2.5rem; font-weight: bold; color: #ef4444; text-shadow: 0 0 10px rgba(239, 68, 68, 0.3);}
+        .power-switch { background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; width: 100%;}
+        .power-switch.on { background: #22c55e; border-color: #16a34a; }
+
+        .data-card { background: rgba(56, 189, 248, 0.1); border: 1px solid #0c4a6e; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 0.9rem; color: #38bdf8; line-height: 1.6;}
+
+        .visual-container { background: #000; border-radius: 15px; border: 4px solid #334155; position: relative; overflow: hidden; }
+        canvas { width: 100%; height: 100%; display: block; }
+        .tag { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.8); padding: 5px 12px; border-radius: 6px; font-weight: bold; color: var(--ml-gold); font-size: 0.85rem; border: 1px solid #475569;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit5.html" class="back-link">⬅ Back to Unit 5 Labs</a>
+        <h2 style="margin:0;">Lab 5.3: Electrolytic Cells & Electroplating</h2>
+        <span style="font-size: 0.9rem; opacity: 0.8;">Maple Leaf Advanced Chemistry</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Power Supply Setup</h3>
+            
+            <div class="power-supply">
+                <div style="font-size:0.8rem; color:#94a3b8; text-transform:uppercase; margin-bottom:5px;">Output Voltage (DC)</div>
+                <div class="voltage-val" id="v-display">0.0 V</div>
+                <button class="power-switch" id="power-btn" onclick="togglePower()">OFF</button>
+            </div>
+
+            <div class="control-group">
+                <label>Adjust Voltage: <span id="v-read">0.0 V</span></label>
+                <input type="range" id="v-slider" min="0" max="6" step="0.1" value="0" oninput="updateVoltage()">
+            </div>
+
+            <h3>Plating Analysis</h3>
+            <div class="data-card" id="data-board">
+                Cathode: Cu²⁺ + 2e⁻ → Cu(s) <br>
+                Anode: Cu(s) → Cu²⁺ + 2e⁻ <br><br>
+                Plated Mass: <span id="mass-read" style="color:white; font-weight:bold;">0.000 mg</span>
+            </div>
+
+            <div style="margin-top:auto; font-size:0.85rem; color:#64748b; line-height:1.5;">
+                <b>Industrial Application:</b> In electroplating, the object to be plated is the <b>Cathode (-)</b>. An external power source forces electrons onto the surface, reducing metal ions from the solution.
+            </div>
+        </div>
+
+        <div class="visual-container">
+            <div class="tag">COPPER PLATING VIEW (Microscopic)</div>
+            <canvas id="cellCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('cellCanvas');
+        const ctx = cvs.getContext('2d');
+
+        let isPowerOn = false;
+        let voltage = 0.0;
+        let platedMass = 0.0;
+        let ions = [];
+        let tick = 0;
+
+        function resize() {
+            cvs.width = cvs.offsetWidth; cvs.height = cvs.offsetHeight;
+        }
+        window.addEventListener('resize', resize);
+
+        function togglePower() {
+            isPowerOn = !isPowerOn;
+            const btn = document.getElementById('power-btn');
+            btn.innerText = isPowerOn ? "ON" : "OFF";
+            btn.className = isPowerOn ? "power-switch on" : "power-switch";
+        }
+
+        function updateVoltage() {
+            voltage = parseFloat(document.getElementById('v-slider').value);
+            document.getElementById('v-display').innerText = voltage.toFixed(1) + " V";
+            document.getElementById('v-read').innerText = voltage.toFixed(1) + " V";
+        }
+
+        function initIons() {
+            for(let i=0; i<25; i++) {
+                ions.push({
+                    x: Math.random() * cvs.width,
+                    y: Math.random() * cvs.height,
+                    vx: (Math.random()-0.5)*2,
+                    vy: (Math.random()-0.5)*2
+                });
+            }
+        }
+
+        function drawScene() {
+            ctx.clearRect(0,0,cvs.width, cvs.height);
+            let w = cvs.width; let h = cvs.height;
+            let cx = w/2; let cy = h/2;
+            tick++;
+
+            // 1. 绘制电解槽和溶液
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.15)';
+            ctx.fillRect(w*0.15, h*0.3, w*0.7, h*0.6);
+            ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 4;
+            ctx.strokeRect(w*0.15, h*0.3, w*0.7, h*0.6);
+
+            // 2. 绘制电极
+            // Anode (Cu)
+            ctx.fillStyle = '#ea580c';
+            ctx.fillRect(cx - 150, h*0.2, 40, h*0.6);
+            ctx.fillStyle = '#fff'; ctx.fillText("Anode (+)", cx - 160, h*0.85);
+
+            // Cathode (Object)
+            let platingExtra = Math.min(15, platedMass * 10);
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(cx + 110, h*0.2, 40, h*0.6);
+            // 绘制电镀层
+            if(platedMass > 0) {
+                ctx.fillStyle = '#ea580c';
+                ctx.globalAlpha = Math.min(1, platedMass*2);
+                ctx.fillRect(cx + 110 - platingExtra/2, h*0.2, 40 + platingExtra, h*0.6);
+                ctx.globalAlpha = 1.0;
+            }
+            ctx.fillStyle = '#fff'; ctx.fillText("Cathode (-)", cx + 110, h*0.85);
+
+            // 3. 绘制电源导线
+            ctx.strokeStyle = isPowerOn ? '#ef4444' : '#334155'; ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(cx - 130, h*0.2); ctx.lineTo(cx - 130, h*0.1);
+            ctx.lineTo(cx + 130, h*0.1); ctx.lineTo(cx + 130, h*0.2);
+            ctx.stroke();
+
+            // 4. 动画逻辑
+            if(isPowerOn && voltage > 0) {
+                platedMass += (voltage * 0.0001);
+                document.getElementById('mass-read').innerText = platedMass.toFixed(3) + " mg";
+                
+                // 电子流向 (从正极到负极的外电路电子方向是电源决定的)
+                // 实际电子从 Anode 流向电源，电源再推向 Cathode
+                drawElectrons(cx, h*0.1, voltage);
+            }
+
+            // 5. 离子运动
+            ions.forEach(ion => {
+                if(isPowerOn && voltage > 0) {
+                    // 铜离子受电场力向负极 (Cathode) 移动
+                    let dx = (cx + 130) - ion.x;
+                    let dy = (h*0.5) - ion.y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+                    ion.vx += (dx / dist) * 0.02 * voltage;
+                    ion.vy += (dy / dist) * 0.02 * voltage;
+                }
+                
+                ion.x += ion.vx; ion.y += ion.vy;
+                ion.vx *= 0.98; ion.vy *= 0.98; // 阻尼
+
+                // 边界
+                if(ion.x < w*0.15 || ion.x > w*0.85) ion.vx *= -1;
+                if(ion.y < h*0.3 || ion.y > h*0.9) ion.vy *= -1;
+
+                ctx.fillStyle = '#ea580c'; ctx.beginPath();
+                ctx.arc(ion.x, ion.y, 6, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.font = '8px Arial';
+                ctx.fillText("Cu²⁺", ion.x-8, ion.y-8);
+            });
+        }
+
+        function drawElectrons(cx, y, v) {
+            let count = Math.floor(v * 3);
+            for(let i=0; i<count; i++) {
+                let p = ((tick * v * 0.5 + i*50) % 1000) / 1000;
+                let ex = (cx - 130) + p * 260;
+                ctx.fillStyle = '#fbbf24'; ctx.beginPath();
+                ctx.arc(ex, y, 4, 0, Math.PI*2); ctx.fill();
+            }
+        }
+
+        function animate() {
+            drawScene();
+            requestAnimationFrame(animate);
+        }
+
+        setTimeout(() => { resize(); initIons(); animate(); }, 100);
+    </script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Unit 5: Organic Chemistry</title>
+    <style>
+        :root { --ml-red: #881337; --ml-gold: #fbbf24; }
+        body { background: #f8fafc; font-family: 'Segoe UI', sans-serif; text-align: center; margin: 0; }
+        
+        .header { background: var(--ml-gold); color: var(--ml-red); padding: 30px 20px; border-bottom: 5px solid var(--ml-red); }
+        .back-home { float: left; text-decoration: none; color: var(--ml-red); font-weight: bold; border: 2px solid var(--ml-red); padding: 5px 15px; border-radius: 6px; transition: 0.2s; }
+        .back-home:hover { background: var(--ml-red); color: white; }
+
+        .list { max-width: 800px; margin: 40px auto; display: flex; flex-direction: column; gap: 15px; padding: 0 20px; }
+
+        .item { background: white; padding: 25px; border-radius: 12px; text-decoration: none; color: #1e293b; border-left: 8px solid var(--ml-gold); text-align: left; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: 0.2s; display: flex; align-items: center; justify-content: space-between;}
+        .item:hover { transform: translateX(10px); background: #fffbeb; border-left-color: var(--ml-red); }
+        
+        .item-text h3 { margin: 0; font-size: 1.3rem; }
+        .item-text p { margin: 5px 0 0 0; color: #64748b; font-size: 0.9rem; }
+        .item-icon { font-size: 2rem; margin-left: 20px; opacity: 0.8; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <a href="index.html" class="back-home">⬅ Back to Home</a>
+        <h1 style="margin: 0;">Unit 5: Organic Chemistry</h1>
+    </div>
+
+    <div class="list">
+        <a href="organic-naming.html" class="item">
+            <div class="item-text">
+                <h3>Lab 17: Organic Nomenclature Builder</h3>
+                <p>Master IUPAC naming rules for Alkanes, Alkenes, Alkynes, and Alcohols.</p>
+            </div>
+            <div class="item-icon">🧩</div>
+        </a>
+
+        <a href="organic-reactions.html" class="item">
+            <div class="item-text">
+                <h3>Lab 18: Hydrocarbon Reactions (Bromine Test)</h3>
+                <p>Observe Addition vs Substitution reactions using Bromine water and UV light.</p>
+            </div>
+            <div class="item-icon">🧪</div>
+        </a>
+    </div>
+
+</body>
+</html>

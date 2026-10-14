@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Calorimetry Lab - Maple Leaf</title>
+    <style>
+        :root { --main: #f43f5e; --dark: #0f172a; --panel: #f8fafc; --accent: #10b981; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: #e2e8f0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        
+        .nav { background: var(--dark); color: white; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .back-link { color: white; text-decoration: none; border: 1px solid #475569; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: bold; }
+
+        .workspace { display: grid; grid-template-columns: 450px 1fr; gap: 15px; padding: 15px; flex: 1; overflow: hidden; }
+        
+        /* 左侧面板 */
+        .panel-left { background: white; border-radius: 20px; display: flex; flex-direction: column; border: 1px solid #cbd5e1; box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow: hidden; }
+        
+        .scroll-section { flex: 1; overflow-y: auto; padding: 20px; }
+        .list-box { height: 180px; border: 1px solid #e2e8f0; border-radius: 12px; overflow-y: auto; margin-bottom: 15px; background: var(--panel); }
+        .item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 13px; display: flex; justify-content: space-between; }
+        .item:hover { background: #fff1f2; }
+        .item.active { background: var(--main); color: white; }
+
+        .control-group { background: var(--panel); padding: 15px; border-radius: 12px; margin-bottom: 12px; border: 1px solid #eee; }
+        label { display: block; font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; }
+        input[type="range"] { width: 100%; cursor: pointer; accent-color: var(--main); }
+        .val-disp { float: right; color: var(--main); font-weight: bold; font-family: monospace; }
+
+        /* 计算过程区 */
+        .calc-panel { background: var(--dark); color: white; padding: 20px; border-top: 4px solid var(--main); }
+        .step { font-family: 'Courier New', monospace; font-size: 12px; margin-bottom: 8px; color: #fda4af; }
+        .res-highlight { font-size: 1.5rem; font-weight: bold; color: white; text-align: center; margin-top: 5px; }
+
+        /* 右侧视觉区 */
+        .panel-right { background: white; border-radius: 20px; border: 1px solid #cbd5e1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle, #ffffff, #f1f5f9); position: relative; }
+        .calorimeter-wrap { width: 220px; height: 300px; border: 8px solid #94a3b8; border-top: 4px solid #cbd5e1; border-radius: 20px; position: relative; background: #f8fafc; overflow: hidden; }
+        .water-fill { position: absolute; bottom: 0; width: 100%; transition: all 1s ease; background: rgba(59, 130, 246, 0.3); }
+        .thermometer { position: absolute; left: 20px; top: 20px; width: 12px; height: 250px; background: #ddd; border-radius: 6px; border: 2px solid #334155; z-index: 10; }
+        .mercury { position: absolute; bottom: 0; width: 100%; background: #ef4444; transition: height 1.5s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 4px; }
+        .metal-cube { position: absolute; width: 60px; height: 60px; background: #64748b; top: -100px; left: 80px; transition: top 1s cubic-bezier(0.47, 0, 0.745, 0.715); z-index: 5; border: 2px solid #334155; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit6.html" class="back-link">⬅ Back to Unit 6</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 14: Quantitative Calorimetry Lab</h2>
+        <span style="font-size: 12px; opacity: 0.8;">Isolated Thermodynamic System</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel-left">
+            <div class="scroll-section">
+                <label>1. Select Material (25+ Database)</label>
+                <div class="list-box" id="material-list"></div>
+
+                <div class="control-group">
+                    <label>Object Mass (m_s): <span id="ms-txt" class="val-disp">50.0</span> g</label>
+                    <input type="range" id="ms-range" min="1" max="500" step="1" value="50" oninput="update()">
+                </div>
+
+                <div class="control-group">
+                    <label>Object Init Temp (T_s): <span id="ts-txt" class="val-disp">100.0</span> °C</label>
+                    <input type="range" id="ts-range" min="-50" max="500" step="1" value="100" oninput="update()">
+                </div>
+
+                <div class="control-group">
+                    <label>Water Mass (m_w): <span id="mw-txt" class="val-disp">100.0</span> g</label>
+                    <input type="range" id="mw-range" min="50" max="1000" step="1" value="100" oninput="update()">
+                </div>
+
+                <button onclick="runExperiment()" style="width:100%; padding:15px; background:var(--main); color:white; border:none; border-radius:12px; font-weight:bold; cursor:pointer; font-size:1rem; box-shadow:0 4px 0 #9f1239;">START HEAT TRANSFER</button>
+                <button onclick="resetLab()" style="width:100%; margin-top:10px; background:none; border:none; color:#94a3b8; font-size:11px; cursor:pointer;">Reset System</button>
+            </div>
+
+            <div class="calc-panel" id="calc-steps">
+                <div class="step">> Waiting for experiment...</div>
+                <div class="res-highlight" id="final-temp">Tf = -- °C</div>
+            </div>
+        </div>
+
+        <div class="panel-right">
+            <div class="calorimeter-wrap">
+                <div id="therm" class="thermometer"><div id="merc" class="mercury" style="height: 20%;"></div></div>
+                <div id="water" class="water-fill" style="height: 50%;"></div>
+                <div id="cube" class="metal-cube">?</div>
+            </div>
+            <div style="margin-top:30px; text-align: center;">
+                <b id="active-name" style="font-size: 1.5rem; color: var(--dark);">Select a Substance</b><br>
+                <span id="active-cp" style="color: var(--main); font-weight: bold;">Specific Heat: -- J/g°C</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const DATA = [
+            { n: "Aluminum", c: 0.897, col: "#cbd5e1" }, { n: "Copper", c: 0.385, col: "#b45309" },
+            { n: "Gold", c: 0.129, col: "#fbbf24" }, { n: "Iron", c: 0.449, col: "#475569" },
+            { n: "Lead", c: 0.129, col: "#64748b" }, { n: "Silver", c: 0.235, col: "#e2e8f0" },
+            { n: "Zinc", c: 0.388, col: "#94a3b8" }, { n: "Graphite", c: 0.710, col: "#1e293b" },
+            { n: "Glass", c: 0.840, col: "#f1f5f9" }, { n: "Ice (-10°C)", c: 2.09, col: "#e0f2fe" },
+            { n: "Concrete", c: 0.880, col: "#94a3b8" }, { n: "Diamond", c: 0.509, col: "#fff" },
+            { n: "Titanium", c: 0.523, col: "#6b7280" }, { n: "Platinum", c: 0.133, col: "#d1d5db" },
+            { n: "Nickel", c: 0.444, col: "#9ca3af" }, { n: "Tin", c: 0.227, col: "#e5e7eb" },
+            { n: "Mercury (Solid)", c: 0.140, col: "#f1f5f9" }, { n: "Silicon", c: 0.700, col: "#334155" },
+            { n: "Beryllium", c: 1.82, col: "#94a3b8" }, { n: "Lithium", c: 3.58, col: "#e5e7eb" }
+        ];
+
+        let selected = 0;
+        const Cw = 4.184; // Water specific heat
+
+        function init() {
+            const list = document.getElementById('material-list');
+            DATA.forEach((d, i) => {
+                const div = document.createElement('div');
+                div.className = `item ${i===0?'active':''}`;
+                div.innerHTML = `<span>${d.n}</span> <b>${d.c}</b>`;
+                div.onclick = () => {
+                    selected = i;
+                    document.querySelectorAll('.item').forEach(el => el.classList.remove('active'));
+                    div.classList.add('active');
+                    update();
+                };
+                list.appendChild(div);
+            });
+            update();
+        }
+
+        function update() {
+            const d = DATA[selected];
+            document.getElementById('ms-txt').innerText = document.getElementById('ms-range').value;
+            document.getElementById('ts-txt').innerText = document.getElementById('ts-range').value;
+            document.getElementById('mw-txt').innerText = document.getElementById('mw-range').value;
+            document.getElementById('active-name').innerText = d.n;
+            document.getElementById('active-cp').innerText = `C_p = ${d.c} J/g°C`;
+            document.getElementById('cube').style.background = d.col;
+            document.getElementById('cube').innerText = d.n;
+            
+            // Adjust water height based on mass (50-1000g -> 30-90%)
+            const mw = parseFloat(document.getElementById('mw-range').value);
+            document.getElementById('water').style.height = (20 + (mw/1000)*60) + "%";
+        }
+
+        function runExperiment() {
+            const d = DATA[selected];
+            const ms = parseFloat(document.getElementById('ms-range').value);
+            const ts = parseFloat(document.getElementById('ts-range').value);
+            const mw = parseFloat(document.getElementById('mw-range').value);
+            const tw = 20.0; // Standard room temp water
+
+            // Tf = (ms*cs*ts + mw*cw*tw) / (ms*cs + mw*cw)
+            const tf = (ms * d.c * ts + mw * Cw * tw) / (ms * d.c + mw * Cw);
+
+            // Animation
+            const cube = document.getElementById('cube');
+            cube.style.top = "160px";
+
+            setTimeout(() => {
+                // Show Steps
+                const q_water = mw * Cw * (tf - tw);
+                document.getElementById('calc-steps').innerHTML = `
+                    <div class="step">1. q_water = ${mw}g * 4.18 * (${tf.toFixed(1)}-20) = ${q_water.toFixed(0)} J</div>
+                    <div class="step">2. q_metal = -q_water = ${(-q_water).toFixed(0)} J</div>
+                    <div class="step">3. Solving for Tf using q = mcΔT...</div>
+                    <div class="res-highlight">Equilibrium Tf = ${tf.toFixed(2)} °C</div>
+                `;
+                
+                // Visual feedback
+                document.getElementById('merc').style.height = Math.max(5, Math.min(tf, 100)) + "%";
+                const heatFactor = (tf - 20) / 80;
+                document.getElementById('water').style.background = `rgba(${59 + 150*heatFactor}, 130, 246, 0.5)`;
+            }, 1000);
+        }
+
+        function resetLab() {
+            document.getElementById('cube').style.top = "-100px";
+            document.getElementById('calc-steps').innerHTML = `<div class="step">> Waiting for experiment...</div><div class="res-highlight">Tf = -- °C</div>`;
+            document.getElementById('merc').style.height = "20%";
+            document.getElementById('water').style.background = "rgba(59, 130, 246, 0.3)";
+        }
+
+        init();
+    </script>
+</body>
+</html>

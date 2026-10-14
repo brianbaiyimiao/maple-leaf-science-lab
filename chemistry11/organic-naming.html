@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Organic Nomenclature Builder</title>
+    <style>
+        :root { --ml-red: #881337; --ml-gold: #fbbf24; --dark: #0f172a; --bg: #f8fafc; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: #333; }
+        
+        .nav { background: var(--ml-red); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold); }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.1); }
+        
+        .workspace { max-width: 1100px; margin: 30px auto; display: grid; grid-template-columns: 350px 1fr; gap: 25px; padding: 0 20px; }
+        
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        /* 控制区样式 */
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: block; font-weight: bold; color: #475569; margin-bottom: 8px; font-size: 0.95rem; }
+        .control-group select, .control-group input[type="range"] { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; }
+        .val-display { float: right; color: var(--ml-red); font-weight: bold; }
+        
+        /* 结果展示区样式 */
+        .molecule-display { background: #1e293b; color: white; padding: 40px 20px; border-radius: 10px; text-align: center; font-family: 'Courier New', Courier, monospace; font-size: 2rem; font-weight: bold; overflow-x: auto; letter-spacing: 2px; margin-bottom: 20px; box-shadow: inset 0 4px 6px rgba(0,0,0,0.3);}
+        .sub-text { font-size: 1rem; color: #94a3b8; font-family: 'Segoe UI', sans-serif; letter-spacing: normal; margin-top: 15px;}
+        
+        .iupac-name { font-size: 2.2rem; font-weight: 800; color: var(--ml-red); text-align: center; margin: 20px 0; }
+        
+        .explanation-box { background: #fef3c7; border-left: 5px solid var(--ml-gold); padding: 20px; border-radius: 0 8px 8px 0; font-size: 1.05rem; line-height: 1.6; color: #92400e; }
+        .explanation-box ul { padding-left: 20px; margin-top: 10px; }
+        .explanation-box li { margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit5.html" class="back-link">⬅ Back to Unit 5</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 17: IUPAC Nomenclature Builder</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Organic Chemistry</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>1. Build Carbon Chain</h3>
+            
+            <div class="control-group">
+                <label>Main Chain Length (Carbons): <span id="chain-val" class="val-display">4</span></label>
+                <input type="range" id="chain-len" min="1" max="8" value="4" oninput="updateMolecules()">
+            </div>
+
+            <div class="control-group">
+                <label>Primary Bond Type:</label>
+                <select id="bond-type" onchange="updateMolecules()">
+                    <option value="alkane">Alkane (Single Bonds Only)</option>
+                    <option value="alkene">Alkene (One Double Bond)</option>
+                    <option value="alkyne">Alkyne (One Triple Bond)</option>
+                </select>
+            </div>
+
+            <div class="control-group" id="bond-pos-group" style="display:none;">
+                <label>Multiple Bond Position: <span id="bond-pos-val" class="val-display">1</span></label>
+                <input type="range" id="bond-pos" min="1" max="3" value="1" oninput="updateMolecules()">
+                <small style="color:#64748b;">(Position from left to right)</small>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 25px 0;">
+            <h3>2. Add Substituent</h3>
+
+            <div class="control-group">
+                <label>Functional Group / Branch:</label>
+                <select id="sub-type" onchange="updateMolecules()">
+                    <option value="none">None</option>
+                    <option value="methyl">Methyl (-CH₃)</option>
+                    <option value="chloro">Chloro (-Cl)</option>
+                    <option value="bromo">Bromo (-Br)</option>
+                    <option value="hydroxyl">Hydroxyl (-OH)</option>
+                </select>
+            </div>
+
+            <div class="control-group" id="sub-pos-group" style="display:none;">
+                <label>Substituent Position: <span id="sub-pos-val" class="val-display">2</span></label>
+                <input type="range" id="sub-pos" min="1" max="4" value="2" oninput="updateMolecules()">
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>IUPAC Name & Analysis</h3>
+            
+            <div class="iupac-name" id="final-name">butane</div>
+            
+            <div class="molecule-display">
+                <span id="formula-visual">CH₃-CH₂-CH₂-CH₃</span>
+                <div class="sub-text">2D Structural Representation</div>
+            </div>
+
+            <div class="explanation-box">
+                <strong>IUPAC Naming Logic:</strong>
+                <ul id="logic-list">
+                    <li><b>Prefix:</b> Chain has 4 carbons &rarr; "but"</li>
+                    <li><b>Suffix:</b> Only single bonds &rarr; "-ane"</li>
+                    <li><b>Numbering:</b> Symmetrical chain.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const prefixes = ["", "meth", "eth", "prop", "but", "pent", "hex", "hept", "oct"];
+
+        function updateMolecules() {
+            let len = parseInt(document.getElementById('chain-len').value);
+            let bondType = document.getElementById('bond-type').value;
+            let subType = document.getElementById('sub-type').value;
+
+            document.getElementById('chain-val').innerText = len;
+
+            // Manage Bond Position Slider
+            let bondPosInput = document.getElementById('bond-pos');
+            let bondPosGroup = document.getElementById('bond-pos-group');
+            if (bondType === 'alkane' || len === 1) {
+                bondPosGroup.style.display = 'none';
+            } else {
+                bondPosGroup.style.display = 'block';
+                bondPosInput.max = len - 1;
+                if (parseInt(bondPosInput.value) > len - 1) bondPosInput.value = len - 1;
+            }
+            let bondPos = parseInt(bondPosInput.value);
+            document.getElementById('bond-pos-val').innerText = bondPos;
+
+            // Manage Substituent Position Slider
+            let subPosInput = document.getElementById('sub-pos');
+            let subPosGroup = document.getElementById('sub-pos-group');
+            if (subType === 'none') {
+                subPosGroup.style.display = 'none';
+            } else {
+                subPosGroup.style.display = 'block';
+                subPosInput.max = len;
+                if (parseInt(subPosInput.value) > len) subPosInput.value = len;
+            }
+            let subPos = parseInt(subPosInput.value);
+            document.getElementById('sub-pos-val').innerText = subPos;
+
+            generateIUPAC(len, bondType, bondPos, subType, subPos);
+        }
+
+        function generateIUPAC(len, bondType, bondPos, subType, subPos) {
+            let prefix = prefixes[len];
+            let suffix = "ane";
+            let nameParts = [];
+            let logic = [];
+
+            logic.push(`<b>Base Chain:</b> Contains ${len} carbon atoms &rarr; prefix "<b>${prefix}</b>".`);
+
+            // Check Numbering Direction (Left to Right vs Right to Left)
+            // Priority: 1. Hydroxyl (-OH)  2. Double/Triple Bond  3. Substituents (Alkyl/Halogen)
+            
+            let l2r = { bond: bondPos, sub: subPos };
+            let r2l = { bond: len - bondPos, sub: len - subPos + 1 };
+            
+            let useR2L = false;
+
+            if (subType === 'hydroxyl') {
+                if (r2l.sub < l2r.sub) useR2L = true;
+            } else if (bondType !== 'alkane') {
+                if (r2l.bond < l2r.bond) useR2L = true;
+                else if (r2l.bond === l2r.bond && subType !== 'none') {
+                    if (r2l.sub < l2r.sub) useR2L = true;
+                }
+            } else if (subType !== 'none') {
+                if (r2l.sub < l2r.sub) useR2L = true;
+            }
+
+            let finalBondPos = useR2L ? r2l.bond : l2r.bond;
+            let finalSubPos = useR2L ? r2l.sub : l2r.sub;
+
+            if (useR2L) {
+                logic.push(`<b>Numbering:</b> Chain is numbered from <b>Right to Left</b> to give the principal group the lowest possible locant (position).`);
+            } else {
+                logic.push(`<b>Numbering:</b> Chain is numbered from <b>Left to Right</b> to give the principal group the lowest possible locant.`);
+            }
+
+            // Determine Suffix based on Highest Priority
+            let isAlcohol = (subType === 'hydroxyl');
+            
+            if (bondType === 'alkene') {
+                suffix = (len > 3) ? `-${finalBondPos}-ene` : "ene";
+                if(isAlcohol) suffix = (len > 3) ? `-${finalBondPos}-en-${finalSubPos}-ol` : `en-${finalSubPos}-ol`;
+                logic.push(`<b>Primary Bond:</b> Contains a double bond &rarr; suffix "<b>${bondType === 'alkene' && isAlcohol ? 'en' : 'ene'}</b>".`);
+            } else if (bondType === 'alkyne') {
+                suffix = (len > 3) ? `-${finalBondPos}-yne` : "yne";
+                if(isAlcohol) suffix = (len > 3) ? `-${finalBondPos}-yn-${finalSubPos}-ol` : `yn-${finalSubPos}-ol`;
+                logic.push(`<b>Primary Bond:</b> Contains a triple bond &rarr; suffix "<b>${bondType === 'alkyne' && isAlcohol ? 'yn' : 'yne'}</b>".`);
+            } else {
+                if(isAlcohol) suffix = `an-${finalSubPos}-ol`;
+                logic.push(`<b>Primary Bond:</b> Only single C-C bonds &rarr; suffix "<b>${isAlcohol ? 'an' : 'ane'}</b>".`);
+            }
+
+            if (isAlcohol) logic.push(`<b>Principal Functional Group:</b> Hydroxyl (-OH) gets highest priority &rarr; suffix "<b>-ol</b>" at position ${finalSubPos}.`);
+
+            // Add Prefix Substituents (Halogens / Alkyls)
+            let finalName = "";
+            if (subType !== 'none' && !isAlcohol) {
+                let subName = "";
+                if (subType === 'methyl') subName = "methyl";
+                if (subType === 'chloro') subName = "chloro";
+                if (subType === 'bromo') subName = "bromo";
+                
+                finalName = `${finalSubPos}-${subName}${prefix}${suffix}`;
+                logic.push(`<b>Substituent:</b> A ${subName} group is attached at position ${finalSubPos}.`);
+            } else {
+                finalName = `${prefix}${suffix}`;
+            }
+
+            // Handle special case for 1-carbon
+            if(len === 1) {
+                if(subType === 'none') finalName = "methane";
+                if(subType === 'methyl') finalName = "ethane"; // Technical correction
+                if(subType === 'chloro') finalName = "chloromethane";
+                if(subType === 'bromo') finalName = "bromomethane";
+                if(subType === 'hydroxyl') finalName = "methanol";
+            }
+
+            document.getElementById('final-name').innerText = finalName;
+            
+            let ul = document.getElementById('logic-list');
+            ul.innerHTML = "";
+            logic.forEach(l => {
+                let li = document.createElement('li');
+                li.innerHTML = l;
+                ul.appendChild(li);
+            });
+
+            drawMolecule(len, bondType, bondPos, subType, subPos);
+        }
+
+        function drawMolecule(len, bondType, bondPos, subType, subPos) {
+            let formula = [];
+            for (let i = 1; i <= len; i++) {
+                let carbon = "CH";
+                let bonds = 0; // Connections to other Carbons
+                
+                if (i > 1) bonds += (bondType !== 'alkane' && bondPos === i - 1) ? ((bondType === 'alkene') ? 2 : 3) : 1;
+                if (i < len) bonds += (bondType !== 'alkane' && bondPos === i) ? ((bondType === 'alkene') ? 2 : 3) : 1;
+                
+                let hCount = 4 - bonds;
+                if (subType !== 'none' && subPos === i) hCount -= 1; // Substituent takes a spot
+
+                if (hCount === 3) carbon = "CH₃";
+                else if (hCount === 2) carbon = "CH₂";
+                else if (hCount === 1) carbon = "CH";
+                else carbon = "C";
+
+                // Add substituent string visualization
+                if (subType !== 'none' && subPos === i) {
+                    let sStr = (subType === 'methyl') ? "(CH₃)" : (subType === 'chloro') ? "(Cl)" : (subType === 'bromo') ? "(Br)" : "(OH)";
+                    carbon += sStr;
+                }
+
+                formula.push(carbon);
+                
+                if (i < len) {
+                    if (bondType === 'alkene' && bondPos === i) formula.push(" = ");
+                    else if (bondType === 'alkyne' && bondPos === i) formula.push(" &equiv; ");
+                    else formula.push(" - ");
+                }
+            }
+            document.getElementById('formula-visual').innerHTML = formula.join('');
+        }
+
+        // Initialize
+        updateMolecules();
+    </script>
+</body>
+</html>

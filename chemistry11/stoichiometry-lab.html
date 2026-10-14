@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Stoichiometry Wizard - Maple Leaf</title>
+    <style>
+        :root { --main: #2563eb; --accent: #059669; --dark: #0f172a; --bg: #f8fafc; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: var(--bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--dark); color: white; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .workspace { display: grid; grid-template-columns: 400px 1fr; gap: 20px; padding: 20px; flex: 1; overflow: hidden; }
+        .panel { background: white; border-radius: 20px; padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); display: flex; flex-direction: column; border: 1px solid #e2e8f0; }
+
+        .step-card { margin-bottom: 20px; padding: 15px; background: #f1f5f9; border-radius: 12px; border-left: 5px solid var(--main); }
+        .step-label { font-size: 11px; font-weight: bold; color: var(--main); text-transform: uppercase; margin-bottom: 5px; display: block; }
+
+        select, input { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 14px; outline: none; margin-bottom: 10px; font-weight: bold; }
+        select:focus, input:focus { border-color: var(--main); }
+
+        /* Bridge UI */
+        .bridge-view { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+        .flow-container { display: flex; align-items: center; gap: 15px; margin-bottom: 40px; }
+        .node { width: 110px; height: 110px; border-radius: 18px; background: white; border: 3px solid #cbd5e1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; transition: 0.4s; }
+        .node.highlight { border-color: var(--accent); background: #f0fdf4; transform: scale(1.05); box-shadow: 0 10px 20px rgba(5, 150, 105, 0.1); }
+        .arrow { font-size: 1.2rem; color: #94a3b8; font-weight: bold; }
+
+        .mass-val { font-size: 1.4rem; font-weight: 800; color: var(--dark); }
+        .unit-tag { font-size: 10px; font-weight: bold; color: #64748b; }
+
+        /* Visual Beaker */
+        .beaker-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; max-width: 650px; }
+        .beaker { height: 160px; border: 4px solid #94a3b8; border-top: none; border-bottom-left-radius: 25px; border-bottom-right-radius: 25px; background: rgba(255,255,255,0.6); position: relative; overflow: hidden; }
+        .fill { position: absolute; bottom: 0; width: 100%; height: 0%; transition: 1s cubic-bezier(0.4, 0, 0.2, 1); }
+        
+        .output-console { background: #0f172a; color: #10b981; padding: 20px; border-radius: 15px; font-family: 'Consolas', monospace; display: flex; flex-direction: column; justify-content: center; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit3.html" style="color:white; text-decoration:none; font-weight:bold;">⬅ Back</a>
+        <h2>Lab 7: Stoichiometry Wizard Pro</h2>
+        <span style="font-size: 12px; opacity: 0.7;">10 Multi-Reaction Database Enabled</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3 style="margin-top:0; color:var(--dark);">Reaction Configuration</h3>
+            
+            <div class="step-card">
+                <span class="step-label">1. Choose Reaction Task</span>
+                <select id="rxn-select" onchange="loadReaction()">
+                    <option value="0">Synthesis: H₂ + O₂ → H₂O</option>
+                    <option value="1">Replacement: Mg + HCl → MgCl₂ + H₂</option>
+                    <option value="2">Displacement: AgNO₃ + Cu → Ag + Cu(NO₃)₂</option>
+                    <option value="3">Combustion: CH₄ + O₂ → CO₂ + H₂O</option>
+                    <option value="4">Decomposition: KClO₃ → KCl + O₂</option>
+                    <option value="5">Neutralization: NaOH + HCl → NaCl + H₂O</option>
+                    <option value="6">Thermite: Al + Fe₂O₃ → Al₂O₃ + Fe</option>
+                    <option value="7">Precipitation: BaCl₂ + Na₂SO₄ → BaSO₄ + NaCl</option>
+                    <option value="8">H₂O₂ Breakdown: H₂O₂ → H₂O + O₂</option>
+                    <option value="9">Haber Process: N₂ + H₂ → NH₃</option>
+                </select>
+            </div>
+
+            <div class="step-card">
+                <span class="step-label">2. Known Substance Data</span>
+                <label id="reactant-label" style="font-size: 12px; font-weight: bold; color:#475569;">Mass of Reactant (g):</label>
+                <input type="number" id="input-mass" value="10.00" step="0.5" oninput="calculate()">
+            </div>
+
+            <div style="margin-top:auto; padding:15px; background:#eff6ff; border-radius:12px; font-size:12px; border: 1px solid #bfdbfe;">
+                <b>Stoichiometry Tip:</b><br>
+                Always convert Mass to Moles first. The "Mole Ratio" is the bridge between two substances.
+            </div>
+        </div>
+
+        <div class="panel bridge-view">
+            <div class="flow-container">
+                <div class="node highlight" id="n1">
+                    <span class="unit-tag">GIVEN MASS</span>
+                    <div id="disp-mass-a" class="mass-val">0</div>
+                    <span class="unit-tag" id="unit-a">g (A)</span>
+                </div>
+                <div class="arrow">➜</div>
+                <div class="node highlight" id="n2">
+                    <span class="unit-tag">GIVEN MOLES</span>
+                    <div id="disp-mol-a" class="mass-val">0</div>
+                    <span class="unit-tag">mol</span>
+                </div>
+                <div class="arrow">➜</div>
+                <div class="node highlight" id="n3">
+                    <span class="unit-tag">TARGET MOLES</span>
+                    <div id="disp-mol-b" class="mass-val">0</div>
+                    <span class="unit-tag">ratio applied</span>
+                </div>
+                <div class="arrow">➜</div>
+                <div class="node highlight" id="n4">
+                    <span class="unit-tag">THEORETICAL YIELD</span>
+                    <div id="disp-mass-b" class="mass-val">0</div>
+                    <span class="unit-tag" id="unit-b">g (B)</span>
+                </div>
+            </div>
+
+            <div class="beaker-container">
+                <div style="text-align:center;">
+                    <div class="label" id="product-name">Product View</div>
+                    <div class="beaker">
+                        <div id="product-fill" class="fill"></div>
+                    </div>
+                </div>
+                <div class="output-console">
+                    <div style="font-size: 11px; opacity:0.6;">> ENGINE_STATUS: OK</div>
+                    <div id="log-eq" style="margin: 15px 0; font-size: 14px; color:#fff;">Equation: -</div>
+                    <div id="log-res" style="font-size: 1.4rem; font-weight: bold; color: #4ade80;">Yield: 0.00g</div>
+                    <div style="font-size: 10px; margin-top:10px; color:#94a3b8;">Calculation based on 1.0 stoichiometry ratio.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const DB = [
+            { rxn: "2H₂ + O₂ → 2H₂O", r: "H₂", p: "H₂O", rMM: 2.016, pMM: 18.015, ratio: 2/2, color: "#3b82f6" },
+            { rxn: "Mg + 2HCl → MgCl₂ + H₂", r: "Mg", p: "MgCl₂", rMM: 24.305, pMM: 95.211, ratio: 1/1, color: "#94a3b8" },
+            { rxn: "2AgNO₃ + Cu → 2Ag + Cu(NO₃)₂", r: "AgNO₃", p: "Ag", rMM: 169.87, pMM: 107.87, ratio: 2/2, color: "#e2e8f0" },
+            { rxn: "CH₄ + 2O₂ → CO₂ + 2H₂O", r: "CH₄", p: "CO₂", rMM: 16.04, pMM: 44.01, ratio: 1/1, color: "#cbd5e1" },
+            { rxn: "2KClO₃ → 2KCl + 3O₂", r: "KClO₃", p: "O₂", rMM: 122.55, pMM: 32.00, ratio: 3/2, color: "#f8fafc" },
+            { rxn: "NaOH + HCl → NaCl + H₂O", r: "NaOH", p: "NaCl", rMM: 40.00, pMM: 58.44, ratio: 1/1, color: "#fff" },
+            { rxn: "2Al + Fe₂O₃ → Al₂O₃ + 2Fe", r: "Al", p: "Fe", rMM: 26.98, pMM: 55.85, ratio: 2/2, color: "#92400e" },
+            { rxn: "BaCl₂ + Na₂SO₄ → BaSO₄ + 2NaCl", r: "BaCl₂", p: "BaSO₄", rMM: 208.23, pMM: 233.39, ratio: 1/1, color: "#f1f5f9" },
+            { rxn: "2H₂O₂ → 2H₂O + O₂", r: "H₂O₂", p: "O₂", rMM: 34.01, pMM: 32.00, ratio: 1/2, color: "#f8fafc" },
+            { rxn: "N₂ + 3H₂ → 2NH₃", r: "N₂", p: "NH₃", rMM: 28.01, pMM: 17.03, ratio: 2/1, color: "#bfdbfe" }
+        ];
+
+        function loadReaction() {
+            const idx = document.getElementById('rxn-select').value;
+            const data = DB[idx];
+            document.getElementById('reactant-label').innerText = `Mass of Given Substance [${data.r}] (g):`;
+            document.getElementById('unit-a').innerText = `g of ${data.r}`;
+            document.getElementById('unit-b').innerText = `g of ${data.p}`;
+            document.getElementById('product-name').innerText = `Target: ${data.p}`;
+            calculate();
+        }
+
+        function calculate() {
+            const idx = document.getElementById('rxn-select').value;
+            const massA = parseFloat(document.getElementById('input-mass').value) || 0;
+            const data = DB[idx];
+
+            // 核心换算逻辑
+            const molA = massA / data.rMM;
+            const molB = molA * data.ratio;
+            const massB = molB * data.pMM;
+
+            // 更新 UI 节点
+            document.getElementById('disp-mass-a').innerText = massA.toFixed(2);
+            document.getElementById('disp-mol-a').innerText = molA.toFixed(4);
+            document.getElementById('disp-mol-b').innerText = molB.toFixed(4);
+            document.getElementById('disp-mass-b').innerText = massB.toFixed(2);
+
+            // 控制台输出
+            document.getElementById('log-eq').innerText = `Equation: ${data.rxn}`;
+            document.getElementById('log-res').innerText = `Yield: ${massB.toFixed(2)}g`;
+
+            // 烧杯填充动画
+            const fill = document.getElementById('product-fill');
+            const height = Math.min((massB / 80) * 100, 100); // 比例缩放
+            fill.style.height = height + "%";
+            fill.style.background = data.color;
+            if(data.p === 'O₂' || data.p === 'H₂') {
+                fill.style.opacity = "0.2"; // 气体显示淡色
+            } else {
+                fill.style.opacity = "1";
+            }
+        }
+
+        // 初始化加载
+        loadReaction();
+    </script>
+</body>
+</html>

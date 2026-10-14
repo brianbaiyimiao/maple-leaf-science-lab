@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Biology 12 - Unit 2: Molecular Biology</title>
+    <style>
+        :root { --ml-green: #16a34a; --ml-gold: #fbbf24; --bg: #f8fafc; }
+        body { background: var(--bg); font-family: 'Segoe UI', sans-serif; text-align: center; margin: 0; }
+        .header { background: var(--ml-green); color: white; padding: 30px; border-bottom: 4px solid var(--ml-gold); }
+        .list { max-width: 850px; margin: 30px auto; display: flex; flex-direction: column; gap: 15px; padding: 0 20px; }
+        .item { background: white; padding: 20px; border-radius: 12px; text-decoration: none; color: #333; border-left: 8px solid var(--ml-green); text-align: left; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.2s; display: flex; align-items: center; }
+        .item:hover { transform: translateX(10px); background: #f0fdf4; }
+        .item-content { flex: 1; }
+        .item h3 { margin: 0 0 5px 0; font-size: 1.2rem; color: #1e293b; }
+        .item p { margin: 0; color: #64748b; font-size: 0.95rem; line-height: 1.4; }
+        
+        .badge-data { background: #3b82f6; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; margin-left: 15px; font-weight: bold; white-space: nowrap; text-transform: uppercase; }
+        
+        .back-btn { color: white; float: left; text-decoration: none; font-weight: bold; border: 1px solid white; padding: 6px 12px; border-radius: 6px; transition: 0.3s; font-size: 0.9rem; }
+        .back-btn:hover { background: white; color: var(--ml-green); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="bio12.html" class="back-btn">⬅ Back to Unit List</a>
+        <h1 style="margin: 0;">Unit 2: Molecular Biology</h1>
+        <p style="margin: 10px 0 0; opacity: 0.9;">The Molecular Foundations of Life & Genetic Engineering</p>
+    </div>
+
+    <div class="list">
+        <a href="gel-electrophoresis.html" class="item">
+            <div class="item-content">
+                <h3>Lab 2.1: Gel Electrophoresis & DNA Fingerprinting</h3>
+                <p>利用 Agarose 凝胶分离 DNA 片段。包含 5 步 SOP 操作、120V 高速电泳模拟及紫外荧光条带分析。</p>
+            </div>
+            <span class="badge-data">Active</span>
+        </a>
+        
+        <a href="central-dogma.html" class="item">
+            <div class="item-content">
+                <h3>Lab 2.2: Central Dogma (Transcription & Translation)</h3>
+                <p>在核糖体装配车间中亲手构建 mRNA 和蛋白质多肽链，实时纠正碱基配对错误。</p>
+            </div>
+            <span class="badge-data">Active</span>
+        </a>
+
+        <a href="crispr-cas9.html" class="item">
+            <div class="item-content">
+                <h3>Lab 2.3: CRISPR-Cas9 Gene Editing Simulator</h3>
+                <p>合成向导 RNA (gRNA)，引导 Cas9 核酸酶对特定基因序列执行双链切割，体验分子剪刀的威力。</p>
+            </div>
+            <span class="badge-data">Active</span>
+        </a>
+    </div>
+
+    <div style="margin-top: 20px; color: #94a3b8; font-size: 0.85rem;">
+        Maple Leaf Educational Systems | Science Department Laboratory
+    </div>
+</body>
+</html>

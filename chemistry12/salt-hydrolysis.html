@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 4.3: Salt Hydrolysis</title>
+    <style>
+        :root { --ml-red: #b91c1c; --ml-gold: #fbbf24; --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--ml-red); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold); }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.3s;}
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+
+        .workspace { flex: 1; display: grid; grid-template-columns: 420px 1fr; gap: 20px; padding: 20px; box-sizing: border-box; }
+        .panel { background: var(--panel); border-radius: 15px; border: 1px solid #334155; padding: 25px; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow-y: auto;}
+        
+        h3 { margin: 0 0 15px 0; color: var(--ml-gold); border-bottom: 1px dashed #475569; padding-bottom: 10px; font-size: 1.1rem;}
+
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: block; font-size: 0.95rem; margin-bottom: 8px; color: #cbd5e1; font-weight: bold;}
+        select { width: 100%; padding: 10px; border-radius: 6px; border: 2px solid #475569; background: #0f172a; color: white; font-size: 1rem; outline: none; cursor: pointer;}
+        
+        .btn-group { display: flex; gap: 10px; margin-top: 10px; }
+        .btn { flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: bold; font-size: 1.05rem; cursor: pointer; transition: 0.2s; color: white; text-transform: uppercase;}
+        .btn-add { background: #3b82f6; box-shadow: 0 4px 10px rgba(59,130,246,0.3);} .btn-add:hover { background: #2563eb; transform: translateY(-2px);}
+        .btn-reset { background: #ef4444; } .btn-reset:hover { background: #dc2626; }
+
+        /* Data Analysis Board */
+        .analysis-board { background: #020617; border: 2px solid #475569; border-radius: 10px; padding: 15px; margin-top: 15px; display: none; font-size: 0.95rem; line-height: 1.6;}
+        .data-row { display: flex; justify-content: space-between; border-bottom: 1px solid #334155; padding-bottom: 5px; margin-bottom: 5px;}
+        .net-eq { font-family: monospace; color: #fbbf24; font-size: 1.1rem; text-align: center; margin-top: 15px; padding: 10px; background: rgba(251,191,36,0.1); border-radius: 6px;}
+
+        .canvas-box { background: #000; border-radius: 15px; border: 4px solid #334155; position: relative; overflow: hidden; box-shadow: inset 0 0 50px rgba(0,0,0,0.8);}
+        canvas { width: 100%; height: 100%; display: block; }
+        .tag { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.8); padding: 8px 15px; border-radius: 6px; font-weight: bold; color: var(--ml-gold); font-size: 0.9rem; border: 1px solid #475569;}
+
+        /* Digital pH Meter Overlay */
+        .ph-meter { position: absolute; top: 15px; right: 15px; background: #020617; border: 2px solid #475569; padding: 10px 20px; border-radius: 10px; text-align: center;}
+        .ph-title { color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; font-weight: bold;}
+        .ph-val { font-family: monospace; font-size: 2.5rem; font-weight: bold; color: #22c55e;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit4.html" class="back-link">⬅ Back to Unit 4 Labs</a>
+        <h2 style="margin:0;">Lab 4.3: Salt Hydrolysis Analysis</h2>
+        <span style="font-size: 0.9rem; opacity: 0.8;">Maple Leaf Advanced Chemistry</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Reaction Setup</h3>
+            
+            <div class="control-group">
+                <label>Select Salt to Dissolve:</label>
+                <select id="salt-sel" onchange="resetBeaker()">
+                    <option value="NaCl">Sodium Chloride (NaCl)</option>
+                    <option value="NH4Cl">Ammonium Chloride (NH₄Cl)</option>
+                    <option value="NaAc">Sodium Acetate (NaCH₃COO)</option>
+                </select>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-add" onclick="addSalt()">⚗️ Add to Water</button>
+                <button class="btn btn-reset" onclick="resetBeaker()">🔄 Reset</button>
+            </div>
+
+            <div class="analysis-board" id="analysis-board">
+                <h4 style="color:#38bdf8; margin:0 0 10px 0; text-transform:uppercase;">Hydrolysis Analysis</h4>
+                
+                <div class="data-row">
+                    <span style="color:#94a3b8;">Parent Acid:</span>
+                    <strong id="p-acid"></strong>
+                </div>
+                <div class="data-row">
+                    <span style="color:#94a3b8;">Parent Base:</span>
+                    <strong id="p-base"></strong>
+                </div>
+                <div class="data-row">
+                    <span style="color:#94a3b8;">Nature of Salt:</span>
+                    <strong id="s-nature"></strong>
+                </div>
+
+                <div class="net-eq" id="net-eq">
+                    </div>
+
+                <p style="font-size:0.85rem; color:#cbd5e1; margin-top:15px; font-style:italic;" id="exp-text"></p>
+            </div>
+        </div>
+
+        <div class="canvas-box">
+            <div class="tag">UNIVERSAL INDICATOR VIEW</div>
+            <div class="ph-meter">
+                <div class="ph-title">Digital pH</div>
+                <div class="ph-val" id="ph-display">7.00</div>
+            </div>
+            <canvas id="beakerCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('beakerCanvas');
+        const ctx = cvs.getContext('2d');
+
+        const saltsData = {
+            "NaCl": {
+                acid: "HCl (Strong)", base: "NaOH (Strong)", nature: "Neutral (pH = 7.00)",
+                targetPH: 7.00, color: [34, 197, 94], // Green
+                eq: "No Hydrolysis: Na⁺ + Cl⁻ + H₂O ⇌ No Reaction",
+                exp: "Strong acid and strong base neutralize completely. Neither Na⁺ nor Cl⁻ has the strength to pull H⁺ or OH⁻ from water.",
+                ions: [{t:"Na⁺", c:"#38bdf8"}, {t:"Cl⁻", c:"#94a3b8"}]
+            },
+            "NH4Cl": {
+                acid: "HCl (Strong)", base: "NH₃ (Weak)", nature: "Acidic (pH < 7)",
+                targetPH: 5.12, color: [234, 179, 8], // Yellow-Orange
+                eq: "NH₄⁺(aq) + H₂O(l) ⇌ NH₃(aq) + H₃O⁺(aq)",
+                exp: "The strong parent acid 'wins'. The weak conjugate acid (NH₄⁺) hydrolyzes water to generate Hydronium ions (H₃O⁺), lowering the pH.",
+                ions: [{t:"NH₄⁺", c:"#3b82f6"}, {t:"Cl⁻", c:"#94a3b8"}],
+                product: {t:"H₃O⁺", c:"#ef4444"}
+            },
+            "NaAc": {
+                acid: "CH₃COOH (Weak)", base: "NaOH (Strong)", nature: "Basic (pH > 7)",
+                targetPH: 8.88, color: [59, 130, 246], // Blue
+                eq: "CH₃COO⁻(aq) + H₂O(l) ⇌ CH₃COOH(aq) + OH⁻(aq)",
+                exp: "The strong parent base 'wins'. The weak conjugate base (CH₃COO⁻) hydrolyzes water to generate Hydroxide ions (OH⁻), raising the pH.",
+                ions: [{t:"Na⁺", c:"#38bdf8"}, {t:"CH₃COO⁻", c:"#a855f7"}],
+                product: {t:"OH⁻", c:"#3b82f6"}
+            }
+        };
+
+        let currentPH = 7.00;
+        let displayPH = 7.00;
+        let currentColor = [34, 197, 94]; // Neutral green
+        let particles = [];
+        let state = 0; // 0=water, 1=adding, 2=dissolved/hydrolyzing
+
+        function resize() {
+            cvs.width = cvs.offsetWidth; cvs.height = cvs.offsetHeight;
+        }
+        window.addEventListener('resize', resize);
+
+        function resetBeaker() {
+            document.getElementById('analysis-board').style.display = 'none';
+            currentPH = 7.00;
+            displayPH = 7.00;
+            currentColor = [34, 197, 94];
+            particles = [];
+            state = 0;
+            updatePHMeter();
+        }
+
+        function addSalt() {
+            if(state !== 0) return;
+            state = 1;
+            
+            let saltKey = document.getElementById('salt-sel').value;
+            let data = saltsData[saltKey];
+            
+            // UI Update
+            document.getElementById('p-acid').innerText = data.acid;
+            document.getElementById('p-acid').style.color = data.acid.includes("Strong") ? "#ef4444" : "#fbbf24";
+            
+            document.getElementById('p-base').innerText = data.base;
+            document.getElementById('p-base').style.color = data.base.includes("Strong") ? "#3b82f6" : "#fbbf24";
+            
+            document.getElementById('s-nature').innerText = data.nature;
+            document.getElementById('net-eq').innerText = data.eq;
+            document.getElementById('exp-text').innerText = data.exp;
+            
+            document.getElementById('analysis-board').style.display = 'block';
+
+            // Start animation variables
+            currentPH = data.targetPH;
+
+            // Add salt blocks
+            for(let i=0; i<6; i++) {
+                particles.push({
+                    x: cvs.width/2 + (Math.random()-0.5)*100,
+                    y: -50 - Math.random()*50,
+                    vx: (Math.random()-0.5)*2,
+                    vy: 5 + Math.random()*5,
+                    type: "solid",
+                    saltData: data
+                });
+            }
+        }
+
+        function updatePHMeter() {
+            let meter = document.getElementById('ph-display');
+            meter.innerText = displayPH.toFixed(2);
+            if(displayPH < 6.5) meter.style.color = '#ef4444'; // Red for acid
+            else if(displayPH > 7.5) meter.style.color = '#3b82f6'; // Blue for base
+            else meter.style.color = '#22c55e'; // Green
+        }
+
+        function animate() {
+            ctx.clearRect(0,0,cvs.width, cvs.height);
+            let w = cvs.width; let h = cvs.height;
+
+            // 1. Smoothly interpolate pH and Color
+            displayPH += (currentPH - displayPH) * 0.05;
+            updatePHMeter();
+
+            let targetColor = saltsData[document.getElementById('salt-sel').value].color;
+            if(state === 0) targetColor = [34, 197, 94]; // Force green if reset
+            
+            currentColor[0] += (targetColor[0] - currentColor[0]) * 0.05;
+            currentColor[1] += (targetColor[1] - currentColor[1]) * 0.05;
+            currentColor[2] += (targetColor[2] - currentColor[2]) * 0.05;
+
+            // 2. Draw Beaker Liquid
+            let waterTop = h * 0.2;
+            let rgbaStr = `rgba(${Math.floor(currentColor[0])}, ${Math.floor(currentColor[1])}, ${Math.floor(currentColor[2])}, 0.2)`;
+            ctx.fillStyle = rgbaStr;
+            ctx.fillRect(50, waterTop, w-100, h-waterTop-50);
+            
+            ctx.strokeStyle = `rgba(${Math.floor(currentColor[0])}, ${Math.floor(currentColor[1])}, ${Math.floor(currentColor[2])}, 0.8)`;
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(50, waterTop); ctx.lineTo(w-50, waterTop); ctx.stroke();
+
+            // Beaker glass
+            ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 6;
+            ctx.beginPath(); ctx.moveTo(50, 20); ctx.lineTo(50, h-50); ctx.lineTo(w-50, h-50); ctx.lineTo(w-50, 20); ctx.stroke();
+
+            // 3. Physics & Drawing Particles
+            for(let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+
+                if(p.type === "solid") {
+                    // Draw solid chunk
+                    ctx.fillStyle = '#f8fafc'; ctx.fillRect(p.x-8, p.y-8, 16, 16);
+                    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1; ctx.strokeRect(p.x-8, p.y-8, 16, 16);
+
+                    // Hit water bottom
+                    if(p.y > h - 80) {
+                        // Dissolve into ions
+                        particles.splice(i, 1);
+                        particles.push({x: p.x, y: p.y, vx: (Math.random()-0.5)*4, vy: -Math.random()*4, type: "ion", label: p.saltData.ions[0].t, c: p.saltData.ions[0].c, isActive: true, sData: p.saltData});
+                        particles.push({x: p.x, y: p.y, vx: (Math.random()-0.5)*4, vy: -Math.random()*4, type: "ion", label: p.saltData.ions[1].t, c: p.saltData.ions[1].c, isActive: true, sData: p.saltData});
+                        if(state === 1) state = 2; // Transition to hydrolyzing
+                    }
+                } else {
+                    // Ion physics
+                    if(p.x < 70 || p.x > w-70) p.vx *= -1;
+                    if(p.y < waterTop + 20 || p.y > h - 70) p.vy *= -1;
+                    
+                    // Hydrolysis transformation (chance based if it's the active ion)
+                    if(p.isActive && p.sData.product && Math.random() < 0.005) {
+                        // If it's the weak conjugate, it turns into the product
+                        let weakIon = p.sData.acid.includes("Weak") ? p.sData.ions[1].t : p.sData.ions[0].t;
+                        if(p.label === weakIon) {
+                            p.label = p.sData.product.t;
+                            p.c = p.sData.product.c;
+                            p.isActive = false; // Reaction complete
+                            
+                            // Visual Pop
+                            ctx.beginPath(); ctx.arc(p.x, p.y, 30, 0, Math.PI*2);
+                            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'; ctx.fill();
+                        }
+                    }
+
+                    // Draw Ion
+                    ctx.beginPath(); ctx.arc(p.x, p.y, 18, 0, Math.PI*2);
+                    ctx.fillStyle = p.c; ctx.fill();
+                    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.stroke();
+                    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center'; ctx.textBaseline='middle';
+                    ctx.fillText(p.label, p.x, p.y);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        setTimeout(() => { resize(); resetBeaker(); animate(); }, 100);
+    </script>
+</body>
+</html>

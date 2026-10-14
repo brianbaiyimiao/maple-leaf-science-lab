@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 3.2: Natural Selection Sandbox</title>
+    <style>
+        :root { --ml-green: #16a34a; --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --gold: #fbbf24; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--ml-green); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--gold); }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.3s;}
+        .back-link:hover { background: white; color: var(--ml-green);}
+        
+        .workspace { flex: 1; display: grid; grid-template-columns: 350px 1fr; gap: 20px; padding: 20px; box-sizing: border-box; overflow: hidden; }
+        .panel { background: var(--panel); border-radius: 15px; border: 1px solid #334155; padding: 20px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);}
+        
+        h3 { margin: 0; color: var(--gold); border-bottom: 1px dashed #475569; padding-bottom: 10px;}
+
+        .control-group { background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border-left: 4px solid #38bdf8;}
+        select { width: 100%; padding: 10px; background: #020617; color: white; border: 1px solid #475569; border-radius: 6px; font-size: 1rem; margin-top: 10px; outline: none; cursor: pointer;}
+        
+        .btn { background: #3b82f6; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; text-transform: uppercase;}
+        .btn:hover { background: #2563eb; transform: translateY(-2px);}
+        .btn-reset { background: #475569;} .btn-reset:hover { background: #334155;}
+
+        .stats-box { display: flex; justify-content: space-between; background: #020617; padding: 15px; border-radius: 8px; border: 1px solid #475569; text-align: center;}
+        .stat-num { font-size: 2rem; font-weight: bold; font-family: monospace;}
+        
+        .visual-container { display: flex; flex-direction: column; gap: 15px; overflow: hidden;}
+        .canvas-box { flex: 2; background: #d4d4d8; border-radius: 15px; position: relative; overflow: hidden; box-shadow: inset 0 0 30px rgba(0,0,0,0.5); cursor: crosshair; border: 4px solid #334155; transition: 0.5s;}
+        .canvas-box.polluted { background: #27272a; border-color: #000; }
+        canvas { width: 100%; height: 100%; display: block; }
+        
+        .chart-box { flex: 1; background: #020617; border-radius: 15px; border: 2px solid #334155; position: relative; padding: 10px;}
+        .tag { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.8); padding: 5px 12px; border-radius: 6px; font-weight: bold; color: var(--gold); font-size: 0.85rem; pointer-events: none;}
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="unit3.html" class="back-link">⬅ Back to Unit 3</a>
+        <h2 style="margin:0;">Lab 3.2: Natural Selection Sandbox</h2>
+        <span style="font-size: 0.9rem; opacity: 0.8;">Maple Leaf Biological Sciences</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Environmental Pressures</h3>
+            
+            <div class="control-group">
+                <label>Select Forest Environment:</label>
+                <select id="env-select" onchange="changeEnv()">
+                    <option value="clean">Pre-Industrial (Lichen-covered trees)</option>
+                    <option value="polluted">Post-Industrial (Soot-covered trees)</option>
+                </select>
+                <div style="font-size:0.8rem; color:#94a3b8; margin-top:5px;">Changes the selective pressure on the moth population.</div>
+            </div>
+
+            <div class="stats-box">
+                <div>
+                    <div style="font-size: 0.8rem; color: #d4d4d8;">Light Moths</div>
+                    <div class="stat-num" id="count-light" style="color: #f4f4f5;">20</div>
+                </div>
+                <div>
+                    <div style="font-size: 0.8rem; color: #52525b;">Dark Moths</div>
+                    <div class="stat-num" id="count-dark" style="color: #52525b;">20</div>
+                </div>
+            </div>
+
+            <button class="btn" onclick="startGeneration()">🦅 Start Generation (Hunt!)</button>
+            <button class="btn btn-reset" onclick="resetSim()">🔄 Reset Population</button>
+
+            <div style="margin-top:auto; font-size:0.85rem; color:#38bdf8; line-height:1.5; background: rgba(56, 189, 248, 0.1); padding: 15px; border-radius: 8px;">
+                <b>Instructions:</b> You are the predator. Click 'Start' and hunt (click on) as many moths as you can in 10 seconds. The survivors will reproduce. Watch the population graph below to see adaptation in real-time.
+            </div>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box" id="forest-bg">
+                <div class="tag">FOREST HABITAT (Click to hunt)</div>
+                <div id="timer-hud" style="position:absolute; top:15px; right:15px; font-size:2rem; font-weight:bold; color:#ef4444; font-family:monospace; display:none; pointer-events:none;">10.0</div>
+                <canvas id="forestCanvas"></canvas>
+            </div>
+            
+            <div class="chart-box">
+                <div class="tag" style="top:5px; left:5px; background:transparent;">POPULATION TRENDS</div>
+                <canvas id="chartCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('forestCanvas');
+        const ctx = cvs.getContext('2d');
+        const chartCvs = document.getElementById('chartCanvas');
+        const chartCtx = chartCvs.getContext('2d');
+        const forestBg = document.getElementById('forest-bg');
+
+        let moths = [];
+        let isHunting = false;
+        let timeLeft = 0;
+        let generation = 0;
+        let history = [{gen: 0, light: 20, dark: 20}];
+        
+        let bounds = {w:0, h:0};
+        let chartBounds = {w:0, h:0};
+
+        function resize() {
+            bounds.w = forestBg.offsetWidth; bounds.h = forestBg.offsetHeight;
+            cvs.width = bounds.w; cvs.height = bounds.h;
+            
+            chartBounds.w = document.querySelector('.chart-box').offsetWidth;
+            chartBounds.h = document.querySelector('.chart-box').offsetHeight;
+            chartCvs.width = chartBounds.w; chartCvs.height = chartBounds.h;
+            drawChart();
+        }
+        window.addEventListener('resize', resize);
+
+        function initMoths() {
+            moths = [];
+            spawnMoths('light', 20);
+            spawnMoths('dark', 20);
+            updateUI();
+        }
+
+        function spawnMoths(type, count) {
+            for(let i=0; i<count; i++) {
+                moths.push({
+                    x: Math.random() * (bounds.w - 40) + 20,
+                    y: Math.random() * (bounds.h - 40) + 20,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4,
+                    type: type, // 'light' or 'dark'
+                    active: true
+                });
+            }
+        }
+
+        function changeEnv() {
+            let env = document.getElementById('env-select').value;
+            forestBg.className = env === 'polluted' ? 'canvas-box polluted' : 'canvas-box';
+        }
+
+        function updateUI() {
+            let light = moths.filter(m => m.type === 'light' && m.active).length;
+            let dark = moths.filter(m => m.type === 'dark' && m.active).length;
+            document.getElementById('count-light').innerText = light;
+            document.getElementById('count-dark').innerText = dark;
+        }
+
+        function startGeneration() {
+            if(isHunting) return;
+            isHunting = true;
+            timeLeft = 10.0;
+            document.getElementById('timer-hud').style.display = 'block';
+            
+            // Un-hide all surviving moths and make them fly faster initially
+            moths.forEach(m => { 
+                m.vx = (Math.random() - 0.5) * 8; 
+                m.vy = (Math.random() - 0.5) * 8; 
+            });
+        }
+
+        function endGeneration() {
+            isHunting = false;
+            document.getElementById('timer-hud').style.display = 'none';
+            
+            // Reproduction: Survivors double their numbers
+            let survivors = moths.filter(m => m.active);
+            let newLight = survivors.filter(m => m.type === 'light').length;
+            let newDark = survivors.filter(m => m.type === 'dark').length;
+            
+            spawnMoths('light', newLight);
+            spawnMoths('dark', newDark);
+            
+            generation++;
+            history.push({
+                gen: generation, 
+                light: moths.filter(m => m.type === 'light' && m.active).length, 
+                dark: moths.filter(m => m.type === 'dark' && m.active).length
+            });
+            
+            updateUI();
+            drawChart();
+        }
+
+        function resetSim() {
+            isHunting = false;
+            generation = 0;
+            document.getElementById('timer-hud').style.display = 'none';
+            history = [{gen: 0, light: 20, dark: 20}];
+            initMoths();
+            drawChart();
+        }
+
+        // --- Interaction ---
+        cvs.addEventListener('mousedown', (e) => {
+            if(!isHunting) return;
+            const rect = cvs.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left; const mouseY = e.clientY - rect.top;
+            
+            for(let i=moths.length-1; i>=0; i--) {
+                let m = moths[i];
+                if(m.active) {
+                    let dist = Math.sqrt(Math.pow(mouseX - m.x, 2) + Math.pow(mouseY - m.y, 2));
+                    if(dist < 25) {
+                        m.active = false; // Eaten!
+                        updateUI();
+                        
+                        // Draw blood/splat effect briefly
+                        ctx.fillStyle = '#ef4444';
+                        ctx.beginPath(); ctx.arc(m.x, m.y, 15, 0, Math.PI*2); ctx.fill();
+                        break; // Only eat one per click
+                    }
+                }
+            }
+        });
+
+        // --- Visuals ---
+        function drawMoth(m) {
+            ctx.save();
+            ctx.translate(m.x, m.y);
+            // Calculate angle of movement
+            let angle = Math.atan2(m.vy, m.vx);
+            ctx.rotate(angle);
+
+            // Body
+            ctx.fillStyle = m.type === 'light' ? '#f4f4f5' : '#3f3f46';
+            ctx.beginPath(); ctx.ellipse(0, 0, 12, 4, 0, 0, Math.PI*2); ctx.fill();
+            
+            // Wings (Flapping if hunting, static if resting)
+            let flap = isHunting ? Math.sin(Date.now() * 0.05) * 0.5 : 0.2;
+            
+            ctx.fillStyle = m.type === 'light' ? '#e4e4e7' : '#27272a';
+            ctx.strokeStyle = m.type === 'light' ? '#a1a1aa' : '#18181b';
+            ctx.lineWidth = 1;
+
+            // Top wing
+            ctx.beginPath(); ctx.ellipse(-2, -8, 15, 8, -Math.PI/6 + flap, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            // Bottom wing
+            ctx.beginPath(); ctx.ellipse(-2, 8, 15, 8, Math.PI/6 - flap, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+
+            // Speckles (Peppered part)
+            ctx.fillStyle = m.type === 'light' ? '#52525b' : '#000';
+            ctx.beginPath(); ctx.arc(-5, -6, 1.5, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(2, -9, 1.5, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(-5, 6, 1.5, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(2, 9, 1.5, 0, Math.PI*2); ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawChart() {
+            chartCtx.clearRect(0,0,chartBounds.w, chartBounds.h);
+            if(history.length < 1) return;
+
+            let padX = 40; let padY = 30;
+            let maxGen = Math.max(5, generation);
+            let maxPop = Math.max(50, ...history.map(h => Math.max(h.light, h.dark)));
+            
+            let xScale = (chartBounds.w - padX*2) / maxGen;
+            let yScale = (chartBounds.h - padY - 10) / maxPop;
+
+            // Plot Light Moths
+            chartCtx.strokeStyle = '#f4f4f5'; chartCtx.lineWidth = 3;
+            chartCtx.beginPath();
+            history.forEach((h, i) => {
+                let cx = padX + h.gen * xScale;
+                let cy = chartBounds.h - padY - (h.light * yScale);
+                if(i===0) chartCtx.moveTo(cx, cy); else chartCtx.lineTo(cx, cy);
+            });
+            chartCtx.stroke();
+
+            // Plot Dark Moths
+            chartCtx.strokeStyle = '#71717a'; chartCtx.lineWidth = 3;
+            chartCtx.beginPath();
+            history.forEach((h, i) => {
+                let cx = padX + h.gen * xScale;
+                let cy = chartBounds.h - padY - (h.dark * yScale);
+                if(i===0) chartCtx.moveTo(cx, cy); else chartCtx.lineTo(cx, cy);
+            });
+            chartCtx.stroke();
+
+            // Axis labels
+            chartCtx.fillStyle = '#94a3b8'; chartCtx.font = '12px Arial';
+            chartCtx.fillText("Generations", chartBounds.w/2 - 30, chartBounds.h - 5);
+        }
+
+        function animate() {
+            ctx.clearRect(0,0,bounds.w, bounds.h);
+
+            // Timer Logic
+            if(isHunting) {
+                timeLeft -= 1/60; // Assuming 60fps
+                let hud = document.getElementById('timer-hud');
+                hud.innerText = Math.max(0, timeLeft).toFixed(1);
+                
+                if(timeLeft <= 0) {
+                    endGeneration();
+                }
+            }
+
+            // Render active moths
+            moths.forEach(m => {
+                if(m.active) {
+                    if(isHunting) {
+                        m.x += m.vx; m.y += m.vy;
+                        // Bounce off walls
+                        if(m.x < 15 || m.x > bounds.w - 15) m.vx *= -1;
+                        if(m.y < 15 || m.y > bounds.h - 15) m.vy *= -1;
+                    } else {
+                        // Rest on trees, slight drift
+                        m.x += Math.sin(Date.now()*0.001 + m.x) * 0.2;
+                    }
+                    drawMoth(m);
+                }
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        setTimeout(() => { resize(); initMoths(); animate(); }, 100);
+    </script>
+</body>
+</html>

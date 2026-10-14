@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ultimate Equation Constructor - Maple Leaf</title>
+    <style>
+        :root { --main: #059669; --dark: #0f172a; --accent: #2563eb; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: #f8fafc; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--dark); color: white; padding: 12px 30px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .main-container { display: grid; grid-template-columns: 350px 1fr; gap: 20px; padding: 20px; flex: 1; overflow: hidden; }
+        .panel { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); display: flex; flex-direction: column; border: 1px solid #e2e8f0; }
+
+        /* 分子构造器样式 */
+        .builder-box { background: #f1f5f9; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
+        .atom-selector { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 15px; }
+        .atom-btn { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; cursor: pointer; font-weight: bold; font-size: 12px; }
+        .atom-btn:hover { background: var(--main); color: white; }
+        
+        .current-build { background: white; padding: 10px; border-radius: 8px; min-height: 40px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: bold; margin-bottom: 10px; border: 2px dashed var(--main); }
+        .add-btn-group { display: flex; gap: 10px; }
+        .btn-add { flex: 1; padding: 10px; border: none; border-radius: 6px; cursor: pointer; color: white; font-weight: bold; font-size: 12px; }
+
+        /* 方程式轨道 */
+        .equation-track { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 30px; flex-wrap: wrap; background: #fff; padding: 20px; border-radius: 15px; border: 1px solid #eee; }
+        .comp-block { display: flex; align-items: center; gap: 5px; background: #f8fafc; padding: 10px; border-radius: 10px; border: 1px solid #e2e8f0; }
+        .coeff-input { width: 45px; height: 45px; border: 2px solid var(--main); border-radius: 8px; text-align: center; font-size: 1.2rem; font-weight: bold; }
+        .formula-text { font-family: 'Times New Roman', serif; font-weight: bold; font-size: 1.4rem; }
+        .remove-x { color: #ef4444; cursor: pointer; font-weight: bold; font-size: 12px; margin-left: 5px; }
+
+        /* 天平展示 */
+        .balance-stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .plates-container { width: 100%; display: grid; grid-template-columns: 1fr 60px 1fr; gap: 20px; align-items: center; }
+        .plate { min-height: 180px; background: #fff; border: 4px dashed #cbd5e1; border-radius: 20px; padding: 15px; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 4px; position: relative; }
+        .plate.balanced { border-color: var(--main); background: #f0fdf4; }
+        
+        .atom-dot { width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+
+<div class="nav">
+    <a href="unit2.html" style="color:white; text-decoration:none; font-weight:bold;">⬅ Back</a>
+    <h2>Lab 4: Ultimate Equation Constructor</h2>
+    <span>Free Exploration Mode</span>
+</div>
+
+<div class="main-container">
+    <div class="panel">
+        <h3 style="margin-bottom:15px; font-size: 16px;">Step 1: Build Molecule</h3>
+        <div class="builder-box">
+            <div class="atom-selector">
+                <button class="atom-btn" onclick="addToBuild('C')">C</button>
+                <button class="atom-btn" onclick="addToBuild('H')">H</button>
+                <button class="atom-btn" onclick="addToBuild('O')">O</button>
+                <button class="atom-btn" onclick="addToBuild('N')">N</button>
+                <button class="atom-btn" onclick="addToBuild('S')">S</button>
+                <button class="atom-btn" onclick="addToBuild('Cl')">Cl</button>
+                <button class="atom-btn" onclick="addToBuild('Na')">Na</button>
+                <button class="atom-btn" onclick="addToBuild('Mg')">Mg</button>
+            </div>
+            <div id="current-molecule" class="current-build">Ready...</div>
+            <div class="add-btn-group">
+                <button class="btn-add" style="background:#2563eb" onclick="addToEquation('left')">+ Reactant</button>
+                <button class="btn-add" style="background:#db2777" onclick="addToEquation('right')">+ Product</button>
+            </div>
+            <button onclick="clearBuild()" style="width:100%; margin-top:10px; background:none; border:none; color:#64748b; cursor:pointer; font-size:11px;">Clear Builder</button>
+        </div>
+
+        <h3 style="margin-top:20px; font-size:16px;">Step 2: Legend</h3>
+        <div id="legend-box" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; font-size:12px;"></div>
+    </div>
+
+    <div class="panel stage">
+        <div class="equation-track" id="equation-track">
+            </div>
+
+        <div class="balance-stage">
+            <div class="plates-container">
+                <div id="plate-l" class="plate"></div>
+                <div style="font-size: 3rem; text-align: center;">⚖️</div>
+                <div id="plate-r" class="plate"></div>
+            </div>
+            <div id="success" style="display:none; color:var(--main); font-weight:bold; margin-top:20px; font-size:1.4rem;">✨ MASS CONSERVED!</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentBuild = {}; 
+    let reactants = []; 
+    let products = [];
+    const colors = { C:'#333', H:'#fff', O:'#ef4444', N:'#3b82f6', S:'#facc15', Cl:'#22c55e', Na:'#f97316', Mg:'#94a3b8' };
+
+    function addToBuild(atom) {
+        currentBuild[atom] = (currentBuild[atom] || 0) + 1;
+        renderBuild();
+    }
+
+    function renderBuild() {
+        const box = document.getElementById('current-molecule');
+        let html = "";
+        for(let a in currentBuild) html += `${a}<sub>${currentBuild[a]>1?currentBuild[a]:''}</sub>`;
+        box.innerHTML = html || "Click Atoms...";
+    }
+
+    function clearBuild() { currentBuild = {}; renderBuild(); }
+
+    function addToEquation(side) {
+        if(Object.keys(currentBuild).length === 0) return;
+        const formula = document.getElementById('current-molecule').innerText;
+        const entry = { formula, atoms: {...currentBuild} };
+        if(side === 'left') reactants.push(entry); else products.push(entry);
+        clearBuild();
+        renderEquation();
+        updateLegend();
+    }
+
+    function renderEquation() {
+        const track = document.getElementById('equation-track');
+        track.innerHTML = '';
+        
+        reactants.forEach((r, i) => {
+            track.innerHTML += `
+                <div class="comp-block">
+                    <input type="number" class="coeff-input" id="coeff-L-${i}" value="0" min="0" onchange="calculate()">
+                    <span class="formula-text">${r.formula}</span>
+                    <span class="remove-x" onclick="remove('left', ${i})">×</span>
+                </div>
+                ${i < reactants.length - 1 ? '<span>+</span>' : ''}
+            `;
+        });
+
+        track.innerHTML += `<span style="color:#ef4444; font-weight:bold; margin:0 10px;">→</span>`;
+
+        products.forEach((p, i) => {
+            track.innerHTML += `
+                <div class="comp-block">
+                    <input type="number" class="coeff-input" id="coeff-R-${i}" value="0" min="0" onchange="calculate()">
+                    <span class="formula-text">${p.formula}</span>
+                    <span class="remove-x" onclick="remove('right', ${i})">×</span>
+                </div>
+                ${i < products.length - 1 ? '<span>+</span>' : ''}
+            `;
+        });
+        calculate();
+    }
+
+    function remove(side, index) {
+        if(side==='left') reactants.splice(index, 1); else products.splice(index, 1);
+        renderEquation();
+        updateLegend();
+    }
+
+    function calculate() {
+        let leftAtoms = {}, rightAtoms = {};
+        
+        reactants.forEach((r, i) => {
+            const val = parseInt(document.getElementById(`coeff-L-${i}`).value) || 0;
+            for(let a in r.atoms) leftAtoms[a] = (leftAtoms[a] || 0) + (r.atoms[a] * val);
+        });
+
+        products.forEach((p, i) => {
+            const val = parseInt(document.getElementById(`coeff-R-${i}`).value) || 0;
+            for(let a in p.atoms) rightAtoms[a] = (rightAtoms[a] || 0) + (p.atoms[a] * val);
+        });
+
+        drawPlate('plate-l', leftAtoms);
+        drawPlate('plate-r', rightAtoms);
+
+        // Check balance
+        let balanced = true;
+        let hasData = false;
+        const allAtoms = new Set([...Object.keys(leftAtoms), ...Object.keys(rightAtoms)]);
+        allAtoms.forEach(a => {
+            if(leftAtoms[a] > 0) hasData = true;
+            if(leftAtoms[a] !== rightAtoms[a]) balanced = false;
+        });
+
+        const success = document.getElementById('success');
+        if(balanced && hasData) {
+            success.style.display = 'block';
+            document.querySelectorAll('.plate').forEach(p => p.classList.add('balanced'));
+        } else {
+            success.style.display = 'none';
+            document.querySelectorAll('.plate').forEach(p => p.classList.remove('balanced'));
+        }
+    }
+
+    function drawPlate(id, counts) {
+        const p = document.getElementById(id);
+        p.innerHTML = '';
+        for(let a in counts) {
+            for(let i=0; i<counts[a]; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'atom-dot';
+                dot.style.background = colors[a] || '#ccc';
+                p.appendChild(dot);
+            }
+        }
+    }
+
+    function updateLegend() {
+        const box = document.getElementById('legend-box');
+        box.innerHTML = '';
+        let seen = new Set();
+        [...reactants, ...products].forEach(item => Object.keys(item.atoms).forEach(a => seen.add(a)));
+        seen.forEach(a => {
+            box.innerHTML += `<div style="display:flex; align-items:center; gap:5px;">
+                <div class="atom-dot" style="background:${colors[a]}"></div> <span>${a}</span>
+            </div>`;
+        });
+    }
+</script>
+</body>
+</html>

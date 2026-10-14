@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 4.2: Biochemical Kingdom Sort</title>
+    <style>
+        :root { --ml-green: #16a34a; --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --gold: #fbbf24; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--ml-green); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--gold); }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.3s;}
+        .back-link:hover { background: white; color: var(--ml-green); }
+        
+        .workspace { flex: 1; display: grid; grid-template-columns: 350px 1fr 350px; gap: 20px; padding: 20px; box-sizing: border-box; overflow: hidden; }
+        .panel { background: var(--panel); border-radius: 12px; border: 1px solid #334155; padding: 20px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow-y: auto;}
+        
+        h3 { margin: 0; color: var(--gold); border-bottom: 1px dashed #475569; padding-bottom: 10px; font-size: 1.1rem;}
+
+        /* Specimen Tray */
+        .tray-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px;}
+        .spec-btn { background: #0f172a; color: #cbd5e1; border: 2px solid #475569; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 0.9rem; text-align: left; display: flex; justify-content: space-between;}
+        .spec-btn:hover { border-color: var(--gold); color: white;}
+        .spec-btn.active { background: #1e40af; border-color: #3b82f6; color: white;}
+        .spec-btn.solved { background: #064e3b; border-color: #10b981; color: #6ee7b7;}
+
+        /* Microscope View */
+        .microscope-view { background: #000; border-radius: 50%; width: 280px; height: 280px; margin: 10px auto; border: 15px solid #0f172a; position: relative; overflow: hidden; box-shadow: inset 0 0 50px rgba(255,255,255,0.2), 0 10px 20px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;}
+        canvas { display: block; }
+        .stain-overlay { position: absolute; inset: 0; background: transparent; mix-blend-mode: screen; transition: 0.8s; pointer-events: none;}
+        
+        /* Test Buttons */
+        .test-btn { background: #3b82f6; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; text-align: left; display: flex; justify-content: space-between; align-items: center; font-size: 0.95rem;}
+        .test-btn:hover { background: #2563eb; transform: translateX(5px);}
+        .test-btn:disabled { background: #475569; color: #94a3b8; cursor: not-allowed; transform: none;}
+        
+        .result-screen { background: #020617; border: 1px solid #38bdf8; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 0.9rem; color: #38bdf8; min-height: 45px; margin-bottom: 10px; display: flex; align-items: center;}
+        .loading::after { content: ''; animation: dots 1.5s steps(4, end) infinite; }
+        @keyframes dots { 0%, 20% { content: ''; } 40% { content: '.'; } 60% { content: '..'; } 80%, 100% { content: '...'; } }
+
+        /* Kingdom Bins */
+        .bins-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;}
+        .bin-btn { background: #0f172a; color: #cbd5e1; border: 2px solid #475569; padding: 15px 10px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 0.85rem;}
+        .bin-btn:hover { border-color: var(--gold); color: var(--gold); background: #1e293b; transform: translateY(-2px);}
+        .bin-btn:disabled { background: #020617; border-color: #1e293b; color: #334155; cursor: not-allowed; transform: none;}
+        
+        .status-box { padding: 15px; border-radius: 8px; font-weight: bold; text-align: center; display: none; margin-top: auto; font-size: 0.95rem; line-height: 1.4;}
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="unit4.html" class="back-link">⬅ Back to Unit 4</a>
+        <h2 style="margin:0;">Lab 4.2: Biochemical Kingdom Sort</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Biological Sciences</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>1. Specimen Tray</h3>
+            <div class="tray-grid" id="tray-container">
+                </div>
+
+            <h3 style="margin-top: 20px;">2. Electron Microscope</h3>
+            <div class="microscope-view">
+                <canvas id="cellCanvas" width="250" height="250"></canvas>
+                <div class="stain-overlay" id="stain"></div>
+            </div>
+            <div style="text-align: center; font-family: monospace; color: #94a3b8; font-size: 0.9rem;">Magnification: 10,000x</div>
+        </div>
+
+        <div class="panel">
+            <h3>3. Diagnostic Testing</h3>
+            <div style="font-size:0.85rem; color:#94a3b8; margin-bottom: 15px;">Run tests on the selected specimen. You must run all 3 tests before classification.</div>
+
+            <button class="test-btn" id="btn-nuc" onclick="runTest('nuc')" disabled><span>🧬 DAPI Stain (Nucleus)</span> <span>▶</span></button>
+            <div class="result-screen" id="res-nuc">Select a specimen first.</div>
+
+            <button class="test-btn" id="btn-wall" onclick="runTest('wall')" disabled><span>🧪 Cell Wall Reagents</span> <span>▶</span></button>
+            <div class="result-screen" id="res-wall">Select a specimen first.</div>
+
+            <button class="test-btn" id="btn-nut" onclick="runTest('nut')" disabled><span>⚡ Metabolic Assay</span> <span>▶</span></button>
+            <div class="result-screen" id="res-nut">Select a specimen first.</div>
+        </div>
+
+        <div class="panel">
+            <h3>4. Taxonomic Classification</h3>
+            <div style="font-size:0.85rem; color:#cbd5e1;">Assign the specimen to the correct Kingdom.</div>
+            
+            <div class="bins-grid">
+                <button class="bin-btn" id="k-Eubacteria" onclick="submitKingdom('Eubacteria')">Eubacteria</button>
+                <button class="bin-btn" id="k-Archaebacteria" onclick="submitKingdom('Archaebacteria')">Archaebacteria</button>
+                <button class="bin-btn" id="k-Protista" onclick="submitKingdom('Protista')">Protista</button>
+                <button class="bin-btn" id="k-Fungi" onclick="submitKingdom('Fungi')">Fungi</button>
+                <button class="bin-btn" id="k-Plantae" onclick="submitKingdom('Plantae')">Plantae</button>
+                <button class="bin-btn" id="k-Animalia" onclick="submitKingdom('Animalia')">Animalia</button>
+            </div>
+
+            <div class="status-box" id="status"></div>
+
+            <div style="margin-top:auto; font-size:0.8rem; color:#64748b; background:rgba(0,0,0,0.3); padding:15px; border-radius:8px; line-height: 1.5; border-left: 4px solid #38bdf8;">
+                <b>Taxonomy Rules:</b><br>
+                • <b>Prokaryotes</b> (No Nucleus): Eubacteria, Archaebacteria.<br>
+                • <b>Cell Walls</b>: Plants (Cellulose), Fungi (Chitin), Eubacteria (Peptidoglycan). Animals have NO cell wall.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('cellCanvas');
+        const ctx = cvs.getContext('2d');
+
+        // Database of 6 Unknown Specimens
+        const database = [
+            { 
+                id: 'A', kingdom: 'Plantae', solved: false,
+                nuc: 'Positive (True Nucleus)', wall: 'Positive (Cellulose)', nut: 'Autotrophic (Photosynthesis)',
+                draw: () => {
+                    ctx.fillStyle = '#14532d'; ctx.fillRect(40, 40, 170, 170); // Thick Wall
+                    ctx.fillStyle = '#22c55e'; ctx.fillRect(50, 50, 150, 150); // Cytoplasm
+                    ctx.fillStyle = '#86efac'; ctx.fillRect(60, 60, 100, 80); // Large Vacuole
+                    ctx.fillStyle = '#064e3b'; ctx.beginPath(); ctx.ellipse(160, 160, 15, 25, 0, 0, Math.PI*2); ctx.fill(); // Chloroplast
+                    ctx.beginPath(); ctx.ellipse(80, 170, 20, 15, 0, 0, Math.PI*2); ctx.fill(); // Chloroplast
+                    ctx.fillStyle = '#60a5fa'; ctx.beginPath(); ctx.arc(140, 90, 25, 0, Math.PI*2); ctx.fill(); // Nucleus
+                }
+            },
+            { 
+                id: 'B', kingdom: 'Animalia', solved: false,
+                nuc: 'Positive (True Nucleus)', wall: 'Negative (No cell wall)', nut: 'Heterotrophic (Ingestion)',
+                draw: () => {
+                    ctx.fillStyle = '#fecdd3'; ctx.beginPath(); // Flexible membrane
+                    ctx.moveTo(125, 30); ctx.bezierCurveTo(200, 30, 230, 100, 210, 180); ctx.bezierCurveTo(190, 240, 90, 230, 50, 170); ctx.bezierCurveTo(20, 100, 60, 30, 125, 30); ctx.fill();
+                    ctx.strokeStyle = '#fda4af'; ctx.lineWidth = 4; ctx.stroke();
+                    ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.ellipse(150, 100, 10, 20, Math.PI/4, 0, Math.PI*2); ctx.fill(); // Mitochondria
+                    ctx.beginPath(); ctx.ellipse(80, 150, 10, 20, -Math.PI/4, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#60a5fa'; ctx.beginPath(); ctx.arc(125, 125, 30, 0, Math.PI*2); ctx.fill(); // Nucleus
+                }
+            },
+            { 
+                id: 'C', kingdom: 'Eubacteria', solved: false,
+                nuc: 'Negative (Nucleoid region only)', wall: 'Positive (Peptidoglycan)', nut: 'Heterotrophic',
+                draw: () => {
+                    ctx.translate(125, 125); ctx.rotate(Math.PI/4);
+                    ctx.fillStyle = '#1e3a8a'; ctx.beginPath(); ctx.roundRect(-40, -90, 80, 180, 40); ctx.fill(); // Thick capsule
+                    ctx.fillStyle = '#3b82f6'; ctx.beginPath(); ctx.roundRect(-30, -80, 60, 160, 30); ctx.fill(); // Cytoplasm
+                    // Nucleoid (Squiggly DNA)
+                    ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 2; ctx.beginPath();
+                    for(let i=0; i<40; i++) { ctx.lineTo((Math.random()-0.5)*40, (Math.random()-0.5)*100); } ctx.stroke();
+                    ctx.rotate(-Math.PI/4); ctx.translate(-125, -125);
+                }
+            },
+            { 
+                id: 'D', kingdom: 'Fungi', solved: false,
+                nuc: 'Positive (True Nucleus)', wall: 'Positive (Chitin)', nut: 'Heterotrophic (Absorption)',
+                draw: () => {
+                    ctx.fillStyle = '#475569'; ctx.beginPath(); ctx.ellipse(125, 125, 70, 90, 0, 0, Math.PI*2); ctx.fill(); // Chitin Wall
+                    ctx.fillStyle = '#94a3b8'; ctx.beginPath(); ctx.ellipse(125, 125, 60, 80, 0, 0, Math.PI*2); ctx.fill(); // Cytoplasm
+                    ctx.fillStyle = '#e2e8f0'; ctx.beginPath(); ctx.arc(125, 160, 25, 0, Math.PI*2); ctx.fill(); // Vacuole
+                    ctx.fillStyle = '#60a5fa'; ctx.beginPath(); ctx.arc(125, 80, 20, 0, Math.PI*2); ctx.fill(); // Nucleus
+                    // Budding yeast cell
+                    ctx.fillStyle = '#475569'; ctx.beginPath(); ctx.ellipse(160, 50, 30, 35, Math.PI/4, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#94a3b8'; ctx.beginPath(); ctx.ellipse(160, 50, 25, 30, Math.PI/4, 0, Math.PI*2); ctx.fill();
+                }
+            },
+            { 
+                id: 'E', kingdom: 'Protista', solved: false,
+                nuc: 'Positive (True Nucleus)', wall: 'Variable (Pellicle)', nut: 'Mixotrophic',
+                draw: () => {
+                    // Amoeba shape
+                    ctx.fillStyle = '#c4b5fd'; ctx.beginPath();
+                    ctx.moveTo(120, 40); ctx.bezierCurveTo(180, 20, 220, 80, 190, 120); ctx.bezierCurveTo(240, 160, 210, 220, 150, 200); ctx.bezierCurveTo(90, 240, 40, 180, 70, 130); ctx.bezierCurveTo(20, 80, 70, 30, 120, 40);
+                    ctx.fill(); ctx.strokeStyle = '#8b5cf6'; ctx.lineWidth = 3; ctx.stroke();
+                    ctx.fillStyle = '#60a5fa'; ctx.beginPath(); ctx.arc(140, 140, 22, 0, Math.PI*2); ctx.fill(); // Nucleus
+                    ctx.fillStyle = '#10b981'; ctx.beginPath(); ctx.arc(90, 100, 12, 0, Math.PI*2); ctx.fill(); // Food vacuole
+                }
+            },
+            { 
+                id: 'F', kingdom: 'Archaebacteria', solved: false,
+                nuc: 'Negative (Prokaryotic)', wall: 'Positive (Pseudopeptidoglycan)', nut: 'Chemoautotrophic (Extremophile)',
+                draw: () => {
+                    ctx.fillStyle = '#9a3412'; ctx.beginPath(); ctx.arc(125, 125, 60, 0, Math.PI*2); ctx.fill(); // Extreme wall
+                    ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.arc(125, 125, 50, 0, Math.PI*2); ctx.fill(); // Cytoplasm
+                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath();
+                    for(let i=0; i<30; i++) { ctx.lineTo(125 + (Math.random()-0.5)*60, 125 + (Math.random()-0.5)*60); } ctx.stroke();
+                }
+            }
+        ];
+
+        let currentIdx = -1;
+        let testsRun = 0;
+
+        // Initialize UI
+        const trayContainer = document.getElementById('tray-container');
+        database.forEach((spec, idx) => {
+            let btn = document.createElement('button');
+            btn.className = 'spec-btn';
+            btn.id = 'btn-spec-' + idx;
+            btn.innerHTML = `<span>Specimen ${spec.id}</span> <span id="mark-${idx}">?</span>`;
+            btn.onclick = () => loadSpecimen(idx);
+            trayContainer.appendChild(btn);
+        });
+
+        function loadSpecimen(idx) {
+            currentIdx = idx;
+            let spec = database[idx];
+            
+            // Update Tray UI
+            document.querySelectorAll('.spec-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-spec-'+idx).classList.add('active');
+            
+            // Draw Cell
+            ctx.clearRect(0,0,250,250);
+            spec.draw();
+            document.getElementById('stain').style.backgroundColor = 'transparent';
+            
+            // Reset Tests UI
+            testsRun = 0;
+            ['nuc', 'wall', 'nut'].forEach(id => {
+                let resBox = document.getElementById('res-'+id);
+                let btnBtn = document.getElementById('btn-'+id);
+                resBox.innerHTML = 'Ready for analysis.';
+                resBox.style.color = '#94a3b8';
+                
+                // Only allow testing if not already solved
+                btnBtn.disabled = spec.solved;
+                if(spec.solved) {
+                    resBox.innerHTML = `<b>Archived:</b> ${spec[id]}`;
+                    resBox.style.color = '#cbd5e1';
+                }
+            });
+            
+            // Reset Classification UI
+            let status = document.getElementById('status');
+            if(spec.solved) {
+                status.style.display = 'block';
+                status.style.backgroundColor = 'rgba(34, 197, 94, 0.2)';
+                status.style.borderColor = '#22c55e'; status.style.color = '#22c55e';
+                status.innerHTML = `✓ RESOLVED: <b>${spec.kingdom}</b>`;
+                enableBins(false);
+            } else {
+                status.style.display = 'none';
+                enableBins(true);
+            }
+        }
+
+        function enableBins(state) {
+            document.querySelectorAll('.bin-btn').forEach(b => b.disabled = !state);
+        }
+
+        function runTest(type) {
+            if(currentIdx === -1) return;
+            let spec = database[currentIdx];
+            
+            let resBox = document.getElementById('res-' + type);
+            let btn = document.getElementById('btn-' + type);
+            
+            btn.disabled = true;
+            resBox.innerHTML = '<span class="loading">Running assay</span>';
+            resBox.style.color = "#fbbf24";
+
+            setTimeout(() => {
+                resBox.style.color = "#38bdf8";
+                resBox.innerHTML = `<b>Result:</b> ${spec[type]}`;
+                
+                // Visual feedback for DAPI stain
+                if(type === 'nuc' && spec.nuc.includes('Positive')) {
+                    document.getElementById('stain').style.backgroundColor = 'rgba(56, 189, 248, 0.5)';
+                }
+                
+                testsRun++;
+            }, 1000);
+        }
+
+        function submitKingdom(k) {
+            if(currentIdx === -1) return;
+            let spec = database[currentIdx];
+            let status = document.getElementById('status');
+            status.style.display = 'block';
+
+            if(testsRun < 3) {
+                status.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
+                status.style.color = '#ef4444'; status.style.borderColor = '#ef4444';
+                status.innerText = '⚠ INCOMPLETE PROTOCOL: Run all 3 diagnostic tests first.';
+                return;
+            }
+
+            if(k === spec.kingdom) {
+                status.style.backgroundColor = 'rgba(34, 197, 94, 0.2)';
+                status.style.color = '#22c55e'; status.style.borderColor = '#22c55e';
+                status.innerHTML = `✓ IDENTIFICATION SUCCESS: <b>${k}</b>`;
+                
+                spec.solved = true;
+                let btn = document.getElementById('btn-spec-'+currentIdx);
+                btn.classList.add('solved');
+                document.getElementById('mark-'+currentIdx).innerText = '✓';
+                enableBins(false);
+            } else {
+                status.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
+                status.style.color = '#ef4444'; status.style.borderColor = '#ef4444';
+                status.innerHTML = `❌ MISMATCH: Review the cell wall and nucleus data.`;
+            }
+        }
+    </script>
+</body>
+</html>

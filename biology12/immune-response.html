@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 5.2: Immune Response Sandbox</title>
+    <style>
+        :root { --ml-green: #16a34a; --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --gold: #fbbf24; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--ml-green); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--gold); z-index: 10;}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.3s;}
+        .back-link:hover { background: white; color: var(--ml-green);}
+        
+        .workspace { flex: 1; display: grid; grid-template-columns: 380px 1fr; gap: 20px; padding: 20px; box-sizing: border-box; overflow: hidden; }
+        .panel { background: var(--panel); border-radius: 15px; border: 1px solid #334155; padding: 20px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow-y: auto;}
+        
+        h3 { margin: 0; color: var(--gold); border-bottom: 1px dashed #475569; padding-bottom: 10px; font-size: 1.1rem;}
+
+        /* Cell Deployment Buttons */
+        .deploy-grid { display: grid; gap: 10px; }
+        .deploy-btn { background: #020617; border: 2px solid #475569; color: #cbd5e1; padding: 12px; border-radius: 8px; cursor: pointer; text-align: left; transition: 0.2s; display: flex; align-items: center; gap: 10px; font-weight: bold;}
+        .deploy-btn:hover { background: #1e293b; transform: translateX(5px); }
+        .deploy-btn.macrophage { border-color: #a855f7; } .deploy-btn.macrophage:hover { background: rgba(168,85,247,0.2); color: #c084fc;}
+        .deploy-btn.bcell { border-color: #3b82f6; } .deploy-btn.bcell:hover { background: rgba(59,130,246,0.2); color: #60a5fa;}
+        .deploy-btn.tcell { border-color: #f97316; } .deploy-btn.tcell:hover { background: rgba(249,115,22,0.2); color: #fb923c;}
+
+        .action-btn { background: #ef4444; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; font-size: 1rem; text-transform: uppercase; box-shadow: 0 4px 10px rgba(239,68,68,0.3);}
+        .action-btn:hover { background: #dc2626; transform: translateY(-2px);}
+        .btn-reset { background: #475569; box-shadow: none; margin-top: auto;} .btn-reset:hover { background: #334155;}
+
+        /* Battlefield Canvas */
+        .battlefield { background: #450a0a; border-radius: 15px; position: relative; overflow: hidden; box-shadow: inset 0 0 50px rgba(0,0,0,0.8); border: 4px solid #7f1d1d;}
+        canvas { width: 100%; height: 100%; display: block; }
+        
+        .tag { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.8); padding: 5px 12px; border-radius: 6px; font-weight: bold; color: var(--gold); font-size: 0.85rem;}
+        
+        /* Stats HUD */
+        .hud { position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px; border: 1px solid #7f1d1d; font-family: monospace; color: white;}
+        .hud-row { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 5px;}
+        .c-path { color: #ef4444; } .c-mac { color: #c084fc; } .c-b { color: #60a5fa; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="unit5.html" class="back-link">⬅ Back to Unit 5</a>
+        <h2 style="margin:0;">Lab 5.2: The Immune Response Sandbox</h2>
+        <span style="font-size: 0.9rem; opacity: 0.8;">Maple Leaf Biological Sciences</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>1. Pathogen Invasion</h3>
+            <div style="font-size:0.85rem; color:#94a3b8; margin-bottom: 10px;">Trigger a bacterial infection in the tissue.</div>
+            <button class="action-btn" onclick="spawnPathogens(15)">🦠 Trigger Infection Wave</button>
+
+            <h3 style="margin-top: 20px;">2. Deploy Immune Defenses</h3>
+            <div class="deploy-grid">
+                <button class="deploy-btn macrophage" onclick="deployCell('macrophage')">
+                    <span style="font-size:1.5rem;">🟣</span> 
+                    <div>
+                        <div>Macrophage (Innate)</div>
+                        <div style="font-size:0.75rem; font-weight:normal; color:#94a3b8;">Phagocytosis: Engulfs pathogens blindly.</div>
+                    </div>
+                </button>
+                <button class="deploy-btn bcell" onclick="deployCell('bcell')">
+                    <span style="font-size:1.5rem;">🔵</span> 
+                    <div>
+                        <div>B-Cell (Adaptive)</div>
+                        <div style="font-size:0.75rem; font-weight:normal; color:#94a3b8;">Humoral: Fires Y-shaped antibodies to neutralize.</div>
+                    </div>
+                </button>
+                <button class="deploy-btn tcell" onclick="deployCell('tcell')">
+                    <span style="font-size:1.5rem;">🟠</span> 
+                    <div>
+                        <div>Killer T-Cell (Adaptive)</div>
+                        <div style="font-size:0.75rem; font-weight:normal; color:#94a3b8;">Cell-Mediated: Destroys targeted threats swiftly.</div>
+                    </div>
+                </button>
+            </div>
+
+            <button class="action-btn btn-reset" onclick="resetBattlefield()">🔄 Clear Tissue</button>
+
+            <div style="margin-top:10px; font-size:0.8rem; color:#f8fafc; line-height:1.5; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border-left: 4px solid #16a34a;">
+                <b>The Biological Mechanism:</b><br>
+                Observe how Macrophages (purple) are slow but act as the first line of defense. B-Cells (blue) act as artillery, flooding the plasma with antibodies that bind to specific antigens, making them harmless and easy to clear.
+            </div>
+        </div>
+
+        <div class="battlefield" id="canvas-wrapper">
+            <div class="tag">BLOOD STREAM / TISSUE CROSS-SECTION</div>
+            <div class="hud">
+                <div class="hud-row"><span class="c-path">Pathogens:</span> <span id="h-path">0</span></div>
+                <div class="hud-row"><span class="c-mac">Macrophages:</span> <span id="h-mac">0</span></div>
+                <div class="hud-row"><span class="c-b">B/T-Cells:</span> <span id="h-adap">0</span></div>
+            </div>
+            <canvas id="battleCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('battleCanvas');
+        const ctx = cvs.getContext('2d');
+        const wrapper = document.getElementById('canvas-wrapper');
+
+        let bounds = {w:0, h:0};
+        
+        let pathogens = [];
+        let cells = [];
+        let antibodies = [];
+
+        function resize() {
+            bounds.w = wrapper.offsetWidth; bounds.h = wrapper.offsetHeight;
+            cvs.width = bounds.w; cvs.height = bounds.h;
+        }
+        window.addEventListener('resize', resize);
+
+        // --- Spawners ---
+        function spawnPathogens(count) {
+            for(let i=0; i<count; i++) {
+                pathogens.push({
+                    x: Math.random() * (bounds.w - 40) + 20,
+                    y: Math.random() * (bounds.h - 40) + 20,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: (Math.random() - 0.5) * 2,
+                    radius: 8,
+                    active: true,
+                    neutralized: false
+                });
+            }
+            updateHUD();
+        }
+
+        function deployCell(type) {
+            let x = Math.random() * bounds.w;
+            let y = Math.random() * bounds.h;
+            
+            if(type === 'macrophage') {
+                cells.push({ x: x, y: y, type: 'macrophage', radius: 25, vx: 0, vy: 0, target: null });
+            } else if (type === 'bcell') {
+                cells.push({ x: x, y: y, type: 'bcell', radius: 15, cooldown: 0 });
+            } else if (type === 'tcell') {
+                cells.push({ x: x, y: y, type: 'tcell', radius: 12, vx: 0, vy: 0, target: null });
+            }
+            updateHUD();
+        }
+
+        function resetBattlefield() {
+            pathogens = [];
+            cells = [];
+            antibodies = [];
+            updateHUD();
+        }
+
+        function updateHUD() {
+            document.getElementById('h-path').innerText = pathogens.filter(p => p.active).length;
+            document.getElementById('h-mac').innerText = cells.filter(c => c.type === 'macrophage').length;
+            document.getElementById('h-adap').innerText = cells.filter(c => c.type === 'bcell' || c.type === 'tcell').length;
+        }
+
+        // --- Math Helpers ---
+        function getDist(p1, p2) {
+            let dx = p1.x - p2.x; let dy = p1.y - p2.y;
+            return Math.sqrt(dx*dx + dy*dy);
+        }
+
+        function getNearestPathogen(cell, maxRange) {
+            let nearest = null; let minDist = maxRange;
+            pathogens.forEach(p => {
+                if(p.active && !p.neutralized) {
+                    let d = getDist(cell, p);
+                    if(d < minDist) { minDist = d; nearest = p; }
+                }
+            });
+            return nearest;
+        }
+
+        // --- Game Loop ---
+        function updateLogic() {
+            // Pathogen movement
+            pathogens.forEach(p => {
+                if(p.active) {
+                    if(!p.neutralized) {
+                        p.x += p.vx; p.y += p.vy;
+                        if(p.x < 10 || p.x > bounds.w - 10) p.vx *= -1;
+                        if(p.y < 10 || p.y > bounds.h - 10) p.vy *= -1;
+                    } else {
+                        // Slowly drift if neutralized by antibodies
+                        p.x += p.vx * 0.1; p.y += p.vy * 0.1;
+                    }
+                }
+            });
+
+            // Cell logic
+            cells.forEach(c => {
+                if(c.type === 'macrophage') {
+                    // Amoeba movement towards nearest
+                    if(!c.target || !c.target.active) c.target = getNearestPathogen(c, 300);
+                    
+                    if(c.target) {
+                        let dx = c.target.x - c.x; let dy = c.target.y - c.y;
+                        let len = Math.sqrt(dx*dx + dy*dy);
+                        c.vx = (dx/len) * 1.5; c.vy = (dy/len) * 1.5;
+                        c.x += c.vx; c.y += c.vy;
+
+                        // Phagocytosis (Eat)
+                        if(len < c.radius) {
+                            c.target.active = false;
+                            c.target = null;
+                            c.radius += 1; // Grow slightly after eating
+                            updateHUD();
+                        }
+                    } else {
+                        // Wander
+                        c.x += (Math.random()-0.5); c.y += (Math.random()-0.5);
+                    }
+                }
+                
+                else if(c.type === 'bcell') {
+                    // Drift slowly
+                    c.x += (Math.random()-0.5)*0.5; c.y += (Math.random()-0.5)*0.5;
+                    
+                    // Fire Antibodies
+                    if(c.cooldown <= 0) {
+                        let target = getNearestPathogen(c, 400);
+                        if(target) {
+                            let dx = target.x - c.x; let dy = target.y - c.y;
+                            let len = Math.sqrt(dx*dx + dy*dy);
+                            antibodies.push({
+                                x: c.x, y: c.y,
+                                vx: (dx/len) * 6, vy: (dy/len) * 6,
+                                active: true, life: 100
+                            });
+                            c.cooldown = 40; // Fire rate
+                        }
+                    } else {
+                        c.cooldown--;
+                    }
+                }
+                
+                else if(c.type === 'tcell') {
+                    // Fast movement, targets neutralized or any pathogen
+                    if(!c.target || !c.target.active) {
+                        // T-Cells prefer finding neutralized (antibody tagged) targets for cleanup
+                        c.target = pathogens.find(p => p.active && p.neutralized) || getNearestPathogen(c, 500);
+                    }
+                    
+                    if(c.target) {
+                        let dx = c.target.x - c.x; let dy = c.target.y - c.y;
+                        let len = Math.sqrt(dx*dx + dy*dy);
+                        c.vx = (dx/len) * 3.5; c.vy = (dy/len) * 3.5; // Very fast
+                        c.x += c.vx; c.y += c.vy;
+
+                        // Destroy
+                        if(len < c.radius + 5) {
+                            c.target.active = false;
+                            c.target = null;
+                            updateHUD();
+                        }
+                    }
+                }
+            });
+
+            // Antibody logic
+            antibodies.forEach(a => {
+                if(a.active) {
+                    a.x += a.vx; a.y += a.vy;
+                    a.life--;
+                    if(a.life <= 0) a.active = false;
+
+                    // Hit detection
+                    pathogens.forEach(p => {
+                        if(p.active && !p.neutralized) {
+                            let d = getDist(a, p);
+                            if(d < p.radius + 5) {
+                                p.neutralized = true; // Neutralized!
+                                a.active = false;
+                            }
+                        }
+                    });
+                }
+            });
+
+            // Cleanup arrays
+            pathogens = pathogens.filter(p => p.active);
+            antibodies = antibodies.filter(a => a.active);
+        }
+
+        // --- Drawing ---
+        function draw() {
+            ctx.clearRect(0,0,bounds.w, bounds.h);
+
+            // Red blood cells in background (aesthetic)
+            ctx.fillStyle = 'rgba(153, 27, 27, 0.4)';
+            for(let i=0; i<20; i++) {
+                ctx.beginPath();
+                ctx.ellipse((Math.sin(Date.now()*0.0001 + i)*200 + bounds.w/2), (Math.cos(Date.now()*0.0002 + i)*150 + bounds.h/2), 30, 20, i, 0, Math.PI*2);
+                ctx.fill();
+            }
+
+            // Pathogens (Bacteria)
+            pathogens.forEach(p => {
+                ctx.fillStyle = p.neutralized ? '#a1a1aa' : '#ef4444'; // Turns gray if neutralized
+                ctx.beginPath();
+                // Spiky drawing
+                for(let a=0; a<Math.PI*2; a+=0.5) {
+                    let r = p.radius + (Math.random()*4);
+                    let nx = p.x + Math.cos(a)*r; let ny = p.y + Math.sin(a)*r;
+                    if(a===0) ctx.moveTo(nx,ny); else ctx.lineTo(nx,ny);
+                }
+                ctx.closePath();
+                ctx.fill();
+
+                // Draw stuck antibody if neutralized
+                if(p.neutralized) {
+                    ctx.strokeStyle = '#60a5fa'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(p.x-5, p.y-10); ctx.lineTo(p.x, p.y-5); ctx.lineTo(p.x+5, p.y-10); ctx.moveTo(p.x, p.y-5); ctx.lineTo(p.x, p.y+5); ctx.stroke();
+                }
+            });
+
+            // Antibodies (Y shape)
+            ctx.strokeStyle = '#60a5fa'; ctx.lineWidth = 3;
+            antibodies.forEach(a => {
+                ctx.save(); ctx.translate(a.x, a.y);
+                let angle = Math.atan2(a.vy, a.vx); ctx.rotate(angle);
+                ctx.beginPath(); ctx.moveTo(5, -5); ctx.lineTo(0, 0); ctx.lineTo(5, 5); ctx.moveTo(0, 0); ctx.lineTo(-8, 0); ctx.stroke();
+                ctx.restore();
+            });
+
+            // Cells
+            cells.forEach(c => {
+                if(c.type === 'macrophage') {
+                    ctx.fillStyle = 'rgba(168, 85, 247, 0.7)'; // Purple transparent
+                    ctx.beginPath();
+                    // Amoeba wiggle
+                    for(let a=0; a<Math.PI*2; a+=0.4) {
+                        let r = c.radius + Math.sin(Date.now()*0.005 + a*3)*3;
+                        let nx = c.x + Math.cos(a)*r; let ny = c.y + Math.sin(a)*r;
+                        if(a===0) ctx.moveTo(nx,ny); else ctx.lineTo(nx,ny);
+                    }
+                    ctx.closePath(); ctx.fill();
+                    // Nucleus
+                    ctx.fillStyle = '#7e22ce'; ctx.beginPath(); ctx.arc(c.x, c.y, c.radius/2, 0, Math.PI*2); ctx.fill();
+                } 
+                else if(c.type === 'bcell') {
+                    ctx.fillStyle = '#3b82f6'; ctx.beginPath(); ctx.arc(c.x, c.y, c.radius, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#1e3a8a'; ctx.beginPath(); ctx.arc(c.x, c.y, c.radius*0.6, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.font='10px Arial'; ctx.textAlign='center'; ctx.fillText('B', c.x, c.y+4);
+                }
+                else if(c.type === 'tcell') {
+                    ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.arc(c.x, c.y, c.radius, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#9a3412'; ctx.beginPath(); ctx.arc(c.x, c.y, c.radius*0.6, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.font='10px Arial'; ctx.textAlign='center'; ctx.fillText('T', c.x, c.y+4);
+                }
+            });
+        }
+
+        function loop() {
+            updateLogic();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        setTimeout(() => { resize(); loop(); }, 100);
+    </script>
+</body>
+</html>

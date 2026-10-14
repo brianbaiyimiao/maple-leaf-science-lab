@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 1.2: Hydrocarbon Saturation Analysis</title>
+    <style>
+        :root { --ml-red: #b91c1c; --ml-gold: #fbbf24; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .nav { background: var(--ml-red); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1450px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 450px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow-y: auto;}
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; font-size: 1.2rem;}
+        
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: block; font-weight: bold; color: #475569; margin-bottom: 8px; font-size: 0.95rem; }
+        .control-group select { width: 100%; padding: 10px; border: 2px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 1rem; outline: none;}
+        
+        .btn-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        .btn { flex: 1; background: var(--ml-red); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 1rem;}
+        .btn:hover { background: #991b1b; }
+        .btn-action { background: #16a34a; } .btn-action:hover { background: #15803d; }
+        .btn-reset { background: #64748b; } .btn-reset:hover { background: #475569; }
+
+        /* 数据记录表 */
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;}
+        .data-table th, .data-table td { border: 1px solid #cbd5e1; padding: 8px; }
+        .data-table th { background: #f1f5f9; color: #1e293b; position: sticky; top: 0;}
+        .data-table tr:nth-child(even) { background: #f8fafc; }
+        .table-container { flex: 1; overflow-y: auto; border: 2px solid #cbd5e1; border-radius: 8px; margin-top: 10px; }
+
+        .visual-container { display: flex; flex-direction: column; gap: 15px; }
+        .canvas-box { background: #e2e8f0; border-radius: 12px; border: 4px solid #cbd5e1; overflow: hidden; position: relative; box-shadow: inset 0 0 30px rgba(0,0,0,0.1); height: 100%; min-height: 550px;}
+        canvas { width: 100%; height: 100%; }
+
+        .hint-box { background: #fef2f2; border-left: 4px solid var(--ml-red); padding: 15px; font-size: 0.85rem; color: #7f1d1d; margin-bottom: 15px; line-height: 1.5;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit1.html" class="back-link">⬅ Back to Unit 1 Labs</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 1.2: Hydrocarbon Saturation Analysis</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Chemistry</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Scientific Method Controls</h3>
+            
+            <div class="hint-box">
+                <b>Objective:</b> Use qualitative chemical tests to determine which unknown liquid contains a carbon-carbon double bond (Unsaturated).<br><br>
+                <b>Hypothesis:</b> Unsaturated hydrocarbons will undergo addition/oxidation reactions, causing the colored reagent to lose its color.
+            </div>
+
+            <div class="control-group">
+                <label>Select Reagent to Add:</label>
+                <select id="reagent-sel">
+                    <option value="br2">Bromine Water (Br₂) - Orange</option>
+                    <option value="kmno4">Baeyer's Reagent (KMnO₄) - Purple</option>
+                </select>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-action" onclick="runTest()">🧪 Add 3 Drops</button>
+                <button class="btn btn-reset" onclick="resetTubes()">🔄 Reset Tubes</button>
+            </div>
+
+            <h3>Data & Observation Log</h3>
+            <div class="table-container">
+                <table class="data-table" id="data-table">
+                    <tr>
+                        <th>Reagent</th>
+                        <th>Unknown A</th>
+                        <th>Unknown B</th>
+                        <th>Inference</th>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box">
+                <canvas id="labCanvas" width="900" height="600"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('labCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        // 初始状态：透明液体
+        const COLOR_CLEAR = 'rgba(255, 255, 255, 0.4)';
+        const COLOR_ORANGE = 'rgba(234, 88, 12, 0.6)'; // Br2
+        const COLOR_PURPLE = 'rgba(168, 85, 247, 0.7)'; // KMnO4
+        const COLOR_BROWN = 'rgba(120, 53, 15, 0.9)'; // MnO2 precipitate
+
+        // 真实身份 (对学生隐藏)
+        // Unknown A: 环己烷 (饱和烷烃) - 不反应
+        // Unknown B: 环己烯 (不饱和烯烃) - 反应褪色
+        
+        let tubeA = { color: COLOR_CLEAR, text: "Clear Liquid", isPpt: false };
+        let tubeB = { color: COLOR_CLEAR, text: "Clear Liquid", isPpt: false };
+        let isAnimating = false;
+        let drops = [];
+
+        function resetTubes() {
+            tubeA = { color: COLOR_CLEAR, text: "Clear Liquid", isPpt: false };
+            tubeB = { color: COLOR_CLEAR, text: "Clear Liquid", isPpt: false };
+            drawScene();
+            // 清空表格
+            let table = document.getElementById('data-table');
+            while(table.rows.length > 1) { table.deleteRow(1); }
+        }
+
+        function runTest() {
+            if(isAnimating) return;
+            
+            let reagent = document.getElementById('reagent-sel').value;
+            let dropColor = reagent === 'br2' ? COLOR_ORANGE : COLOR_PURPLE;
+            
+            // 创建滴落动画
+            drops = [
+                { x: 300, y: 100, color: dropColor, target: 'A' },
+                { x: 600, y: 100, color: dropColor, target: 'B' }
+            ];
+            
+            isAnimating = true;
+            animateDrops(reagent);
+        }
+
+        function animateDrops(reagent) {
+            ctx.clearRect(0,0,cvs.width,cvs.height);
+            drawScene(false); // 绘制静态背景试管
+            
+            let allDone = true;
+            
+            for(let drop of drops) {
+                if(drop.y < 350) {
+                    drop.y += 10;
+                    allDone = false;
+                    // 绘制水滴
+                    ctx.fillStyle = drop.color;
+                    ctx.beginPath(); ctx.arc(drop.x, drop.y, 6, 0, Math.PI*2); ctx.fill();
+                }
+            }
+            
+            if(allDone) {
+                isAnimating = false;
+                processReaction(reagent);
+            } else {
+                requestAnimationFrame(() => animateDrops(reagent));
+            }
+        }
+
+        function processReaction(reagent) {
+            let obsA, obsB, inference;
+
+            if(reagent === 'br2') {
+                // Tube A (饱和): 不反应，保持溴的橙色
+                tubeA.color = COLOR_ORANGE;
+                tubeA.text = "Turns Orange";
+                obsA = "Remains Orange (No Rxn)";
+                
+                // Tube B (不饱和): 加成反应，溴水褪色，保持透明
+                tubeB.color = COLOR_CLEAR;
+                tubeB.text = "Remains Clear";
+                obsB = "Decolorizes (Addition Rxn)";
+                
+                inference = "Tube B contains C=C double bonds.";
+            } 
+            else if(reagent === 'kmno4') {
+                // Tube A (饱和): 不反应，保持高锰酸钾的紫色
+                tubeA.color = COLOR_PURPLE;
+                tubeA.text = "Turns Purple";
+                obsA = "Remains Purple (No Rxn)";
+                
+                // Tube B (不饱和): 氧化反应，产生棕褐色 MnO2 沉淀
+                tubeB.color = COLOR_BROWN;
+                tubeB.text = "Brown Precipitate";
+                tubeB.isPpt = true;
+                obsB = "Brown Precipitate (Oxidation Rxn)";
+                
+                inference = "Tube B is oxidized, confirming unsaturation.";
+            }
+
+            // 记录数据
+            logData(reagent === 'br2' ? "Br₂ (Orange)" : "KMnO₄ (Purple)", obsA, obsB, inference);
+            drawScene();
+        }
+
+        function logData(r, a, b, inf) {
+            let table = document.getElementById('data-table');
+            let row = table.insertRow(-1);
+            row.insertCell(0).innerText = r;
+            row.insertCell(1).innerText = a;
+            row.insertCell(2).innerText = b;
+            row.insertCell(3).innerHTML = `<b>${inf}</b>`;
+        }
+
+        function drawTube(x, y, tubeData, label) {
+            // 试管玻璃
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(x - 40, y);
+            ctx.lineTo(x - 40, y + 250);
+            ctx.arc(x, y + 250, 40, Math.PI, 0, true);
+            ctx.lineTo(x + 40, y);
+            ctx.stroke();
+
+            // 液体
+            ctx.fillStyle = tubeData.color;
+            ctx.beginPath();
+            ctx.moveTo(x - 36, y + 100);
+            ctx.lineTo(x - 36, y + 250);
+            ctx.arc(x, y + 250, 36, Math.PI, 0, true);
+            ctx.lineTo(x + 36, y + 100);
+            ctx.fill();
+
+            // 如果有沉淀
+            if(tubeData.isPpt) {
+                ctx.fillStyle = '#451a03'; // 深棕色沉淀颗粒
+                for(let i=0; i<30; i++) {
+                    ctx.beginPath();
+                    ctx.arc(x - 20 + Math.random()*40, y + 260 + Math.random()*20, 3, 0, Math.PI*2);
+                    ctx.fill();
+                }
+            }
+
+            // 玻璃反光
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.fillRect(x - 25, y + 50, 10, 200);
+
+            // 标签
+            ctx.fillStyle = '#0f172a'; ctx.font = 'bold 24px Arial'; ctx.textAlign = 'center';
+            ctx.fillText(label, x, y + 330);
+            ctx.fillStyle = '#64748b'; ctx.font = '16px Arial';
+            ctx.fillText(tubeData.text, x, y + 360);
+        }
+
+        function drawScene(clear = true) {
+            if(clear) ctx.clearRect(0,0,cvs.width,cvs.height);
+            
+            // 背景黑板辅助说明
+            ctx.fillStyle = '#1e293b'; ctx.fillRect(250, 20, 400, 60);
+            ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 18px Arial'; ctx.textAlign = 'center';
+            ctx.fillText("Qualitative Organic Analysis Bench", 450, 55);
+
+            drawTube(300, 150, tubeA, "Unknown A");
+            drawTube(600, 150, tubeB, "Unknown B");
+        }
+
+        // 初始化
+        drawScene();
+    </script>
+</body>
+</html>

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 5.3: Epidemic & Herd Immunity</title>
+    <style>
+        :root { --ml-green: #16a34a; --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --gold: #fbbf24; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--ml-green); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--gold); z-index: 10;}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.3s;}
+        .back-link:hover { background: white; color: var(--ml-green);}
+        
+        .workspace { flex: 1; display: grid; grid-template-columns: 420px 1fr; gap: 20px; padding: 20px; box-sizing: border-box; overflow: hidden; }
+        .panel { background: var(--panel); border-radius: 15px; border: 1px solid #334155; padding: 20px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow-y: auto;}
+        
+        h3 { margin: 0; color: var(--gold); border-bottom: 1px dashed #475569; padding-bottom: 10px; font-size: 1.1rem;}
+
+        .control-group { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border-left: 4px solid #38bdf8;}
+        .control-group label { display: flex; justify-content: space-between; font-size: 0.95rem; margin-bottom: 10px; color: #f8fafc; font-weight: bold;}
+        input[type="range"] { width: 100%; cursor: pointer; accent-color: #38bdf8;}
+        
+        .btn { background: #ef4444; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; font-size: 1.05rem; text-transform: uppercase; box-shadow: 0 4px 10px rgba(239,68,68,0.3);}
+        .btn:hover { background: #dc2626; transform: translateY(-2px);}
+        .btn:disabled { background: #475569; color: #94a3b8; cursor: not-allowed; box-shadow: none; transform: none;}
+        .btn-reset { background: #475569; margin-top: auto; box-shadow: none;} .btn-reset:hover { background: #334155;}
+
+        /* Dashboard */
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 10px;}
+        .dash-card { background: #020617; border: 1px solid #334155; padding: 10px; border-radius: 8px; text-align: center;}
+        .dash-num { font-size: 1.8rem; font-family: monospace; font-weight: bold; margin-top: 5px;}
+        .c-sus { color: #38bdf8; } .c-inf { color: #ef4444; } .c-rec { color: #94a3b8; } .c-vac { color: #22c55e; }
+
+        .canvas-container { background: #e2e8f0; border-radius: 15px; position: relative; overflow: hidden; box-shadow: inset 0 0 30px rgba(0,0,0,0.2); display: flex; flex-direction: column;}
+        .pop-area { flex: 2; background: #0f172a; position: relative;}
+        .chart-area { flex: 1; border-top: 4px solid #334155; background: #020617; padding: 10px;}
+        canvas { width: 100%; height: 100%; display: block; }
+        
+        .tag { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.8); padding: 5px 12px; border-radius: 6px; font-weight: bold; color: var(--gold); font-size: 0.85rem;}
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="unit5.html" class="back-link">⬅ Back to Unit 5</a>
+        <h2 style="margin:0;">Lab 5.3: Epidemic & Herd Immunity Sandbox</h2>
+        <span style="font-size: 0.9rem; opacity: 0.8;">Maple Leaf Biological Sciences</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Epidemiological Parameters</h3>
+            
+            <div class="control-group" style="border-color: #22c55e;">
+                <label><span>Vaccination Rate:</span> <span id="val-vac" class="c-vac">0%</span></label>
+                <input type="range" id="slider-vac" min="0" max="100" step="5" value="0" oninput="updatePop()">
+                <div style="font-size: 0.8rem; color:#94a3b8; margin-top: 5px;">Set the percentage of the population that is artificially immunized before the outbreak.</div>
+            </div>
+
+            <div class="dashboard">
+                <div class="dash-card"><div style="font-size:0.8rem; color:#cbd5e1;">Susceptible</div><div class="dash-num c-sus" id="count-sus">200</div></div>
+                <div class="dash-card"><div style="font-size:0.8rem; color:#cbd5e1;">Infected</div><div class="dash-num c-inf" id="count-inf">0</div></div>
+                <div class="dash-card"><div style="font-size:0.8rem; color:#cbd5e1;">Recovered/Dead</div><div class="dash-num c-rec" id="count-rec">0</div></div>
+                <div class="dash-card" style="border-color:#22c55e;"><div style="font-size:0.8rem; color:#cbd5e1;">Vaccinated</div><div class="dash-num c-vac" id="count-vac">0</div></div>
+            </div>
+
+            <button class="btn" id="btn-infect" onclick="startEpidemic()">🦠 Introduce Pathogen (Patient Zero)</button>
+            <button class="btn btn-reset" onclick="resetSim()">🔄 Reset Population</button>
+
+            <div style="margin-top:10px; font-size:0.8rem; color:#38bdf8; line-height:1.5; background: rgba(56,189,248,0.1); padding: 15px; border-radius: 8px;">
+                <b>Herd Immunity Threshold:</b> When a critical portion of a community becomes immune to a disease, making the spread of disease from person to person unlikely. Observe how high the vaccination rate must be to protect the unvaccinated individuals (blue).
+            </div>
+        </div>
+
+        <div class="canvas-container" id="canvas-wrapper">
+            <div class="pop-area">
+                <div class="tag">POPULATION DYNAMICS (N=200)</div>
+                <canvas id="popCanvas"></canvas>
+            </div>
+            <div class="chart-area">
+                <div class="tag" style="top:5px; left:10px; background:transparent;">REAL-TIME SIR CURVE</div>
+                <canvas id="chartCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const popCvs = document.getElementById('popCanvas');
+        const popCtx = popCvs.getContext('2d');
+        const chartCvs = document.getElementById('chartCanvas');
+        const chartCtx = chartCvs.getContext('2d');
+        
+        let bounds = { popW: 0, popH: 0, chartW: 0, chartH: 0 };
+        
+        const totalPop = 200;
+        let particles = [];
+        let isRunning = false;
+        let history = []; 
+        let chartTimer = 0;
+
+        const R = 4; 
+        const SPEED = 2.5; 
+        const RECOVERY_TIME = 250; 
+        const INFECTION_RADIUS_SQ = 144; // 12 squared
+
+        // States: 0=Susceptible(Blue), 1=Infected(Red), 2=Recovered(Gray), 3=Vaccinated(Green)
+        const colors = ['#38bdf8', '#ef4444', '#64748b', '#22c55e'];
+
+        function resize() {
+            bounds.popW = document.querySelector('.pop-area').offsetWidth;
+            bounds.popH = document.querySelector('.pop-area').offsetHeight;
+            popCvs.width = bounds.popW; popCvs.height = bounds.popH;
+
+            bounds.chartW = document.querySelector('.chart-area').offsetWidth;
+            bounds.chartH = document.querySelector('.chart-area').offsetHeight;
+            chartCvs.width = bounds.chartW; chartCvs.height = bounds.chartH;
+            
+            if(!isRunning && particles.length === 0) updatePop();
+            else { drawPop(); drawChart(); }
+        }
+        window.addEventListener('resize', resize);
+
+        function updatePop() {
+            if(isRunning) return; 
+            
+            let vacRate = parseInt(document.getElementById('slider-vac').value);
+            document.getElementById('val-vac').innerText = vacRate + '%';
+            
+            let numVac = Math.floor(totalPop * (vacRate / 100));
+            
+            particles = [];
+            for(let i=0; i<totalPop; i++) {
+                particles.push({
+                    x: Math.random() * (bounds.popW - 20) + 10,
+                    y: Math.random() * (bounds.popH - 20) + 10,
+                    vx: (Math.random() - 0.5) * SPEED * 2,
+                    vy: (Math.random() - 0.5) * SPEED * 2,
+                    state: i < numVac ? 3 : 0, 
+                    timer: 0
+                });
+            }
+            updateDashboard();
+            history = [];
+            drawPop();
+            drawChart();
+        }
+
+        function startEpidemic() {
+            document.getElementById('slider-vac').disabled = true;
+            document.getElementById('btn-infect').disabled = true;
+            
+            let susceptible = particles.find(p => p.state === 0);
+            if(susceptible) susceptible.state = 1; 
+            
+            isRunning = true;
+            history = [];
+            chartTimer = 0;
+            animate();
+        }
+
+        function resetSim() {
+            isRunning = false;
+            document.getElementById('slider-vac').disabled = false;
+            document.getElementById('btn-infect').disabled = false;
+            updatePop();
+        }
+
+        function updateDashboard() {
+            let counts = [0,0,0,0];
+            particles.forEach(p => counts[p.state]++);
+            
+            document.getElementById('count-sus').innerText = counts[0];
+            document.getElementById('count-inf').innerText = counts[1];
+            document.getElementById('count-rec').innerText = counts[2];
+            document.getElementById('count-vac').innerText = counts[3];
+            return counts;
+        }
+
+        // --- Core Physics & FULL Collision Engine ---
+        function updateParticles() {
+            let infectedCount = 0;
+
+            // Step 1: Move all particles
+            particles.forEach(p => {
+                p.x += p.vx; p.y += p.vy;
+                if(p.x < R || p.x > bounds.popW - R) p.vx *= -1;
+                if(p.y < R || p.y > bounds.popH - R) p.vy *= -1;
+            });
+
+            // Step 2: Accurate O(N^2) global collision check for infections
+            for(let i=0; i<particles.length; i++) {
+                let p = particles[i];
+                if(p.state === 1) {
+                    infectedCount++;
+                    p.timer++;
+                    
+                    if(p.timer > RECOVERY_TIME) {
+                        p.state = 2; // Recovered
+                    } else {
+                        // Check EVERY OTHER particle properly
+                        for(let j=0; j<particles.length; j++) {
+                            if(i === j) continue;
+                            let other = particles[j];
+                            
+                            if(other.state === 0) { // If the other is Susceptible
+                                let dx = p.x - other.x; let dy = p.y - other.y;
+                                if(dx*dx + dy*dy < INFECTION_RADIUS_SQ) { 
+                                    other.state = 1; // Accurate infection triggered!
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return infectedCount;
+        }
+
+        // --- Visuals ---
+        function drawPop() {
+            popCtx.clearRect(0,0,bounds.popW, bounds.popH);
+            particles.forEach(p => {
+                popCtx.fillStyle = colors[p.state];
+                popCtx.beginPath();
+                popCtx.arc(p.x, p.y, R, 0, Math.PI*2);
+                popCtx.fill();
+            });
+        }
+
+        function drawChart() {
+            chartCtx.clearRect(0,0,bounds.chartW, bounds.chartH);
+            if(history.length < 2) return;
+
+            let w = bounds.chartW; let h = bounds.chartH;
+            let padX = 10; let padY = 10;
+            let maxPoints = 800; 
+            
+            let xScale = (w - padX*2) / Math.max(history.length, maxPoints);
+            let yScale = (h - padY*2) / totalPop;
+
+            [0, 1, 2, 3].forEach(state => {
+                chartCtx.strokeStyle = colors[state];
+                chartCtx.lineWidth = 3;
+                chartCtx.beginPath();
+                history.forEach((data, i) => {
+                    let cx = padX + i * xScale;
+                    let cy = h - padY - (data[state] * yScale);
+                    if(i===0) chartCtx.moveTo(cx, cy); else chartCtx.lineTo(cx, cy);
+                });
+                chartCtx.stroke();
+            });
+        }
+
+        function animate() {
+            if(!isRunning) return;
+
+            let currentInf = updateParticles();
+            let counts = updateDashboard();
+            
+            chartTimer++;
+            if(chartTimer % 3 === 0) {
+                history.push(counts);
+            }
+
+            drawPop();
+            drawChart();
+
+            if(currentInf === 0) {
+                isRunning = false;
+                document.getElementById('btn-infect').disabled = true; 
+            } else {
+                requestAnimationFrame(animate);
+            }
+        }
+
+        setTimeout(() => { resize(); updatePop(); }, 100);
+    </script>
+</body>
+</html>

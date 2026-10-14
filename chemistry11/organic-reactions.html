@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Organic Reactions Lab</title>
+    <style>
+        :root { --ml-red: #881337; --bg: #f8fafc; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); }
+        .nav { background: var(--ml-red); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s;}
+        .back-link:hover { background: rgba(255,255,255,0.1); }
+        
+        .workspace { max-width: 1000px; margin: 30px auto; display: grid; grid-template-columns: 1fr 1fr; gap: 30px; padding: 0 20px;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .panel h3 { margin-top: 0; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        /* 试管与动画样式 */
+        .lab-bench { display: flex; justify-content: space-around; align-items: flex-end; height: 250px; padding: 20px; background: #e2e8f0; border-radius: 8px; position: relative; border: 3px solid #cbd5e1;}
+        .test-tube-container { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .test-tube { width: 40px; height: 150px; border: 3px solid rgba(255,255,255,0.7); border-top: none; border-radius: 0 0 20px 20px; background: rgba(255,255,255,0.3); position: relative; overflow: hidden; box-shadow: inset 0 0 10px rgba(0,0,0,0.1); }
+        .liquid { position: absolute; bottom: 0; width: 100%; height: 50%; transition: background-color 2s ease; }
+        
+        /* 初始液体颜色：无色 */
+        .liquid.alkane { background: rgba(200, 200, 200, 0.2); }
+        .liquid.alkene { background: rgba(200, 200, 200, 0.2); }
+        
+        .dropper { position: absolute; top: -50px; width: 15px; height: 60px; background: #94a3b8; border-radius: 50px 50px 0 0; display: none; transition: top 0.5s; }
+        .dropper::after { content: ''; position: absolute; bottom: -10px; left: 5px; width: 5px; height: 10px; background: #ea580c; border-radius: 50%; animation: drop 1s infinite; }
+        @keyframes drop { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(30px); opacity: 0; } }
+
+        .btn { background: var(--ml-red); color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-size: 1.1rem; cursor: pointer; font-weight: bold; margin-top: 15px; transition: 0.2s;}
+        .btn:hover { background: #9f1239; }
+        .btn:disabled { background: #94a3b8; cursor: not-allowed; }
+
+        .equation-box { background: #1e293b; color: #38bdf8; padding: 20px; border-radius: 8px; font-family: monospace; font-size: 1.1rem; line-height: 1.6; margin-top: 20px; }
+        .explanation { font-size: 0.95rem; color: #475569; margin-top: 15px; line-height: 1.5; }
+        
+        .light-bulb { width: 50px; height: 50px; background: #fbbf24; border-radius: 50%; position: absolute; top: 10px; right: 10px; display: none; box-shadow: 0 0 30px #fbbf24; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="unit5.html" class="back-link">⬅ Back to Unit 5</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 18: Hydrocarbon Reactions</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Organic Chemistry</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Bromine Water Test (Br₂ in CCl₄)</h3>
+            <p style="font-size:0.9rem; color:#64748b;">Test the reactivity of saturated vs unsaturated hydrocarbons.</p>
+            
+            <div class="lab-bench">
+                <div class="light-bulb" id="uv-light"></div>
+                <div class="test-tube-container">
+                    <div class="dropper" id="dropper-alkane"></div>
+                    <div class="test-tube"><div class="liquid alkane" id="liq-alkane"></div></div>
+                    <strong>Hexane</strong>
+                    <small>Alkane (Single bonds)</small>
+                </div>
+                <div class="test-tube-container">
+                    <div class="dropper" id="dropper-alkene"></div>
+                    <div class="test-tube"><div class="liquid alkene" id="liq-alkene"></div></div>
+                    <strong>Hexene</strong>
+                    <small>Alkene (Double bond)</small>
+                </div>
+            </div>
+
+            <button class="btn" id="btn-add-br2" onclick="addBromine()">Add Bromine (Br₂) Drops</button>
+            <button class="btn" id="btn-add-uv" style="background:#fbbf24; color:#881337; display:none;" onclick="addUVLight()">Expose to UV Light</button>
+            <button class="btn" style="background:#64748b; margin-top:10px;" onclick="resetLab()">Reset Lab</button>
+        </div>
+
+        <div class="panel">
+            <h3>Reaction Analysis</h3>
+            
+            <div class="equation-box" id="eq-output">
+                Waiting for experiment to begin...
+            </div>
+            
+            <div class="explanation" id="exp-output">
+                <b>Instructions:</b><br>
+                Bromine (Br₂) is a brownish-orange liquid. When added to hydrocarbons, a color change (decolorization) indicates a specific type of chemical reaction has occurred.<br><br>
+                Click "Add Bromine" to observe the difference between Alkanes and Alkenes.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let state = 0;
+
+        function addBromine() {
+            if(state !== 0) return;
+            state = 1;
+            
+            document.getElementById('btn-add-br2').disabled = true;
+            document.getElementById('dropper-alkane').style.display = 'block';
+            document.getElementById('dropper-alkene').style.display = 'block';
+            
+            // 下落滴加动画
+            setTimeout(() => {
+                document.getElementById('dropper-alkane').style.top = '10px';
+                document.getElementById('dropper-alkene').style.top = '10px';
+            }, 50);
+
+            // 液体颜色变化逻辑
+            setTimeout(() => {
+                let liqAlkane = document.getElementById('liq-alkane');
+                let liqAlkene = document.getElementById('liq-alkene');
+                
+                // Alkane 变成橙色（无反应）
+                liqAlkane.style.backgroundColor = 'rgba(234, 88, 12, 0.8)'; 
+                
+                // Alkene 瞬间褪色（加成反应）
+                liqAlkene.style.backgroundColor = 'rgba(234, 88, 12, 0.8)';
+                setTimeout(() => { liqAlkene.style.backgroundColor = 'rgba(200, 200, 200, 0.2)'; }, 800);
+
+                // 更新文本
+                document.getElementById('eq-output').innerHTML = 
+                    `<span style="color:#f87171;">Alkane (Hexane):</span> No Reaction.<br>
+                     C₆H₁₄ + Br₂ &rarr; No Reaction (Stays Orange)<br><br>
+                     <span style="color:#4ade80;">Alkene (Hexene):</span> Addition Reaction!<br>
+                     C₆H₁₂ + Br₂ &rarr; C₆H₁₂Br₂ (Colorless)`;
+                
+                document.getElementById('exp-output').innerHTML = 
+                    `<b>Observation:</b> The Bromine water instantly decolorized in the Alkene, but remained orange in the Alkane.<br><br>
+                     <b>Why?</b> Alkenes have a reactive double bond. The pi (&pi;) bond breaks, and Bromine atoms undergo an <b>Addition Reaction</b>, attaching to the carbons. Alkanes only have strong single bonds and are saturated, so they do not react at room temperature.<br><br>
+                     <i>Can we force the Alkane to react?</i>`;
+
+                document.getElementById('btn-add-uv').style.display = 'block';
+                
+                // 隐藏滴管
+                document.getElementById('dropper-alkane').style.display = 'none';
+                document.getElementById('dropper-alkene').style.display = 'none';
+            }, 2000);
+        }
+
+        function addUVLight() {
+            if(state !== 1) return;
+            state = 2;
+            
+            document.getElementById('btn-add-uv').disabled = true;
+            document.getElementById('uv-light').style.display = 'block';
+            
+            // 紫外线照射，烷烃缓慢褪色
+            setTimeout(() => {
+                document.getElementById('liq-alkane').style.backgroundColor = 'rgba(200, 200, 200, 0.2)';
+                
+                document.getElementById('eq-output').innerHTML += 
+                    `<br><br><span style="color:#fbbf24;">With UV Light (Alkane):</span> Substitution Reaction!<br>
+                     C₆H₁₄ + Br₂ <span style="font-size:0.8rem;">(UV)</span>&rarr; C₆H₁₃Br + HBr (Colorless)`;
+                
+                document.getElementById('exp-output').innerHTML = 
+                    `<b>Observation:</b> Under UV light, the Alkane finally decolorized slowly.<br><br>
+                     <b>Why?</b> UV light provides enough energy to break the strong Br-Br bond (Free Radical Substitution). A Bromine atom replaces a Hydrogen atom on the Alkane. This is a <b>Substitution Reaction</b>, which is much slower and requires high energy compared to an addition reaction.`;
+            }, 1500);
+        }
+
+        function resetLab() {
+            state = 0;
+            document.getElementById('liq-alkane').style.backgroundColor = 'rgba(200, 200, 200, 0.2)';
+            document.getElementById('liq-alkene').style.backgroundColor = 'rgba(200, 200, 200, 0.2)';
+            document.getElementById('uv-light').style.display = 'none';
+            document.getElementById('btn-add-br2').disabled = false;
+            document.getElementById('btn-add-uv').style.display = 'none';
+            document.getElementById('btn-add-uv').disabled = false;
+            
+            document.getElementById('eq-output').innerHTML = "Waiting for experiment to begin...";
+            document.getElementById('exp-output').innerHTML = "Click 'Add Bromine' to observe the difference between Alkanes and Alkenes.";
+        }
+    </script>
+</body>
+</html>

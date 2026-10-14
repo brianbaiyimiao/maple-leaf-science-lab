@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High-Performance Mole Converter - Maple Leaf</title>
+    <style>
+        :root { --main: #2563eb; --dark: #0f172a; --bg: #f8fafc; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: var(--bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        
+        .nav { background: var(--dark); color: white; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .back-link { color: white; text-decoration: none; border: 1px solid #475569; padding: 6px 15px; border-radius: 6px; font-size: 13px; }
+
+        .workspace { display: grid; grid-template-columns: 450px 1fr; gap: 20px; padding: 20px; flex: 1; overflow: hidden; }
+        .panel { background: white; border-radius: 20px; padding: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        
+        /* 输入控件 */
+        .input-card { width: 100%; max-width: 380px; text-align: center; }
+        .label { font-weight: 800; color: #94a3b8; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px; }
+        input { width: 100%; padding: 15px; font-size: 2.2rem; border: 3px solid #e2e8f0; border-radius: 15px; text-align: center; margin: 10px 0; outline: none; transition: 0.3s; font-family: 'Consolas', monospace; font-weight: bold; color: var(--dark); }
+        input:focus { border-color: var(--main); box-shadow: 0 0 15px rgba(37, 99, 235, 0.1); }
+        
+        .arrow-icon { font-size: 2.5rem; color: var(--main); margin: 10px 0; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+        /* Canvas 显微镜 */
+        .viewer-container { position: relative; }
+        canvas { border-radius: 50%; border: 12px solid #334155; background: #000; box-shadow: inset 0 0 50px rgba(0,0,0,1), 0 15px 35px rgba(0,0,0,0.2); }
+        .lens-flare { position: absolute; top: 20px; left: 60px; width: 60px; height: 30px; background: rgba(255,255,255,0.1); border-radius: 50%; transform: rotate(-30deg); pointer-events: none; }
+
+        .formula-info { margin-top: 30px; padding: 15px; background: #f1f5f9; border-radius: 12px; font-size: 14px; color: #475569; width: 100%; }
+        .status-badge { margin-top: 15px; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit3.html" class="back-link">⬅ Back</a>
+        <h2 style="margin:0;">Lab 5: Particle Scale Explorer</h2>
+        <span style="font-size: 12px; opacity: 0.8;">N<sub>A</sub> = 6.02214076 &times; 10<sup>23</sup></span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <div class="input-card">
+                <div class="label">Amount of Substance (n)</div>
+                <input type="number" id="moles" value="1.00" step="0.1" min="0" oninput="sync('mol')">
+                <div style="color:#cbd5e1; font-weight:bold;">unit: mol</div>
+                
+                <div class="arrow-icon">↕</div>
+                
+                <div class="label">Number of Particles (N)</div>
+                <input type="text" id="particles" oninput="sync('part')">
+                <div style="color:#cbd5e1; font-weight:bold;">unit: particles</div>
+            </div>
+
+            <div class="formula-info">
+                <b>Conversion Rule:</b><br>
+                Multiply <b>n</b> by Avogadro's constant to get <b>N</b>.
+            </div>
+            
+            <div id="density-tag" class="status-badge" style="background:#e0f2fe; color:#0369a1;">Normal Density</div>
+        </div>
+
+        <div class="panel viewer-container">
+            <div class="label" style="margin-bottom:20px;">Microscopic Real-time View</div>
+            <canvas id="moleCanvas" width="400" height="400"></canvas>
+            <div class="lens-flare"></div>
+            <p style="margin-top:20px; font-size: 13px; color: #94a3b8; text-align: center; max-width: 400px;">
+                <b>Visual Guide:</b> This view simulates a magnified cross-section of the substance. Each particle represents a massive cluster of atoms.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('moleCanvas');
+        const ctx = canvas.getContext('2d');
+        const NA = 6.02214076e23;
+        let particles = [];
+        let currentN = 1.0;
+
+        // 粒子类：模拟微小的震动
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = Math.sqrt(Math.random()) * 185; // 限制在圆内
+                this.x = 200 + Math.cos(angle) * dist;
+                this.y = 200 + Math.sin(angle) * dist;
+                this.size = Math.random() * 3 + 2;
+                this.baseAlpha = Math.random() * 0.5 + 0.3;
+            }
+            draw() {
+                // 增加轻微位移模拟布朗运动
+                const dx = (Math.random() - 0.5) * 0.5;
+                const dy = (Math.random() - 0.5) * 0.5;
+                
+                ctx.beginPath();
+                ctx.arc(this.x + dx, this.y + dy, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(96, 165, 250, ${this.baseAlpha})`;
+                ctx.fill();
+            }
+        }
+
+        function sync(source) {
+            const mInput = document.getElementById('moles');
+            const pInput = document.getElementById('particles');
+            const tag = document.getElementById('density-tag');
+
+            if(source === 'mol') {
+                currentN = parseFloat(mInput.value) || 0;
+                pInput.value = (currentN * NA).toExponential(3);
+            } else {
+                const N_val = parseFloat(pInput.value) || 0;
+                currentN = N_val / NA;
+                mInput.value = currentN.toFixed(3);
+            }
+
+            // 更新状态标签
+            if(currentN < 0.5) {
+                tag.style.background = "#f0fdf4"; tag.style.color = "#166534"; tag.innerText = "Dilute System";
+            } else if(currentN > 5) {
+                tag.style.background = "#fef2f2"; tag.style.color = "#991b1b"; tag.innerText = "Saturated / High Density";
+            } else {
+                tag.style.background = "#e0f2fe"; tag.style.color = "#0369a1"; tag.innerText = "Normal Density";
+            }
+
+            initParticles();
+        }
+
+        function initParticles() {
+            particles = [];
+            // 密度计算：根据 n 动态决定粒子数
+            // 1 mol 对应约 150 个视觉点，带平方根增长避免溢出
+            const displayCount = Math.min(Math.floor(150 * Math.sqrt(currentN + 0.01)), 2000);
+            for(let i = 0; i < displayCount; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制背景
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(200, 200, 200, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 绘制粒子
+            particles.forEach(p => p.draw());
+
+            requestAnimationFrame(animate);
+        }
+
+        // 首次初始化
+        sync('mol');
+        animate();
+    </script>
+</body>
+</html>

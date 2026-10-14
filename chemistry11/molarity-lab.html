@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fixed Layout Molarity Lab - Maple Leaf</title>
+    <style>
+        :root { --main: #7c3aed; --dark: #0f172a; --panel-bg: #f8fafc; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: #e2e8f0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        
+        .nav { background: var(--dark); color: white; padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; z-index: 100; }
+        .back-link { color: white; text-decoration: none; border: 1px solid #475569; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: bold; }
+
+        .workspace { display: grid; grid-template-columns: 400px 1fr; gap: 15px; padding: 15px; flex: 1; overflow: hidden; }
+        
+        /* 左侧面板重构 */
+        .panel-left { background: white; border-radius: 20px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #cbd5e1; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        
+        /* 1. 顶部：溶质列表（限制高度并允许滚动） */
+        .section-reagents { height: 40%; display: flex; flex-direction: column; border-bottom: 2px solid #f1f5f9; }
+        .section-header { padding: 15px 20px 5px; font-size: 14px; font-weight: bold; color: var(--dark); }
+        .solute-list { flex: 1; overflow-y: auto; padding: 0 15px 15px; }
+        .solute-item { padding: 10px; border: 1px solid #f1f5f9; border-radius: 8px; margin-bottom: 5px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+        .solute-item:hover { background: #f5f3ff; }
+        .solute-item.active { background: var(--main); color: white; border-color: var(--main); }
+
+        /* 2. 中部：滑块参数区（固定高度） */
+        .section-controls { padding: 20px; background: white; }
+        .control-group { background: var(--panel-bg); padding: 12px; border-radius: 12px; margin-bottom: 12px; border: 1px solid #eee; }
+        label { display: block; font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; }
+        input[type="range"] { width: 100%; cursor: pointer; accent-color: var(--main); }
+        .val-disp { float: right; color: var(--main); font-weight: bold; font-family: monospace; }
+
+        /* 3. 底部：计算结果区 */
+        .section-result { padding: 0 20px 20px; margin-top: auto; }
+        .console { background: var(--dark); color: #a78bfa; padding: 15px; border-radius: 15px; text-align: center; }
+        .c-formula { font-size: 1.6rem; font-weight: bold; color: white; margin-top: 5px; }
+
+        /* 右侧展示区 */
+        .panel-right { background: white; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle, #ffffff, #f1f5f9); border: 1px solid #cbd5e1; }
+        .beaker-container { width: 260px; height: 380px; border: 8px solid #94a3b8; border-top: none; border-bottom-left-radius: 50px; border-bottom-right-radius: 50px; position: relative; background: rgba(255,255,255,0.4); overflow: hidden; }
+        .solution-fill { position: absolute; bottom: 0; width: 100%; transition: height 0.5s ease, background 0.8s ease, opacity 0.8s ease; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit4.html" class="back-link">⬅ Back to Unit 4</a>
+        <h2 style="margin:0; font-size: 18px;">Lab 8: Professional Molarity Mixer</h2>
+        <span style="font-size: 12px; opacity: 0.8;">Standard C = n / V</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel-left">
+            <div class="section-reagents">
+                <div class="section-header">1. Select Solute</div>
+                <div class="solute-list" id="s-list"></div>
+            </div>
+
+            <div class="section-controls">
+                <div class="section-header" style="padding: 0 0 10px 0;">2. Adjust Parameters</div>
+                <div class="control-group">
+                    <label>Amount (n): <span id="mol-txt" class="val-disp">1.00</span> mol</label>
+                    <input type="range" id="mol-range" min="0.01" max="10.0" step="0.01" value="1.0" oninput="update()">
+                </div>
+
+                <div class="control-group">
+                    <label>Volume (V): <span id="vol-txt" class="val-disp">1.00</span> L</label>
+                    <input type="range" id="vol-range" min="0.05" max="10.0" step="0.01" value="1.0" oninput="update()">
+                </div>
+            </div>
+
+            <div class="section-result">
+                <div class="console">
+                    <div style="font-size: 10px; font-weight:bold;">CONCENTRATION (M)</div>
+                    <div class="c-formula" id="c-res">1.000 mol/L</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-right">
+            <div class="beaker-container">
+                <div id="liquid" class="solution-fill"></div>
+            </div>
+            <div style="margin-top: 20px; text-align: center;">
+                <b id="solute-label" style="color:var(--dark); font-size: 18px;">KMnO4</b><br>
+                <span id="mass-label" style="font-size: 12px; color: #94a3b8;">158.03 g/mol</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SOLUTES = [
+            { name: "KMnO₄", color: "#7e22ce", mw: 158.03 },
+            { name: "CuSO₄", color: "#3b82f6", mw: 159.61 },
+            { name: "K₂Cr₂O₇", color: "#ea580c", mw: 294.18 },
+            { name: "NiCl₂", color: "#16a34a", mw: 129.59 },
+            { name: "FeCl₃", color: "#92400e", mw: 162.20 },
+            { name: "CoCl₂", color: "#be185d", mw: 129.84 },
+            { name: "K₂CrO₄", color: "#eab308", mw: 194.19 },
+            { name: "CuCl₂", color: "#0d9488", mw: 134.45 },
+            { name: "NaCl", color: "#cbd5e1", mw: 58.44 },
+            { name: "NaOH", color: "#f8fafc", mw: 40.00 },
+            { name: "AgNO₃", color: "#fff", mw: 169.87 },
+            { name: "KI", color: "#fff", mw: 166.00 },
+            { name: "Pb(NO₃)₂", color: "#fff", mw: 331.20 },
+            { name: "BaCl₂", color: "#fff", mw: 208.23 },
+            { name: "Cu(NO₃)₂", color: "#1d4ed8", mw: 187.56 },
+            { name: "FeSO₄", color: "#bbf7d0", mw: 151.91 },
+            { name: "MnCl₂", color: "#fecdd3", mw: 125.84 },
+            { name: "K₂SO₄", color: "#fff", mw: 174.26 },
+            { name: "LiCl", color: "#fff", mw: 42.39 },
+            { name: "CaCl₂", color: "#fff", mw: 110.98 }
+        ];
+
+        let selectedIdx = 0;
+
+        function init() {
+            const list = document.getElementById('s-list');
+            SOLUTES.forEach((s, i) => {
+                const div = document.createElement('div');
+                div.className = `solute-item ${i === 0 ? 'active' : ''}`;
+                div.innerHTML = `<span>${s.name}</span> <span style="font-size:10px; opacity:0.6;">${s.mw}</span>`;
+                div.onclick = () => {
+                    selectedIdx = i;
+                    document.querySelectorAll('.solute-item').forEach(el => el.classList.remove('active'));
+                    div.classList.add('active');
+                    update();
+                };
+                list.appendChild(div);
+            });
+            update();
+        }
+
+        function update() {
+            const mol = parseFloat(document.getElementById('mol-range').value);
+            const vol = parseFloat(document.getElementById('vol-range').value);
+            const s = SOLUTES[selectedIdx];
+            
+            const molarity = mol / vol;
+
+            document.getElementById('mol-txt').innerText = mol.toFixed(2);
+            document.getElementById('vol-txt').innerText = vol.toFixed(2);
+            document.getElementById('c-res').innerText = molarity.toFixed(3) + " mol/L";
+            document.getElementById('solute-label').innerText = s.name;
+            document.getElementById('mass-label').innerText = s.mw + " g/mol";
+
+            const fill = document.getElementById('liquid');
+            fill.style.height = (vol * 10) + "%"; // 10L scale
+            fill.style.backgroundColor = s.color;
+            fill.style.opacity = Math.min(0.2 + (molarity * 0.15), 0.95);
+        }
+
+        init();
+    </script>
+</body>
+</html>

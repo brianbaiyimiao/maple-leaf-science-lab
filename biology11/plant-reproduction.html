@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Plant Reproduction Simulator</title>
+    <style>
+        :root { --ml-red: #881337; --ml-green: #16a34a; --bg: #f8fafc; --dark: #0f172a; --diploid: #3b82f6; --haploid: #f59e0b; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-green); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-red);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1250px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 350px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .btn-advance { background: var(--ml-green); color: white; border: none; padding: 15px; border-radius: 8px; font-size: 1.1rem; cursor: pointer; font-weight: bold; transition: 0.2s; margin-bottom: 20px; width: 100%; box-shadow: 0 4px 0 #15803d;}
+        .btn-advance:active { transform: translateY(4px); box-shadow: none; }
+        .btn-advance:hover { background: #15803d; }
+
+        .status-box { padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; transition: 0.3s;}
+        .diploid-bg { background: rgba(59, 130, 246, 0.1); border: 2px solid var(--diploid); color: var(--diploid); }
+        .haploid-bg { background: rgba(245, 158, 11, 0.1); border: 2px solid var(--haploid); color: #d97706; }
+
+        .canvas-container { background: #0f172a; border-radius: 12px; border: 4px solid #cbd5e1; overflow: hidden; position: relative; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 0 30px rgba(0,0,0,0.8); height: 500px; }
+        canvas { width: 100%; height: 100%; }
+
+        .info-box { background: #f0fdf4; border-left: 5px solid var(--ml-green); padding: 15px; border-radius: 0 8px 8px 0; margin-top: auto; font-size: 0.95rem; line-height: 1.6; color: #166534; min-height: 150px;}
+        .legend { display: flex; gap: 15px; margin-bottom: 15px; justify-content: center; font-weight: bold; font-size: 0.9rem;}
+        .leg-item { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit3.html" class="back-link">⬅ Back to Unit 3</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 10: Alternation of Generations</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Biology</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Life Cycle Controller</h3>
+            
+            <button class="btn-advance" onclick="nextStage()">Advance to Next Stage ➡</button>
+
+            <div class="legend">
+                <div class="leg-item"><div class="dot" style="background: var(--diploid);"></div> Diploid (2n)</div>
+                <div class="leg-item"><div class="dot" style="background: var(--haploid);"></div> Haploid (n)</div>
+            </div>
+
+            <div id="ploidy-status" class="status-box diploid-bg">
+                Phase: Diploid Sporophyte (2n)
+            </div>
+
+            <div class="info-box" id="info-box">
+                </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="cycleCanvas" width="800" height="500"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('cycleCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        let stage = 0;
+        let time = 0;
+
+        const stagesData = [
+            {
+                name: "Mature Sporophyte",
+                ploidy: "2n",
+                desc: "<b>1. Mature Sporophyte (2n)</b><br>This is the familiar leafy fern plant. It is diploid (2n), meaning its cells have two sets of chromosomes. It will soon produce spores on the underside of its leaves."
+            },
+            {
+                name: "Meiosis & Spores",
+                ploidy: "n",
+                desc: "<b>2. Meiosis & Spore Release (n)</b><br>In the sporangia, cells undergo <b>Meiosis</b> to halve the chromosome number. Haploid (n) spores are released into the wind. Notice the color change to orange!"
+            },
+            {
+                name: "Gametophyte",
+                ploidy: "n",
+                desc: "<b>3. Gametophyte (Prothallus) (n)</b><br>A spore lands and grows via <i>mitosis</i> into a tiny, heart-shaped plant called a gametophyte. It is entirely haploid (n) and lives independently."
+            },
+            {
+                name: "Gametes Production",
+                ploidy: "n",
+                desc: "<b>4. Gamete Production (n)</b><br>The gametophyte produces eggs and swimming sperm via <i>mitosis</i> (not meiosis, because it is already haploid!). Water is required for the sperm to swim to the egg."
+            },
+            {
+                name: "Fertilization",
+                ploidy: "2n",
+                desc: "<b>5. Fertilization & Zygote (2n)</b><br>The sperm fertilizes the egg, combining their DNA. This creates a diploid (2n) Zygote. We are back in the blue diploid phase!"
+            },
+            {
+                name: "Young Sporophyte",
+                ploidy: "2n",
+                desc: "<b>6. Young Sporophyte (2n)</b><br>The zygote grows via <i>mitosis</i> into a new leafy sporophyte right out of the dying gametophyte. The cycle is complete!"
+            }
+        ];
+
+        function nextStage() {
+            stage = (stage + 1) % 6;
+            updateUI();
+        }
+
+        function updateUI() {
+            let data = stagesData[stage];
+            let statusBox = document.getElementById('ploidy-status');
+            
+            document.getElementById('info-box').innerHTML = data.desc;
+            
+            if(data.ploidy === '2n') {
+                statusBox.className = 'status-box diploid-bg';
+                statusBox.innerText = `Phase: Diploid (2n)`;
+            } else {
+                statusBox.className = 'status-box haploid-bg';
+                statusBox.innerText = `Phase: Haploid (n)`;
+            }
+        }
+
+        // 绘制辅助函数
+        function drawFern(x, y, scale, alpha=1) {
+            ctx.save(); ctx.translate(x, y); ctx.scale(scale, scale); ctx.globalAlpha = alpha;
+            ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(0, 50); ctx.quadraticCurveTo(20, 0, 40, -50); ctx.stroke();
+            ctx.fillStyle = '#16a34a';
+            for(let i=0; i<6; i++) {
+                let py = 30 - i*15; let px = 8 + i*5;
+                ctx.beginPath(); ctx.ellipse(px+10, py, 15, 5, -Math.PI/6, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(px-15, py+10, 15, 5, Math.PI/6, 0, Math.PI*2); ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        function drawHeart(x, y, scale) {
+            ctx.save(); ctx.translate(x, y); ctx.scale(scale, scale);
+            ctx.fillStyle = '#84cc16';
+            ctx.beginPath();
+            ctx.moveTo(0, 15);
+            ctx.bezierCurveTo(20, -15, 40, 15, 0, 40);
+            ctx.bezierCurveTo(-40, 15, -20, -15, 0, 15);
+            ctx.fill();
+            // Rhizoids (roots)
+            ctx.strokeStyle = '#65a30d'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(-10, 50); ctx.moveTo(5, 38); ctx.lineTo(15, 48); ctx.stroke();
+            ctx.restore();
+        }
+
+        function drawCycle() {
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, 800, 500);
+
+            let cx = 400, cy = 250, r = 180;
+
+            // 绘制底部的环形路径 (一半蓝 2n，一半橙 n)
+            ctx.lineWidth = 8;
+            ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI/2, Math.PI*1.5); ctx.strokeStyle = 'rgba(59, 130, 246, 0.3)'; ctx.stroke(); // Left Diploid
+            ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI/2, Math.PI/2); ctx.strokeStyle = 'rgba(245, 158, 11, 0.3)'; ctx.stroke(); // Right Haploid
+
+            // 绘制分界线
+            ctx.setLineDash([5, 5]); ctx.lineWidth = 2; ctx.strokeStyle = '#64748b';
+            ctx.beginPath(); ctx.moveTo(cx, cy - 220); ctx.lineTo(cx, cy + 220); ctx.stroke(); ctx.setLineDash([]);
+            ctx.fillStyle = '#64748b'; ctx.font = '14px Arial'; ctx.textAlign='center';
+            ctx.fillText("MEIOSIS", cx, cy - 230);
+            ctx.fillText("FERTILIZATION", cx, cy + 235);
+
+            // 节点坐标计算
+            const nodes = [
+                {x: cx - r, y: cy}, // 0: Mature Sporophyte
+                {x: cx, y: cy - r}, // 1: Meiosis/Spores
+                {x: cx + r, y: cy}, // 2: Gametophyte
+                {x: cx + r*0.7, y: cy + r*0.7}, // 3: Gametes
+                {x: cx, y: cy + r}, // 4: Fertilization/Zygote
+                {x: cx - r*0.7, y: cy + r*0.7}  // 5: Young Sporophyte
+            ];
+
+            // 绘制所有节点的连接点
+            nodes.forEach((n, i) => {
+                ctx.fillStyle = (i === 0 || i === 4 || i === 5) ? '#3b82f6' : '#f59e0b';
+                ctx.beginPath(); ctx.arc(n.x, n.y, 8, 0, Math.PI*2); ctx.fill();
+            });
+
+            // 高亮当前阶段的环
+            ctx.strokeStyle = (stage === 0 || stage === 4 || stage === 5) ? '#3b82f6' : '#f59e0b';
+            ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.arc(nodes[stage].x, nodes[stage].y, 16 + Math.sin(time*5)*4, 0, Math.PI*2); ctx.stroke();
+
+            // --- 动态绘制中心区域的当前生物形态 ---
+            if(stage === 0) {
+                drawFern(cx, cy+20, 2);
+                ctx.fillStyle = '#3b82f6'; ctx.font='bold 20px Arial'; ctx.fillText("2n", cx-60, cy-50);
+            } 
+            else if(stage === 1) {
+                drawFern(cx, cy+20, 2, 0.3); // faded fern
+                ctx.fillStyle = '#f59e0b';
+                for(let i=0; i<15; i++) {
+                    ctx.beginPath(); ctx.arc(cx + (Math.random()-0.5)*100, cy - 50 + (time*20 + i*15)%150, 4, 0, Math.PI*2); ctx.fill();
+                }
+                ctx.font='bold 20px Arial'; ctx.fillText("n", cx+60, cy-50);
+            }
+            else if(stage === 2) {
+                drawHeart(cx, cy-30, 2.5);
+                ctx.fillStyle = '#f59e0b'; ctx.font='bold 20px Arial'; ctx.fillText("n", cx+60, cy-50);
+            }
+            else if(stage === 3) {
+                drawHeart(cx, cy-30, 2.5);
+                ctx.fillStyle = '#f59e0b';
+                // Egg
+                ctx.beginPath(); ctx.arc(cx, cy-10, 10, 0, Math.PI*2); ctx.fill();
+                // Sperm swimming
+                let sx = cx - 50 + (time*30)%50;
+                ctx.beginPath(); ctx.arc(sx, cy-10, 3, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(sx-3, cy-10); ctx.lineTo(sx-15, cy-10 + Math.sin(time*10)*5); ctx.strokeStyle='#f59e0b'; ctx.lineWidth=2; ctx.stroke();
+            }
+            else if(stage === 4) {
+                // Zygote pulsing
+                ctx.fillStyle = '#3b82f6';
+                ctx.beginPath(); ctx.arc(cx, cy, 30 + Math.sin(time*4)*5, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = 'white'; ctx.font='bold 20px Arial'; ctx.fillText("2n", cx, cy+7);
+            }
+            else if(stage === 5) {
+                drawHeart(cx, cy+20, 1.5); // old gametophyte
+                drawFern(cx, cy+10, 1.2); // new sporophyte growing out
+                ctx.fillStyle = '#3b82f6'; ctx.font='bold 20px Arial'; ctx.fillText("2n", cx-50, cy-30);
+            }
+        }
+
+        function animate() {
+            time += 0.05;
+            drawCycle();
+            requestAnimationFrame(animate);
+        }
+
+        // Init
+        updateUI();
+        animate();
+    </script>
+</body>
+</html>

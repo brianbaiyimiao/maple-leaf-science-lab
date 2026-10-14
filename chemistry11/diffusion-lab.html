@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pro Diffusion Lab</title>
+    <style>
+        :root { --ml-red: #881337; --bg: #f8fafc; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); }
+        .nav { background: var(--ml-red); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; }
+        .workspace { max-width: 1000px; margin: 30px auto; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .selectors { display: flex; justify-content: space-between; margin-bottom: 30px; gap: 20px;}
+        .gas-box { flex: 1; padding: 20px; border-radius: 8px; text-align: center; border: 2px solid #cbd5e1; }
+        .gas-box select { padding: 8px; font-size: 1.1rem; width: 80%; margin-top: 10px; }
+        
+        .tube-container { position: relative; height: 100px; background: #e2e8f0; border-radius: 50px; border: 5px solid #94a3b8; margin: 40px 0; overflow: hidden;}
+        .cloud { position: absolute; height: 100%; top: 0; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 1.2rem; transition: width 3s cubic-bezier(0.25, 0.1, 0.25, 1); }
+        #cloudA { left: 0; background: linear-gradient(90deg, rgba(59,130,246,0.8), rgba(59,130,246,0.2)); width: 0%; border-radius: 45px 0 0 45px; }
+        #cloudB { right: 0; background: linear-gradient(-90deg, rgba(239,68,68,0.8), rgba(239,68,68,0.2)); width: 0%; border-radius: 0 45px 45px 0; }
+        .meet-marker { position: absolute; height: 120px; width: 4px; background: var(--ml-red); top: -10px; display: none; z-index: 10;}
+
+        .btn { background: var(--ml-red); color: white; border: none; padding: 15px 40px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; font-weight: bold; display: block; margin: 0 auto;}
+        .math-box { background: #f1f5f9; padding: 20px; border-radius: 8px; font-size: 1.1rem; margin-top: 30px; border-left: 5px solid var(--ml-red); }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="unit4.html" class="back-link">⬅ Back to Unit 4</a>
+        <h2 style="margin:0;">Lab 16: Graham's Law of Effusion/Diffusion</h2>
+    </div>
+    <div class="workspace">
+        <p style="text-align:center; color:#64748b;">Select two gases to observe their relative diffusion rates in a glass tube.</p>
+        
+        <div class="selectors">
+            <div class="gas-box" style="border-color: #3b82f6;">
+                <h3 style="margin:0; color:#3b82f6;">Gas A (Left)</h3>
+                <select id="gasA">
+                    <option value="2.02">Hydrogen (H₂) - 2.02 g/mol</option>
+                    <option value="4.00">Helium (He) - 4.00 g/mol</option>
+                    <option value="17.03" selected>Ammonia (NH₃) - 17.03 g/mol</option>
+                    <option value="28.01">Nitrogen (N₂) - 28.01 g/mol</option>
+                </select>
+            </div>
+            <div class="gas-box" style="border-color: #ef4444;">
+                <h3 style="margin:0; color:#ef4444;">Gas B (Right)</h3>
+                <select id="gasB">
+                    <option value="32.00">Oxygen (O₂) - 32.00 g/mol</option>
+                    <option value="36.46" selected>Hydrochloric Acid (HCl) - 36.46 g/mol</option>
+                    <option value="44.01">Carbon Dioxide (CO₂) - 44.01 g/mol</option>
+                    <option value="70.90">Chlorine (Cl₂) - 70.90 g/mol</option>
+                </select>
+            </div>
+        </div>
+
+        <button class="btn" onclick="startRace()">Inject Gases & Calculate</button>
+
+        <div class="tube-container">
+            <div id="cloudA" class="cloud">Gas A</div>
+            <div id="cloudB" class="cloud">Gas B</div>
+            <div id="marker" class="meet-marker"></div>
+        </div>
+
+        <div class="math-box" id="calc-output">
+            <em>Calculation results will appear here after injection.</em>
+        </div>
+    </div>
+
+    <script>
+        function startRace() {
+            // Reset UI
+            document.getElementById('cloudA').style.transition = 'none';
+            document.getElementById('cloudB').style.transition = 'none';
+            document.getElementById('cloudA').style.width = '0%';
+            document.getElementById('cloudB').style.width = '0%';
+            document.getElementById('marker').style.display = 'none';
+
+            // Allow reflow
+            setTimeout(() => {
+                let mA = parseFloat(document.getElementById('gasA').value);
+                let mB = parseFloat(document.getElementById('gasB').value);
+                
+                // Graham's Law: RateA / RateB = sqrt(MB / MA)
+                let rateRatio = Math.sqrt(mB / mA); 
+                
+                // Calculate percentage of tube covered
+                let totalParts = 1 + rateRatio;
+                let pctA = (rateRatio / totalParts) * 100;
+                let pctB = (1 / totalParts) * 100;
+
+                // Animate
+                document.getElementById('cloudA').style.transition = 'width 3s cubic-bezier(0.25, 0.1, 0.25, 1)';
+                document.getElementById('cloudB').style.transition = 'width 3s cubic-bezier(0.25, 0.1, 0.25, 1)';
+                document.getElementById('cloudA').style.width = pctA + '%';
+                document.getElementById('cloudB').style.width = pctB + '%';
+
+                // Setup Math Output
+                let nameA = document.getElementById('gasA').options[document.getElementById('gasA').selectedIndex].text.split(' -')[0];
+                let nameB = document.getElementById('gasB').options[document.getElementById('gasB').selectedIndex].text.split(' -')[0];
+                
+                let mathStr = `<b>Graham's Law Equation:</b> <br><br>`;
+                mathStr += `Rate (${nameA}) / Rate (${nameB}) = &radic;( MolarMass (${nameB}) / MolarMass (${nameA}) )<br>`;
+                mathStr += `Ratio = &radic;(${mB} / ${mA})<br>`;
+                mathStr += `Ratio = &radic;(${(mB/mA).toFixed(3)}) = <b>${rateRatio.toFixed(3)}</b><br><br>`;
+                mathStr += `<i>Conclusion: ${nameA} diffuses ${rateRatio.toFixed(3)} times faster than ${nameB}.</i><br>`;
+                mathStr += `Meeting point: ${pctA.toFixed(1)}% from the left.`;
+
+                document.getElementById('calc-output').innerHTML = mathStr;
+
+                // Show Marker
+                setTimeout(() => {
+                    let marker = document.getElementById('marker');
+                    marker.style.left = pctA + '%';
+                    marker.style.display = 'block';
+                }, 3000);
+            }, 50);
+        }
+    </script>
+</body>
+</html>

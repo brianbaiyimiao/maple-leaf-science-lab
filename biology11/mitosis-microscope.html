@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mitosis Virtual Microscope</title>
+    <style>
+        :root { --ml-red: #881337; --ml-purple: #7e22ce; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-red); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.1); }
+        
+        .workspace { flex: 1; max-width: 1250px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 350px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .stage-btn { display: block; width: 100%; padding: 15px; margin-bottom: 10px; border: 2px solid #cbd5e1; background: white; border-radius: 8px; font-weight: bold; font-size: 1.05rem; cursor: pointer; transition: 0.3s; color: #475569; text-align: left; position: relative;}
+        .stage-btn:hover { border-color: var(--ml-purple); background: #faf5ff; }
+        .stage-btn.active { border-color: var(--ml-purple); background: var(--ml-purple); color: white; box-shadow: 0 4px 10px rgba(126, 34, 206, 0.3);}
+        .stage-btn.active::after { content: '👁️ Viewing'; position: absolute; right: 15px; font-size: 0.9rem; }
+
+        .canvas-container { background: #000; border-radius: 12px; border: 8px solid #334155; overflow: hidden; position: relative; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 0 50px rgba(0,0,0,1); height: 500px; }
+        canvas { width: 100%; height: 100%; cursor: crosshair; }
+
+        .info-box { background: #faf5ff; border-left: 5px solid var(--ml-purple); padding: 20px; border-radius: 0 8px 8px 0; margin-top: auto; font-size: 1rem; line-height: 1.6; color: #581c87; }
+        .focus-knob { display: flex; align-items: center; gap: 10px; margin-top: 15px; background: #f1f5f9; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1;}
+        .focus-knob input { flex: 1; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit2.html" class="back-link">⬅ Back to Unit 2</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 7: Virtual Mitosis Microscope</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Biology</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Cell Cycle Stages</h3>
+            
+            <button class="stage-btn active" id="btn-interphase" onclick="setStage('interphase')">1. Interphase</button>
+            <button class="stage-btn" id="btn-prophase" onclick="setStage('prophase')">2. Prophase</button>
+            <button class="stage-btn" id="btn-metaphase" onclick="setStage('metaphase')">3. Metaphase</button>
+            <button class="stage-btn" id="btn-anaphase" onclick="setStage('anaphase')">4. Anaphase</button>
+            <button class="stage-btn" id="btn-telophase" onclick="setStage('telophase')">5. Telophase / Cytokinesis</button>
+
+            <div class="focus-knob">
+                <label style="font-weight: bold; color: #475569; font-size: 0.9rem;">Fine Focus:</label>
+                <input type="range" id="focus-slider" min="0" max="10" value="5" oninput="updateFocus()">
+            </div>
+
+            <div class="info-box" id="info-box">
+                </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="microscopeCanvas" width="800" height="500"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('microscopeCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        let currentStage = 'interphase';
+        let time = 0;
+        let blurAmount = 0; // Simulated focus blur
+
+        const descriptions = {
+            interphase: "<b>Interphase</b><br>The cell is carrying out its normal metabolic functions. The DNA is loosely packed as <b>chromatin</b> (looks like spaghetti). The nucleus is intact, and DNA replication occurs here (S phase).",
+            prophase: "<b>Prophase</b><br>The chromatin condenses into visible, X-shaped <b>chromosomes</b>. The nuclear envelope begins to break down, and centrosomes move to opposite poles to form spindle fibers.",
+            metaphase: "<b>Metaphase</b><br>The chromosomes align perfectly in the middle of the cell at the <b>metaphase plate</b> (equator). Spindle fibers attach to the centromere of each chromosome.",
+            anaphase: "<b>Anaphase</b><br>The sister chromatids are pulled apart by the spindle fibers and move toward opposite poles of the cell. They are now considered individual chromosomes.",
+            telophase: "<b>Telophase & Cytokinesis</b><br>Two new nuclear envelopes form around the separated chromosomes. The chromosomes decondense. A <b>cleavage furrow</b> forms, pinching the cell into two identical daughter cells."
+        };
+
+        function setStage(stage) {
+            currentStage = stage;
+            
+            // 更新按钮样式
+            document.querySelectorAll('.stage-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('btn-' + stage).classList.add('active');
+            
+            // 更新文本
+            document.getElementById('info-box').innerHTML = descriptions[stage];
+        }
+
+        function updateFocus() {
+            let val = parseInt(document.getElementById('focus-slider').value);
+            // 5 是最清晰，偏离 5 越远越模糊
+            blurAmount = Math.abs(val - 5) * 1.5; 
+        }
+
+        // 绘制染色体 (X形)
+        function drawChromosome(x, y, angle, scale) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.scale(scale, scale);
+            ctx.strokeStyle = '#9333ea'; // Purple chromatids
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            // Left chromatid
+            ctx.beginPath(); ctx.moveTo(-10, -20); ctx.lineTo(0, 0); ctx.lineTo(-10, 20); ctx.stroke();
+            // Right chromatid
+            ctx.beginPath(); ctx.moveTo(10, -20); ctx.lineTo(0, 0); ctx.lineTo(10, 20); ctx.stroke();
+            // Centromere
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+        }
+
+        // 绘制被拉开的染色单体 (< 或 > 形)
+        function drawChromatid(x, y, angle, scale) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.scale(scale, scale);
+            ctx.strokeStyle = '#9333ea';
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(-10, -15); ctx.lineTo(0, 0); ctx.lineTo(-10, 15); ctx.stroke();
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+        }
+
+        function drawCell() {
+            let cx = 400, cy = 250;
+
+            // Microscope light background (circular field of view)
+            ctx.fillStyle = '#e2e8f0'; // bright light
+            ctx.fillRect(0, 0, 800, 500);
+
+            // Apply focus blur
+            ctx.filter = `blur(${blurAmount}px)`;
+
+            // --- Draw Cell Base ---
+            ctx.fillStyle = '#fca5a5'; // Cytoplasm
+            ctx.strokeStyle = '#ef4444'; // Membrane
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            
+            if (currentStage === 'telophase') {
+                // Cleavage furrow (peanut shape)
+                let stretch = Math.sin(time*2) * 5; // Slight pulse
+                ctx.arc(cx - 80, cy, 110, Math.PI/2 - 0.5, Math.PI*1.5 + 0.5);
+                ctx.arc(cx + 80, cy, 110, Math.PI*1.5 - 0.5, Math.PI/2 + 0.5);
+                ctx.closePath();
+            } else {
+                ctx.arc(cx, cy, 180 + Math.sin(time)*3, 0, Math.PI*2); // Normal circle with slight wobble
+            }
+            ctx.fill(); ctx.stroke();
+
+            // --- Draw Internal Structures based on Stage ---
+            if (currentStage === 'interphase') {
+                // Nucleus intact
+                ctx.fillStyle = '#d8b4fe';
+                ctx.beginPath(); ctx.arc(cx, cy, 90, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = '#7e22ce'; ctx.lineWidth = 2; ctx.stroke();
+                
+                // Chromatin (Spaghetti)
+                ctx.strokeStyle = '#9333ea'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(cx, cy);
+                for(let i=0; i<80; i++) {
+                    ctx.lineTo(cx + (Math.random()-0.5)*140, cy + (Math.random()-0.5)*140);
+                }
+                ctx.stroke();
+
+                // Centrosomes (together)
+                ctx.fillStyle = '#eab308';
+                ctx.fillRect(cx + 100, cy - 120, 10, 10);
+                ctx.fillRect(cx + 115, cy - 110, 10, 10);
+            } 
+            else if (currentStage === 'prophase') {
+                // Nucleus breaking down (dashed)
+                ctx.strokeStyle = '#7e22ce'; ctx.lineWidth = 2; ctx.setLineDash([10, 10]);
+                ctx.beginPath(); ctx.arc(cx, cy, 90 + Math.sin(time*2)*5, 0, Math.PI*2); ctx.stroke();
+                ctx.setLineDash([]); // reset
+
+                // Chromosomes forming (messy but distinct X's)
+                drawChromosome(cx - 30, cy - 30, time*0.5, 1);
+                drawChromosome(cx + 40, cy - 20, -time*0.3, 1.2);
+                drawChromosome(cx - 20, cy + 40, time*0.8, 0.9);
+                drawChromosome(cx + 30, cy + 30, -time*0.4, 1.1);
+
+                // Centrosomes migrating
+                ctx.fillStyle = '#eab308';
+                ctx.fillRect(cx - 120, cy - 120, 12, 12); // moving top left
+                ctx.fillRect(cx + 120, cy + 120, 12, 12); // moving bottom right
+                
+                // Early spindle fibers
+                ctx.strokeStyle = 'rgba(234, 179, 8, 0.4)'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(cx - 110, cy - 110); ctx.lineTo(cx, cy); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(cx + 110, cy + 110); ctx.lineTo(cx, cy); ctx.stroke();
+            }
+            else if (currentStage === 'metaphase') {
+                // Centrosomes at poles
+                ctx.fillStyle = '#eab308';
+                ctx.fillRect(cx - 150, cy - 6, 12, 12); // Left pole
+                ctx.fillRect(cx + 140, cy - 6, 12, 12); // Right pole
+
+                // Spindle fibers attached to middle
+                ctx.strokeStyle = 'rgba(234, 179, 8, 0.6)'; ctx.lineWidth = 1.5;
+                for(let i=-60; i<=60; i+=40) {
+                    ctx.beginPath(); ctx.moveTo(cx - 140, cy); ctx.lineTo(cx, cy + i); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(cx + 140, cy); ctx.lineTo(cx, cy + i); ctx.stroke();
+                }
+
+                // Chromosomes aligned at equator (Metaphase plate)
+                let wobble = Math.sin(time*5)*2;
+                drawChromosome(cx + wobble, cy - 60, 0, 1);
+                drawChromosome(cx - wobble, cy - 20, 0, 1.2);
+                drawChromosome(cx + wobble, cy + 20, 0, 0.9);
+                drawChromosome(cx - wobble, cy + 60, 0, 1.1);
+                
+                // Equator line indicator (dashed)
+                ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.setLineDash([5, 5]);
+                ctx.beginPath(); ctx.moveTo(cx, cy - 150); ctx.lineTo(cx, cy + 150); ctx.stroke(); ctx.setLineDash([]);
+            }
+            else if (currentStage === 'anaphase') {
+                // Spindle fibers pulling
+                ctx.strokeStyle = 'rgba(234, 179, 8, 0.6)'; ctx.lineWidth = 2;
+                let pullOffset = (time * 20) % 60; // Dynamic pulling effect
+                
+                for(let i=-60; i<=60; i+=40) {
+                    ctx.beginPath(); ctx.moveTo(cx - 140, cy); ctx.lineTo(cx - 30 - pullOffset, cy + i); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(cx + 140, cy); ctx.lineTo(cx + 30 + pullOffset, cy + i); ctx.stroke();
+                }
+
+                // Chromatids being pulled apart (V shapes)
+                drawChromatid(cx - 30 - pullOffset, cy - 60, 0, 1);
+                drawChromatid(cx - 30 - pullOffset, cy - 20, 0, 1.2);
+                drawChromatid(cx - 30 - pullOffset, cy + 20, 0, 0.9);
+                drawChromatid(cx - 30 - pullOffset, cy + 60, 0, 1.1);
+
+                drawChromatid(cx + 30 + pullOffset, cy - 60, Math.PI, 1);
+                drawChromatid(cx + 30 + pullOffset, cy - 20, Math.PI, 1.2);
+                drawChromatid(cx + 30 + pullOffset, cy + 20, Math.PI, 0.9);
+                drawChromatid(cx + 30 + pullOffset, cy + 60, Math.PI, 1.1);
+
+                // Centrosomes
+                ctx.fillStyle = '#eab308';
+                ctx.fillRect(cx - 150, cy - 6, 12, 12);
+                ctx.fillRect(cx + 140, cy - 6, 12, 12);
+            }
+            else if (currentStage === 'telophase') {
+                // Two forming nuclei
+                ctx.fillStyle = '#d8b4fe';
+                ctx.beginPath(); ctx.arc(cx - 80, cy, 60, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(cx + 80, cy, 60, 0, Math.PI*2); ctx.fill();
+                
+                // Dashed nuclear envelopes reforming
+                ctx.strokeStyle = '#7e22ce'; ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
+                ctx.beginPath(); ctx.arc(cx - 80, cy, 60, 0, Math.PI*2); ctx.stroke();
+                ctx.beginPath(); ctx.arc(cx + 80, cy, 60, 0, Math.PI*2); ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Decondensing chromosomes (turning back to spaghetti)
+                ctx.strokeStyle = '#9333ea'; ctx.lineWidth = 1.5;
+                for(let i=0; i<40; i++) {
+                    ctx.beginPath(); ctx.moveTo(cx - 80, cy); ctx.lineTo(cx - 80 + (Math.random()-0.5)*90, cy + (Math.random()-0.5)*90); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(cx + 80, cy); ctx.lineTo(cx + 80 + (Math.random()-0.5)*90, cy + (Math.random()-0.5)*90); ctx.stroke();
+                }
+            }
+
+            // Remove blur for the microscope overlay
+            ctx.filter = 'none';
+
+            // --- Microscope Overlay (Black Vignette) ---
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.rect(0, 0, 800, 500); // Outer box
+            ctx.arc(cx, cy, 240, 0, Math.PI*2, true); // Inner cutout hole (reverse path)
+            ctx.fill();
+
+            // Reticle (Crosshairs)
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(cx, cy - 240); ctx.lineTo(cx, cy + 240); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx - 240, cy); ctx.lineTo(cx + 240, cy); ctx.stroke();
+        }
+
+        function animate() {
+            time += 0.05;
+            drawCell();
+            requestAnimationFrame(animate);
+        }
+
+        // Initialize
+        setStage('interphase');
+        animate();
+    </script>
+</body>
+</html>

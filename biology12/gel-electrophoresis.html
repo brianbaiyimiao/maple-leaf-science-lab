@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 2.1: Advanced Gel Electrophoresis</title>
+    <style>
+        :root { --ml-green: #16a34a; --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --gold: #fbbf24; --disabled: #475569;}
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--ml-green); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--gold); z-index: 10;}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.3s;}
+        .back-link:hover { background: white; color: var(--ml-green);}
+        
+        .workspace { flex: 1; display: grid; grid-template-columns: 420px 1fr; gap: 20px; padding: 20px; box-sizing: border-box; overflow: hidden; }
+        .panel { background: var(--panel); border-radius: 15px; border: 1px solid #334155; padding: 20px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow-y: auto;}
+        
+        h3 { margin: 0; color: var(--gold); border-bottom: 1px dashed #475569; padding-bottom: 10px; font-size: 1.1rem;}
+
+        /* SOP Steps Styling */
+        .step-card { background: #020617; border: 1px solid #334155; padding: 15px; border-radius: 8px; opacity: 0.5; pointer-events: none; transition: 0.3s; position: relative; overflow: hidden;}
+        .step-card.active { opacity: 1; pointer-events: auto; border-color: #38bdf8; box-shadow: 0 4px 15px rgba(56,189,248,0.2);}
+        .step-card.completed { opacity: 0.7; border-color: var(--ml-green); pointer-events: none;}
+        .step-card.completed::after { content: '✓ DONE'; position: absolute; top: 10px; right: 10px; color: var(--ml-green); font-weight: bold; font-size: 0.8rem;}
+
+        .step-title { font-weight: bold; color: #38bdf8; margin-bottom: 8px; font-size: 0.95rem; text-transform: uppercase;}
+        .step-card.completed .step-title { color: var(--ml-green); }
+
+        .btn { background: #3b82f6; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; font-size: 0.9rem;}
+        .btn:hover { background: #2563eb; transform: translateY(-2px);}
+        
+        .pipette-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;}
+        .btn-pipette { background: #64748b; color: white; border: 1px solid #94a3b8; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;}
+        .btn-pipette:hover { background: #475569; }
+        .btn-pipette.loaded { background: var(--ml-green); border-color: #22c55e; pointer-events: none;}
+
+        .btn-power { background: #ef4444; font-size: 1rem;} .btn-power.on { background: var(--ml-green); animation: pulse 1.5s infinite;}
+        .btn-uv { background: #8b5cf6; font-size: 1rem;} .btn-uv:hover { background: #7c3aed;}
+
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.7); } 70% { box-shadow: 0 0 0 10px rgba(34,197,94,0); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }
+
+        /* Report Box */
+        .report-box { background: rgba(251, 191, 36, 0.1); border: 1px solid var(--gold); padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 10px; display: none;}
+        select { padding: 8px; background: #0f172a; color: white; border: 1px solid #475569; border-radius: 4px; outline: none; font-size: 0.9rem;}
+
+        .canvas-container { background: #e2e8f0; border-radius: 15px; position: relative; overflow: hidden; box-shadow: inset 0 0 30px rgba(0,0,0,0.2); transition: background-color 0.5s;}
+        .canvas-container.uv-on { background: #0b021a; }
+        canvas { width: 100%; height: 100%; display: block; }
+        
+        .tag { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.8); padding: 8px 15px; border-radius: 6px; font-weight: bold; color: var(--gold); font-size: 0.85rem;}
+        .timer-hud { position: absolute; top: 15px; right: 15px; background: #020617; border: 2px solid #38bdf8; padding: 10px 15px; border-radius: 8px; font-family: monospace; font-size: 1.2rem; color: #38bdf8; font-weight: bold;}
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="unit2.html" class="back-link">⬅ Back to Unit 2</a>
+        <h2 style="margin:0;">Lab 2.1: Forensic DNA Fingerprinting</h2>
+        <span style="font-size: 0.9rem; opacity: 0.8;">Maple Leaf Biological Sciences</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Standard Operating Procedure</h3>
+            
+            <div class="step-card active" id="step1">
+                <div class="step-title">Step 1: Prepare Buffer</div>
+                <div style="font-size:0.8rem; color:#94a3b8; margin-bottom:10px;">Pour TAE buffer into the electrophoresis chamber to conduct electricity.</div>
+                <button class="btn" onclick="pourBuffer()">💧 Pour TAE Buffer</button>
+            </div>
+
+            <div class="step-card" id="step2">
+                <div class="step-title">Step 2: Micropipette Samples</div>
+                <div style="font-size:0.8rem; color:#94a3b8;">Carefully load digested DNA samples mixed with loading dye into the agarose gel wells.</div>
+                <div class="pipette-grid">
+                    <button class="btn-pipette" id="load-0" onclick="loadWell(0)">Lane 1: DNA Ladder</button>
+                    <button class="btn-pipette" id="load-1" onclick="loadWell(1)">Lane 2: Crime Scene</button>
+                    <button class="btn-pipette" id="load-2" onclick="loadWell(2)">Lane 3: Suspect A</button>
+                    <button class="btn-pipette" id="load-3" onclick="loadWell(3)">Lane 4: Suspect B</button>
+                </div>
+            </div>
+
+            <div class="step-card" id="step3">
+                <div class="step-title">Step 3: Run Electrophoresis</div>
+                <div style="font-size:0.8rem; color:#94a3b8; margin-bottom:10px;">Apply 120V. Negatively charged DNA will migrate towards the positive anode (+). Wait until the dye front reaches the bottom.</div>
+                <button class="btn btn-power" id="btn-power" onclick="togglePower()">⚡ Turn ON Power</button>
+            </div>
+
+            <div class="step-card" id="step4">
+                <div class="step-title">Step 4: UV Analysis</div>
+                <div style="font-size:0.8rem; color:#94a3b8; margin-bottom:10px;">The DNA was stained with Ethidium Bromide. Expose to UV light to visualize the bands.</div>
+                <button class="btn btn-uv" id="btn-uv" onclick="toggleUV()">🔦 Toggle UV Light</button>
+            </div>
+
+            <div class="report-box" id="step5">
+                <div class="step-title" style="color:var(--gold);">Step 5: Forensic Report</div>
+                <div style="font-size:0.85rem; color:#f8fafc;">Based on the banding pattern matching the Crime Scene DNA, who is the culprit?</div>
+                <select id="suspect-select">
+                    <option value="none">-- Select Conclusion --</option>
+                    <option value="A">Suspect A matches</option>
+                    <option value="B">Suspect B matches</option>
+                    <option value="inconclusive">Inconclusive</option>
+                </select>
+                <button class="btn" style="background:var(--gold); color:#020617;" onclick="submitReport()">Submit Verdict</button>
+                <div id="report-feedback" style="font-weight:bold; font-size:0.9rem; text-align:center; margin-top:5px;"></div>
+            </div>
+
+        </div>
+
+        <div class="canvas-container" id="canvas-wrapper">
+            <div class="tag">AGAROSE GEL TANK (Top-Down View)</div>
+            <div class="timer-hud" id="timer-display">00:00</div>
+            <canvas id="gelCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('gelCanvas');
+        const ctx = cvs.getContext('2d');
+        const wrapper = document.getElementById('canvas-wrapper');
+
+        // Scientific Data Setup
+        const lanes = [
+            { id: 'Ladder',  bps: [10000, 8000, 6000, 4000, 3000, 2000, 1000, 500] },
+            { id: 'Scene',   bps: [8000, 4000, 2000, 500] },
+            { id: 'SuspectA',bps: [10000, 6000, 3000, 1000] },
+            { id: 'SuspectB',bps: [8000, 4000, 2000, 500] } // Matches Scene
+        ];
+
+        let bounds = {w:0, h:0};
+        
+        // System States
+        let hasBuffer = false;
+        let loadedWells = [false, false, false, false];
+        let powerOn = false;
+        let uvOn = false;
+        let runTime = 0;
+        const MAX_TIME = 5400; // 1.5 hours in sim time
+
+        function resize() {
+            bounds.w = wrapper.offsetWidth; bounds.h = wrapper.offsetHeight;
+            cvs.width = bounds.w; cvs.height = bounds.h;
+            draw();
+        }
+        window.addEventListener('resize', resize);
+
+        // --- SOP Logic Functions ---
+        function setStep(num) {
+            for(let i=1; i<=4; i++) {
+                let card = document.getElementById('step'+i);
+                if(i < num) card.className = 'step-card completed';
+                else if (i === num) card.className = 'step-card active';
+                else card.className = 'step-card';
+            }
+            if(num === 5) {
+                document.getElementById('step4').className = 'step-card completed';
+                document.getElementById('step5').style.display = 'flex';
+            }
+        }
+
+        function pourBuffer() {
+            hasBuffer = true;
+            setStep(2);
+            draw();
+        }
+
+        function loadWell(idx) {
+            loadedWells[idx] = true;
+            let btn = document.getElementById('load-'+idx);
+            btn.className = 'btn-pipette loaded';
+            btn.innerText = '✓ Loaded';
+            
+            // Check if all loaded
+            if(loadedWells.every(w => w === true)) setStep(3);
+            draw();
+        }
+
+        function togglePower() {
+            powerOn = !powerOn;
+            let btn = document.getElementById('btn-power');
+            if(powerOn) {
+                btn.className = 'btn btn-power on';
+                btn.innerText = '⏸ Turn OFF Power';
+            } else {
+                btn.className = 'btn btn-power';
+                btn.innerText = '⚡ Turn ON Power';
+                if(runTime > MAX_TIME * 0.5) setStep(4); // Unlock UV if ran enough
+            }
+            draw();
+        }
+
+        function toggleUV() {
+            uvOn = !uvOn;
+            wrapper.className = uvOn ? 'canvas-container uv-on' : 'canvas-container';
+            if(uvOn) setStep(5); // Unlock report
+            draw();
+        }
+
+        function submitReport() {
+            let val = document.getElementById('suspect-select').value;
+            let fb = document.getElementById('report-feedback');
+            if(val === 'B') {
+                fb.style.color = '#22c55e';
+                fb.innerText = "Correct! The banding pattern of Suspect B perfectly matches the Crime Scene DNA.";
+            } else if (val === 'none') {
+                fb.innerText = "";
+            } else {
+                fb.style.color = '#ef4444';
+                fb.innerText = "Incorrect. Compare the distance migrated by each band carefully.";
+            }
+        }
+
+        // --- Physics & Math ---
+        function formatTime(ticks) {
+            let totalSecs = Math.floor(ticks / 60);
+            let m = Math.floor(totalSecs / 60).toString().padStart(2, '0');
+            let s = (totalSecs % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function calcMigration(bp, time) {
+            // Logarithmic scale: smaller DNA travels much further
+            let speedFactor = 8000 / Math.log2(bp); 
+            return (time * speedFactor) / 20000; 
+        }
+
+        // --- Canvas Drawing ---
+        function draw() {
+            ctx.clearRect(0,0,bounds.w, bounds.h);
+            let w = bounds.w; let h = bounds.h;
+
+            let gelX = w * 0.15; let gelW = w * 0.7;
+            let gelY = h * 0.15; let gelH = h * 0.7;
+
+            // 1. Draw Chamber Base
+            ctx.fillStyle = uvOn ? '#020617' : '#cbd5e1';
+            ctx.fillRect(gelX-20, gelY-20, gelW+40, gelH+40);
+
+            // 2. Draw Buffer Liquid
+            if(hasBuffer && !uvOn) {
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.2)';
+                ctx.fillRect(gelX-15, gelY-15, gelW+30, gelH+30);
+            }
+
+            // 3. Draw Agarose Gel
+            ctx.fillStyle = uvOn ? 'rgba(30, 41, 59, 0.6)' : 'rgba(255, 255, 255, 0.4)';
+            ctx.fillRect(gelX, gelY, gelW, gelH);
+            ctx.strokeStyle = uvOn ? '#334155' : '#94a3b8';
+            ctx.lineWidth = 2; ctx.strokeRect(gelX, gelY, gelW, gelH);
+
+            // 4. Draw Wells & Lanes
+            let spacing = gelW / 5;
+            let wellY = gelY + 30;
+
+            for(let i=0; i<4; i++) {
+                let wellX = gelX + spacing * (i+1);
+                
+                // Well Box
+                ctx.fillStyle = uvOn ? '#000' : 'rgba(0,0,0,0.1)';
+                ctx.fillRect(wellX - 20, wellY, 40, 15);
+                ctx.strokeStyle = uvOn ? '#475569' : '#64748b'; ctx.strokeRect(wellX - 20, wellY, 40, 15);
+
+                // If loaded, show loading dye in well
+                if(loadedWells[i] && runTime === 0 && !uvOn) {
+                    ctx.fillStyle = 'rgba(59, 130, 246, 0.6)'; // Blue dye
+                    ctx.fillRect(wellX - 18, wellY + 2, 36, 11);
+                }
+
+                // Draw DNA Bands
+                if(loadedWells[i] && runTime > 0) {
+                    // Dye Front (Invisible under UV)
+                    if(!uvOn) {
+                        let dyeDist = (runTime * 15000) / 20000;
+                        if(wellY + 15 + dyeDist < gelY + gelH - 10) {
+                            ctx.fillStyle = 'rgba(147, 51, 234, 0.4)'; // Purple front
+                            ctx.fillRect(wellX - 18, wellY + 15 + dyeDist, 36, 3);
+                        }
+                    }
+
+                    // Actual DNA (Only visible under UV)
+                    if(uvOn) {
+                        lanes[i].bps.forEach(bp => {
+                            let distance = calcMigration(bp, runTime);
+                            let bandY = wellY + 15 + distance;
+                            
+                            if(bandY < gelY + gelH - 10) {
+                                ctx.fillStyle = '#22d3ee'; // Neon Cyan
+                                ctx.shadowBlur = 12; ctx.shadowColor = '#22d3ee';
+                                ctx.globalAlpha = Math.min(1.0, 0.5 + (bp / 10000));
+                                ctx.fillRect(wellX - 16, bandY, 32, 4);
+                                ctx.shadowBlur = 0; ctx.globalAlpha = 1.0;
+
+                                // Marker Labels for Lane 1
+                                if(i === 0 && runTime > 1000) {
+                                    ctx.fillStyle = '#94a3b8'; ctx.font = '10px Arial'; ctx.textAlign = 'right';
+                                    ctx.fillText(`${bp} bp`, wellX - 25, bandY + 4);
+                                }
+                            }
+                        });
+                    }
+                }
+                
+                // Labels
+                ctx.fillStyle = uvOn ? '#475569' : '#1e293b';
+                ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
+                let names = ['Ladder', 'Crime', 'Susp A', 'Susp B'];
+                ctx.fillText(names[i], wellX, gelY - 10);
+            }
+
+            // 5. Draw Electrodes (-) and (+)
+            ctx.fillStyle = '#0f172a'; ctx.fillRect(gelX, gelY - 5, gelW, 5); // Cathode Top
+            ctx.fillStyle = '#ef4444'; ctx.fillRect(gelX, gelY + gelH, gelW, 5); // Anode Bottom
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 14px Arial'; ctx.fillText("(-) Cathode", gelX + gelW/2, gelY - 10);
+            ctx.fillStyle = '#ef4444'; ctx.fillText("(+) Anode", gelX + gelW/2, gelY + gelH + 20);
+
+            // 6. Draw Bubbles if running
+            if(powerOn && hasBuffer && !uvOn) {
+                for(let b=0; b<15; b++) {
+                    ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath();
+                    ctx.arc(gelX + Math.random()*gelW, gelY - 5 - Math.random()*15, Math.random()*2+1, 0, Math.PI*2);
+                    ctx.arc(gelX + Math.random()*gelW, gelY + gelH + 5 + Math.random()*15, Math.random()*2+1, 0, Math.PI*2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        function animate() {
+            if(powerOn) {
+                runTime += 2.5;
+                document.getElementById('timer-display').innerText = formatTime(runTime);
+                if(runTime >= MAX_TIME) {
+                    togglePower(); // Auto shutoff
+                }
+            }
+            draw();
+            requestAnimationFrame(animate);
+        }
+
+        setTimeout(() => { resize(); animate(); }, 100);
+    </script>
+</body>
+</html>

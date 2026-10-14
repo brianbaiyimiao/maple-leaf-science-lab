@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Photosynthesis Chamber</title>
+    <style>
+        :root { --ml-red: #881337; --ml-green: #16a34a; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-green); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-red);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1250px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 350px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .control-group { margin-bottom: 25px; }
+        .control-group label { display: flex; justify-content: space-between; font-weight: bold; color: #475569; margin-bottom: 8px; font-size: 0.95rem; }
+        .control-group input[type="range"] { width: 100%; margin-top: 5px; cursor: pointer; }
+        
+        .color-btns { display: flex; gap: 8px; margin-top: 5px; }
+        .color-btn { flex: 1; padding: 10px; border: 2px solid #cbd5e1; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); transition: 0.2s; }
+        .color-btn[data-color="white"] { background: #f8fafc; color: #334155; text-shadow: none; }
+        .color-btn[data-color="red"] { background: #ef4444; border-color: #ef4444; }
+        .color-btn[data-color="green"] { background: #22c55e; border-color: #22c55e; }
+        .color-btn[data-color="blue"] { background: #3b82f6; border-color: #3b82f6; }
+        .color-btn.active { box-shadow: 0 0 0 4px #0f172a; transform: scale(1.05); }
+
+        .visual-container { display: flex; flex-direction: column; gap: 15px; }
+        .canvas-box { background: #0f172a; border-radius: 12px; border: 4px solid #94a3b8; overflow: hidden; position: relative; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 0 30px rgba(0,0,0,0.8); }
+        canvas { width: 100%; height: 100%; }
+
+        .info-box { background: #f0fdf4; border-left: 5px solid var(--ml-green); padding: 15px; border-radius: 0 8px 8px 0; margin-top: auto; font-size: 0.9rem; line-height: 1.5; color: #166534; }
+        .data-box { background: #1e293b; color: #4ade80; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 1.1rem; text-align: center; font-weight: bold; margin-bottom: 20px;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit3.html" class="back-link">⬅ Back to Unit 3</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 8: Photosynthesis Chamber</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Biology</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Environmental Controls</h3>
+            
+            <div class="data-box">
+                O₂ Production Rate: <span id="rate-val">0</span> bubbles/sec
+            </div>
+
+            <div class="control-group">
+                <label>Light Intensity: <span id="light-val">50%</span></label>
+                <input type="range" id="light-slider" min="0" max="100" value="50" oninput="updateEnv()">
+            </div>
+
+            <div class="control-group">
+                <label>CO₂ Concentration: <span id="co2-val">50%</span></label>
+                <input type="range" id="co2-slider" min="0" max="100" value="50" oninput="updateEnv()">
+            </div>
+
+            <div class="control-group">
+                <label>Light Wavelength (Color):</label>
+                <div class="color-btns">
+                    <button class="color-btn" data-color="white" onclick="setColor('white')">White</button>
+                    <button class="color-btn" data-color="red" onclick="setColor('red')">Red</button>
+                    <button class="color-btn active" data-color="green" onclick="setColor('green')">Green</button>
+                    <button class="color-btn" data-color="blue" onclick="setColor('blue')">Blue</button>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <b>The Photosynthesis Equation:</b><br>
+                6CO₂ + 6H₂O + Light &rarr; C₆H₁₂O₆ (Glucose) + 6O₂<br><br>
+                <b>Light-Dependent Reactions</b> happen in the thylakoid, splitting water and releasing O₂.<br>
+                <b>Calvin Cycle</b> happens in the stroma, using CO₂ to build sugars.
+            </div>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box" style="height: 380px;">
+                <canvas id="chamberCanvas" width="850" height="380"></canvas>
+            </div>
+            
+            <div class="canvas-box" style="height: 150px; background: white; box-shadow: none;">
+                <canvas id="graphCanvas" width="850" height="150"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cCtx = document.getElementById('chamberCanvas').getContext('2d');
+        const gCtx = document.getElementById('graphCanvas').getContext('2d');
+        
+        let lightIntensity = 50;
+        let co2Level = 50;
+        let lightColor = 'green';
+        let currentRate = 0; // Oxygen bubble rate
+        let time = 0;
+        
+        let bubbles = [];
+        let rateHistory = Array(170).fill(0);
+
+        const colorMap = {
+            'white': 'rgba(255, 255, 255, ',
+            'red': 'rgba(239, 68, 68, ',
+            'green': 'rgba(34, 197, 94, ',
+            'blue': 'rgba(56, 130, 246, '
+        };
+
+        // 植物吸收光谱效率 (绿色植物反射绿光，所以绿光效率极低)
+        const efficiencyMap = {
+            'white': 0.8,
+            'red': 1.0,
+            'green': 0.1, // 植物反射绿光
+            'blue': 0.9
+        };
+
+        function setColor(color) {
+            lightColor = color;
+            document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector(`.color-btn[data-color="${color}"]`).classList.add('active');
+            updateEnv();
+        }
+
+        function updateEnv() {
+            lightIntensity = parseInt(document.getElementById('light-slider').value);
+            co2Level = parseInt(document.getElementById('co2-slider').value);
+            
+            document.getElementById('light-val').innerText = lightIntensity + '%';
+            document.getElementById('co2-val').innerText = co2Level + '%';
+
+            // 核心计算公式：速率受光强、CO2 和波长效率共同限制 (Limiting Factors)
+            let limitFactor = Math.min(lightIntensity, co2Level); // 遵循短板效应
+            currentRate = limitFactor * efficiencyMap[lightColor];
+            
+            document.getElementById('rate-val').innerText = (currentRate / 10).toFixed(1);
+        }
+
+        function drawChamber() {
+            cCtx.fillStyle = '#0f172a';
+            cCtx.fillRect(0, 0, 850, 380);
+
+            // 1. Draw Lamp Beam
+            if (lightIntensity > 0) {
+                let alpha = lightIntensity / 100 * 0.4;
+                cCtx.fillStyle = colorMap[lightColor] + alpha + ')';
+                cCtx.beginPath();
+                cCtx.moveTo(425, -20);
+                cCtx.lineTo(250, 380);
+                cCtx.lineTo(600, 380);
+                cCtx.fill();
+            }
+
+            // 2. Draw Beaker
+            cCtx.strokeStyle = '#94a3b8'; cCtx.lineWidth = 4;
+            cCtx.beginPath(); cCtx.moveTo(250, 50); cCtx.lineTo(250, 350); 
+            cCtx.arc(270, 350, 20, Math.PI, Math.PI/2, true);
+            cCtx.lineTo(580, 370);
+            cCtx.arc(580, 350, 20, Math.PI/2, 0, true);
+            cCtx.lineTo(600, 50); cCtx.stroke();
+            
+            // Water in Beaker
+            cCtx.fillStyle = 'rgba(14, 165, 233, 0.3)';
+            cCtx.fillRect(252, 100, 346, 268);
+
+            // 3. Draw Aquatic Plant (Elodea)
+            cCtx.fillStyle = '#166534';
+            cCtx.strokeStyle = '#15803d'; cCtx.lineWidth = 3;
+            // Stem
+            cCtx.beginPath(); cCtx.moveTo(425, 360);
+            for(let i=0; i<6; i++) { cCtx.lineTo(425 + Math.sin(time+i)*10, 360 - i*40); }
+            cCtx.stroke();
+            // Leaves
+            for(let i=1; i<6; i++) {
+                let y = 360 - i*40;
+                let x = 425 + Math.sin(time+i)*10;
+                cCtx.beginPath(); cCtx.ellipse(x-15, y, 20, 6, Math.PI/6, 0, Math.PI*2); cCtx.fill();
+                cCtx.beginPath(); cCtx.ellipse(x+15, y, 20, 6, -Math.PI/6, 0, Math.PI*2); cCtx.fill();
+            }
+
+            // 4. Handle Bubbles (Oxygen)
+            if (Math.random() * 100 < currentRate / 2) {
+                bubbles.push({
+                    x: 400 + Math.random()*50,
+                    y: 150 + Math.random()*150,
+                    size: 2 + Math.random()*3
+                });
+            }
+
+            cCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            for (let i = bubbles.length - 1; i >= 0; i--) {
+                let b = bubbles[i];
+                b.y -= 2; // rise up
+                b.x += Math.sin(b.y / 10); // wiggle
+                
+                cCtx.beginPath(); cCtx.arc(b.x, b.y, b.size, 0, Math.PI*2); cCtx.fill();
+                
+                if (b.y < 100) bubbles.splice(i, 1); // pop at surface
+            }
+        }
+
+        function drawGraph() {
+            rateHistory.push(currentRate);
+            rateHistory.shift();
+
+            gCtx.clearRect(0, 0, 850, 150);
+            
+            // Grid
+            gCtx.strokeStyle = '#e2e8f0'; gCtx.lineWidth = 1;
+            gCtx.beginPath(); gCtx.moveTo(40, 75); gCtx.lineTo(850, 75); gCtx.stroke();
+            gCtx.fillStyle = '#64748b'; gCtx.font = '12px Arial';
+            gCtx.fillText("High", 5, 15); gCtx.fillText("Rate", 5, 80); gCtx.fillText("Low", 10, 145);
+
+            // Line
+            gCtx.strokeStyle = '#22c55e'; gCtx.lineWidth = 3;
+            gCtx.beginPath();
+            for(let i=0; i<rateHistory.length; i++) {
+                let x = 40 + (i * 5); 
+                let y = 150 - (rateHistory[i] / 100 * 140); // Scale to fit
+                if (i === 0) gCtx.moveTo(x, y);
+                else gCtx.lineTo(x, y);
+            }
+            gCtx.stroke();
+            
+            // Fill
+            gCtx.lineTo(850, 150); gCtx.lineTo(40, 150);
+            gCtx.fillStyle = 'rgba(34, 197, 94, 0.2)'; gCtx.fill();
+        }
+
+        function animate() {
+            time += 0.05;
+            drawChamber();
+            drawGraph();
+            requestAnimationFrame(animate);
+        }
+
+        // Initialize
+        setColor('green'); // Start with green (lowest efficiency) to surprise students
+        animate();
+    </script>
+</body>
+</html>

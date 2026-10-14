@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pro Ideal Gas Law</title>
+    <style>
+        :root { --ml-red: #881337; --bg: #f8fafc; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); }
+        .nav { background: var(--ml-red); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; }
+        .workspace { max-width: 1000px; margin: 30px auto; display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .input-row { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+        .input-row label { flex: 1; font-weight: bold; color: #475569; }
+        .input-row input { flex: 1; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; }
+        .input-row select { padding: 10px; border-radius: 6px; }
+        .btn { background: var(--ml-red); color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-size: 1.1rem; cursor: pointer; font-weight: bold; margin-top: 10px;}
+        .math-box { background: #1e293b; color: #38bdf8; padding: 20px; border-radius: 8px; font-family: monospace; font-size: 1.1rem; line-height: 1.6; margin-top: 20px; }
+        /* Visualizer */
+        .cylinder-container { height: 300px; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 20px;}
+        .cylinder { width: 150px; border: 4px solid #64748b; border-top: none; border-radius: 0 0 10px 10px; position: relative; background: #e0f2fe; transition: height 0.5s ease;}
+        .piston { width: 158px; height: 20px; background: #475569; position: absolute; top: -10px; left: -8px; border-radius: 4px; }
+        .piston-rod { width: 10px; height: 100px; background: #94a3b8; position: absolute; top: -110px; left: 70px; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="unit4.html" class="back-link">⬅ Back to Unit 4</a>
+        <h2 style="margin:0;">Lab 15: The Ideal Gas Law Solver</h2>
+    </div>
+    <div class="workspace">
+        <div class="panel">
+            <h3>Variables (PV = nRT)</h3>
+            <p style="font-size: 0.85rem; color: #64748b;">Select the variable to solve for, input the others.</p>
+            <div class="input-row">
+                <label>Solve For:</label>
+                <select id="target" onchange="updateUI()">
+                    <option value="P">Pressure (P)</option><option value="V">Volume (V)</option>
+                    <option value="n">Moles (n)</option><option value="T">Temperature (T)</option>
+                </select>
+            </div>
+            <div class="input-row"><label>Pressure (atm):</label><input type="number" id="v_P" step="0.01"></div>
+            <div class="input-row"><label>Volume (L):</label><input type="number" id="v_V" step="0.01"></div>
+            <div class="input-row"><label>Moles (mol):</label><input type="number" id="v_n" step="0.01"></div>
+            <div class="input-row"><label>Temperature (K):</label><input type="number" id="v_T" step="0.1"></div>
+            
+            <button class="btn" onclick="solve()">Calculate & Show Steps</button>
+        </div>
+        <div class="panel">
+            <h3>Visual & Calculation</h3>
+            <div class="cylinder-container">
+                <div class="cylinder" id="cyl" style="height: 150px;">
+                    <div class="piston-rod"></div><div class="piston"></div>
+                </div>
+            </div>
+            <div class="math-box" id="math-output">Ready to calculate...</div>
+        </div>
+    </div>
+    <script>
+        const R = 0.08206;
+        function updateUI() {
+            let target = document.getElementById('target').value;
+            ['P','V','n','T'].forEach(v => {
+                let input = document.getElementById('v_'+v);
+                if(v === target) { input.value = ''; input.disabled = true; input.style.background = '#e2e8f0'; }
+                else { input.disabled = false; input.style.background = 'white'; }
+            });
+        }
+        function solve() {
+            let target = document.getElementById('target').value;
+            let P = parseFloat(document.getElementById('v_P').value);
+            let V = parseFloat(document.getElementById('v_V').value);
+            let n = parseFloat(document.getElementById('v_n').value);
+            let T = parseFloat(document.getElementById('v_T').value);
+            let out = document.getElementById('math-output');
+            let cyl = document.getElementById('cyl');
+
+            if(target === 'P' && V && n && T) {
+                let res = (n * R * T) / V; document.getElementById('v_P').value = res.toFixed(3);
+                out.innerHTML = `P = (nRT) / V<br>P = (${n} * 0.08206 * ${T}) / ${V}<br><b>P = ${res.toFixed(3)} atm</b>`;
+                cyl.style.height = Math.max(50, Math.min(250, V * 5)) + 'px';
+            } else if(target === 'V' && P && n && T) {
+                let res = (n * R * T) / P; document.getElementById('v_V').value = res.toFixed(3);
+                out.innerHTML = `V = (nRT) / P<br>V = (${n} * 0.08206 * ${T}) / ${P}<br><b>V = ${res.toFixed(3)} L</b>`;
+                cyl.style.height = Math.max(50, Math.min(250, res * 5)) + 'px';
+            } else if(target === 'n' && P && V && T) {
+                let res = (P * V) / (R * T); document.getElementById('v_n').value = res.toFixed(3);
+                out.innerHTML = `n = (PV) / (RT)<br>n = (${P} * ${V}) / (0.08206 * ${T})<br><b>n = ${res.toFixed(3)} mol</b>`;
+            } else if(target === 'T' && P && V && n) {
+                let res = (P * V) / (n * R); document.getElementById('v_T').value = res.toFixed(1);
+                out.innerHTML = `T = (PV) / (nR)<br>T = (${P} * ${V}) / (${n} * 0.08206)<br><b>T = ${res.toFixed(1)} K</b>`;
+            } else {
+                out.innerHTML = "<span style='color:#ef4444;'>Error: Please fill in all 3 required fields.</span>";
+            }
+        }
+        updateUI();
+    </script>
+</body>
+</html>

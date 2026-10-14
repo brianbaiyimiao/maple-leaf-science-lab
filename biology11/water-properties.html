@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Properties of Water Lab</title>
+    <style>
+        :root { --ml-red: #881337; --ml-blue: #0ea5e9; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-red); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.1); }
+        
+        .workspace { flex: 1; max-width: 1200px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 350px 1fr 350px; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: block; font-weight: bold; color: #475569; margin-bottom: 8px; font-size: 0.95rem; }
+        .control-group select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; }
+        
+        .btn { background: var(--ml-blue); color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-size: 1.1rem; cursor: pointer; font-weight: bold; transition: 0.2s; margin-bottom: 10px;}
+        .btn:hover { background: #0284c7; }
+        .btn-reset { background: #64748b; }
+        .btn-reset:hover { background: #475569; }
+
+        .canvas-container { display: flex; justify-content: center; align-items: center; flex: 1; background: #e2e8f0; border-radius: 8px; border: 3px solid #cbd5e1; overflow: hidden; position: relative;}
+        canvas { background: white; width: 100%; height: 100%; }
+
+        .explanation-box { background: #f0f9ff; border-left: 5px solid var(--ml-blue); padding: 15px; border-radius: 0 8px 8px 0; font-size: 0.95rem; line-height: 1.6; color: #0369a1; margin-top: 15px; flex: 1; overflow-y: auto;}
+        
+        .data-box { background: #1e293b; color: #38bdf8; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 1.1rem; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit1.html" class="back-link">⬅ Back to Unit 1</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 1: Properties of Water</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Biology</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Experiment Setup</h3>
+            <div class="control-group">
+                <label>Select Property to Test:</label>
+                <select id="sim-type" onchange="changeSimulation()">
+                    <option value="cohesion">1. Cohesion & Surface Tension</option>
+                    <option value="solvent">2. Universal Solvent (Polarity)</option>
+                    <option value="heat">3. High Specific Heat Capacity</option>
+                </select>
+            </div>
+            
+            <div id="controls-area">
+                </div>
+
+            <div class="data-box" id="data-output">
+                Status: Ready to begin.
+            </div>
+        </div>
+
+        <div class="panel" style="padding: 10px;">
+            <div class="canvas-container">
+                <canvas id="labCanvas" width="500" height="400"></canvas>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>Scientific Analysis</h3>
+            <div class="explanation-box" id="exp-output">
+                <b>Welcome to the Water Lab!</b><br><br>
+                Water (H₂O) is a polar molecule. The oxygen end has a slight negative charge (δ-), and the hydrogen ends have a slight positive charge (δ+).<br><br>
+                This polarity allows water molecules to form <b>Hydrogen Bonds</b> with each other and with other substances, giving water unique properties essential for life.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('labCanvas');
+        const ctx = canvas.getContext('2d');
+        let currentSim = 'cohesion';
+        let animationId;
+        
+        // Cohesion Variables
+        let drops = 0;
+        let isWater = true;
+        
+        // Solvent Variables
+        let soluteType = 'nacl'; // 'nacl' or 'lipid'
+        let particles = [];
+        
+        // Heat Variables
+        let tempWater = 20;
+        let tempOil = 20;
+        let heating = false;
+
+        function changeSimulation() {
+            currentSim = document.getElementById('sim-type').value;
+            cancelAnimationFrame(animationId);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            let controls = document.getElementById('controls-area');
+            let exp = document.getElementById('exp-output');
+            let data = document.getElementById('data-output');
+
+            if(currentSim === 'cohesion') {
+                drops = 0; isWater = true;
+                controls.innerHTML = `
+                    <label style="font-weight:bold; font-size:0.9rem;">Substance:</label>
+                    <select id="liq-type" onchange="isWater = (this.value==='water'); drops=0; drawCohesion();" style="width:100%; padding:8px; margin-bottom:15px;">
+                        <option value="water">Water (H₂O)</option>
+                        <option value="ethanol">Ethanol (Alcohol)</option>
+                    </select>
+                    <button class="btn" onclick="addDrop()">Add 1 Drop to Coin</button>
+                    <button class="btn btn-reset" onclick="drops=0; drawCohesion();">Reset Coin</button>
+                `;
+                exp.innerHTML = `<b>Cohesion & Surface Tension</b><br><br>Water molecules stick to each other due to Hydrogen Bonding (Cohesion). This creates a strong "skin" on the surface (Surface Tension).<br><br>See how many drops a coin can hold before the surface tension breaks!`;
+                data.innerHTML = `Drops on coin: 0`;
+                drawCohesion();
+            } 
+            else if(currentSim === 'solvent') {
+                particles = [];
+                controls.innerHTML = `
+                    <label style="font-weight:bold; font-size:0.9rem;">Add Solute to Water:</label>
+                    <button class="btn" onclick="addSolute('nacl')">Add Salt (NaCl - Ionic)</button>
+                    <button class="btn" style="background:#f59e0b;" onclick="addSolute('lipid')">Add Oil (Lipid - Nonpolar)</button>
+                    <button class="btn btn-reset" onclick="particles=[]; drawSolvent();">Clean Beaker</button>
+                `;
+                exp.innerHTML = `<b>Universal Solvent</b><br><br>Water is an excellent solvent for polar and ionic substances (Hydrophilic). The partial charges of water pull apart ionic crystals like NaCl.<br><br>However, nonpolar substances like fats/oils (Hydrophobic) repel water and will not dissolve.`;
+                data.innerHTML = `Beaker: Pure Water`;
+                drawSolvent();
+            }
+            else if(currentSim === 'heat') {
+                tempWater = 20; tempOil = 20; heating = false;
+                controls.innerHTML = `
+                    <button class="btn" style="background:#ef4444;" onclick="heating=true; animateHeat();">Turn On Heat Source</button>
+                    <button class="btn btn-reset" onclick="tempWater=20; tempOil=20; heating=false; drawHeat();">Reset Temperature</button>
+                `;
+                exp.innerHTML = `<b>High Specific Heat Capacity</b><br><br>Water requires a lot of energy to change its temperature because much of the heat energy is used to break Hydrogen Bonds first, before the molecules can move faster.<br><br>This is why water helps regulate the Earth's climate and maintains stable body temperatures in living organisms.`;
+                data.innerHTML = `Water Temp: 20°C<br>Oil Temp: 20°C`;
+                drawHeat();
+            }
+        }
+
+        // --- SIM 1: Cohesion ---
+        function addDrop() {
+            let maxDrops = isWater ? 35 : 15;
+            if(drops <= maxDrops) drops++;
+            document.getElementById('data-output').innerHTML = `Drops on coin: ${drops}`;
+            
+            if(drops > maxDrops) {
+                document.getElementById('data-output').innerHTML += `<br><span style="color:#ef4444;">Surface Tension Broken!</span>`;
+            }
+            drawCohesion();
+        }
+
+        function drawCohesion() {
+            ctx.clearRect(0,0,500,400);
+            // Draw Coin
+            ctx.fillStyle = '#b45309';
+            ctx.beginPath(); ctx.ellipse(250, 250, 100, 30, 0, 0, Math.PI*2); ctx.fill();
+            
+            let maxDrops = isWater ? 35 : 15;
+            let color = isWater ? 'rgba(14, 165, 233, 0.6)' : 'rgba(167, 139, 250, 0.6)';
+
+            if(drops > 0 && drops <= maxDrops) {
+                let height = drops * 1.5;
+                let width = 50 + (drops * 1.2);
+                ctx.fillStyle = color;
+                ctx.beginPath(); ctx.ellipse(250, 250 - (height/2), width, height, 0, 0, Math.PI*2); ctx.fill();
+            } else if (drops > maxDrops) {
+                // Spilled
+                ctx.fillStyle = color;
+                ctx.beginPath(); ctx.ellipse(250, 260, 150, 40, 0, 0, Math.PI*2); ctx.fill();
+            }
+        }
+
+        // --- SIM 2: Solvent ---
+        function addSolute(type) {
+            soluteType = type;
+            particles = [];
+            for(let i=0; i<30; i++) {
+                particles.push({
+                    x: 250 + (Math.random()-0.5)*50,
+                    y: 100 + Math.random()*20,
+                    vx: (Math.random()-0.5)*2,
+                    vy: Math.random()*2 + 1,
+                    type: type,
+                    settled: false
+                });
+            }
+            document.getElementById('data-output').innerHTML = type === 'nacl' ? "Salt dissolving into Na+ and Cl-" : "Oil separating from water";
+            animateSolvent();
+        }
+
+        function animateSolvent() {
+            ctx.clearRect(0,0,500,400);
+            
+            // Draw Beaker
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 4;
+            ctx.strokeRect(150, 150, 200, 200);
+            ctx.fillStyle = 'rgba(14, 165, 233, 0.3)';
+            ctx.fillRect(152, 200, 196, 148);
+
+            let moving = false;
+            particles.forEach(p => {
+                if(!p.settled) {
+                    p.x += p.vx; p.y += p.vy;
+                    if(p.type === 'nacl') {
+                        // Dissolve: spread out randomly in water
+                        if(p.y > 220) { p.vx += (Math.random()-0.5); p.vy = (Math.random()-0.5); }
+                        if(p.y > 340) { p.y = 340; p.vy *= -1; }
+                        if(p.x < 160 || p.x > 340) p.vx *= -1;
+                    } else {
+                        // Oil: float to top of water (y=200)
+                        if(p.y > 190) { p.vy = -1; }
+                        if(p.y < 195 && p.y > 180) { p.vy = 0; p.y = 190; p.settled = true; }
+                    }
+                    moving = true;
+                }
+                
+                ctx.beginPath();
+                if(p.type === 'nacl') {
+                    ctx.fillStyle = Math.random() > 0.5 ? '#22c55e' : '#a855f7'; // Cl- green, Na+ purple
+                    ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
+                } else {
+                    ctx.fillStyle = '#fbbf24'; // Yellow oil
+                    ctx.arc(p.x, p.y, 6, 0, Math.PI*2);
+                }
+                ctx.fill();
+            });
+
+            if(moving) animationId = requestAnimationFrame(animateSolvent);
+        }
+
+        // --- SIM 3: Specific Heat ---
+        function drawHeat() {
+            ctx.clearRect(0,0,500,400);
+            // Draw Beakers
+            ctx.fillStyle = 'rgba(14, 165, 233, 0.5)'; ctx.fillRect(100, 200, 100, 100); // Water
+            ctx.fillStyle = 'rgba(251, 191, 36, 0.5)'; ctx.fillRect(300, 200, 100, 100); // Oil
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 3;
+            ctx.strokeRect(100, 150, 100, 150); ctx.strokeRect(300, 150, 100, 150);
+            
+            // Labels
+            ctx.fillStyle = '#0f172a'; ctx.font = '16px Arial';
+            ctx.fillText("Water (H₂O)", 110, 330); ctx.fillText("Cooking Oil", 310, 330);
+
+            // Thermometers
+            ctx.fillStyle = 'white'; ctx.fillRect(140, 100, 10, 180); ctx.fillRect(340, 100, 10, 180);
+            ctx.fillStyle = '#ef4444';
+            let hWater = (tempWater / 100) * 150; let hOil = (tempOil / 100) * 150;
+            ctx.fillRect(142, 270 - hWater, 6, hWater + 10);
+            ctx.fillRect(342, 270 - hOil, 6, hOil + 10);
+            ctx.arc(145, 280, 8, 0, Math.PI*2); ctx.arc(345, 280, 8, 0, Math.PI*2); ctx.fill();
+
+            // Fire
+            if(heating) {
+                ctx.fillStyle = '#f97316';
+                ctx.beginPath(); ctx.moveTo(150, 350); ctx.lineTo(130, 380); ctx.lineTo(170, 380); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(350, 350); ctx.lineTo(330, 380); ctx.lineTo(370, 380); ctx.fill();
+            }
+        }
+
+        function animateHeat() {
+            if(!heating) return;
+            if(tempWater < 100) tempWater += 0.2; // Water heats slowly
+            if(tempOil < 100) tempOil += 0.8; // Oil heats fast
+            
+            document.getElementById('data-output').innerHTML = `Water Temp: ${Math.min(tempWater, 100).toFixed(1)}°C<br>Oil Temp: ${Math.min(tempOil, 100).toFixed(1)}°C`;
+            drawHeat();
+            
+            if(tempOil < 100 || tempWater < 100) {
+                animationId = requestAnimationFrame(animateHeat);
+            }
+        }
+
+        // Init
+        changeSimulation();
+    </script>
+</body>
+</html>

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 5.1: Voltaic Cell Builder</title>
+    <style>
+        :root { --ml-red: #b91c1c; --ml-gold: #fbbf24; --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--ml-red); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold); }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.3s;}
+
+        .workspace { flex: 1; display: grid; grid-template-columns: 400px 1fr; gap: 20px; padding: 20px; box-sizing: border-box; }
+        .panel { background: var(--panel); border-radius: 15px; border: 1px solid #334155; padding: 20px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow-y: auto;}
+        
+        h3 { margin: 0; color: var(--ml-gold); border-bottom: 1px dashed #475569; padding-bottom: 10px; font-size: 1.1rem;}
+
+        .control-group { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border-left: 4px solid #3b82f6; }
+        .control-group.cathode { border-left-color: #ef4444; }
+        label { display: block; font-size: 0.9rem; margin-bottom: 8px; color: #94a3b8; font-weight: bold;}
+        select { width: 100%; padding: 10px; border-radius: 6px; border: 2px solid #475569; background: #0f172a; color: white; font-size: 1rem; cursor: pointer; outline: none;}
+        
+        .meter-box { background: #020617; border: 2px solid #475569; padding: 15px; border-radius: 10px; text-align: center; margin-top: 10px;}
+        .voltage-val { font-family: monospace; font-size: 2.8rem; font-weight: bold; color: #fbbf24; text-shadow: 0 0 10px rgba(251,191,36,0.3);}
+        
+        .calc-steps { background: rgba(56, 189, 248, 0.1); padding: 15px; border-radius: 8px; font-family: monospace; font-size: 0.9rem; border: 1px solid #0c4a6e; color: #38bdf8; line-height: 1.6;}
+
+        .visual-container { background: #000; border-radius: 15px; border: 4px solid #334155; position: relative; overflow: hidden; box-shadow: inset 0 0 80px rgba(0,0,0,0.8); }
+        canvas { width: 100%; height: 100%; display: block; }
+        .tag { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.8); padding: 5px 12px; border-radius: 6px; font-weight: bold; color: var(--ml-gold); font-size: 0.85rem; border: 1px solid #475569;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit5.html" class="back-link">⬅ Back to Unit 5 Labs</a>
+        <h2 style="margin:0;">Lab 5.1: Voltaic Cell Builder</h2>
+        <span style="font-size: 0.9rem; opacity: 0.8;">Maple Leaf Advanced Chemistry</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Cell Configuration</h3>
+            
+            <div class="control-group">
+                <label>Anode (Oxidation half):</label>
+                <select id="anode-sel" onchange="updateCell()">
+                    <option value="Mg">Magnesium (Mg) | -2.37 V</option>
+                    <option value="Zn" selected>Zinc (Zn) | -0.76 V</option>
+                    <option value="Fe">Iron (Fe) | -0.44 V</option>
+                </select>
+            </div>
+
+            <div class="control-group cathode">
+                <label>Cathode (Reduction half):</label>
+                <select id="cathode-sel" onchange="updateCell()">
+                    <option value="Cu" selected>Copper (Cu) | +0.34 V</option>
+                    <option value="Ag">Silver (Ag) | +0.80 V</option>
+                    <option value="Au">Gold (Au) | +1.50 V</option>
+                </select>
+            </div>
+
+            <div class="meter-box">
+                <div style="font-size:0.8rem; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Standard Cell Potential</div>
+                <div class="voltage-val" id="v-display">1.10 V</div>
+            </div>
+
+            <h3>Mathematical Analysis</h3>
+            <div class="calc-steps" id="calc-display">
+                </div>
+
+            <div style="margin-top:auto; font-size:0.85rem; color:#64748b; line-height:1.5;">
+                <b>Science Note:</b> Electrons always flow from the <b>Anode (-)</b> to the <b>Cathode (+)</b> through the external wire. The salt bridge completes the circuit.
+            </div>
+        </div>
+
+        <div class="visual-container">
+            <div class="tag">DYNAMIC ELECTROCHEMICAL VIEW</div>
+            <canvas id="cellCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('cellCanvas');
+        const ctx = cvs.getContext('2d');
+
+        // 标准还原电位表 (Standard Reduction Potentials)
+        const potentials = {
+            "Mg": -2.37, "Zn": -0.76, "Fe": -0.44,
+            "Cu": 0.34, "Ag": 0.80, "Au": 1.50
+        };
+
+        const colors = {
+            "Mg": "#e2e8f0", "Zn": "#94a3b8", "Fe": "#b91c1c",
+            "Cu": "#ea580c", "Ag": "#cbd5e1", "Au": "#fbbf24"
+        };
+
+        let electrons = [];
+        let tick = 0;
+
+        function resize() {
+            cvs.width = cvs.offsetWidth; cvs.height = cvs.offsetHeight;
+        }
+        window.addEventListener('resize', resize);
+
+        function updateCell() {
+            let anode = document.getElementById('anode-sel').value;
+            let cathode = document.getElementById('cathode-sel').value;
+            
+            let E_anode = potentials[anode];
+            let E_cathode = potentials[cathode];
+            let E_cell = E_cathode - E_anode;
+
+            document.getElementById('v-display').innerText = E_cell.toFixed(2) + " V";
+            
+            document.getElementById('calc-display').innerHTML = `
+                E°cell = E°cat - E°ano <br>
+                E°cell = (${E_cathode.toFixed(2)}) - (${E_anode.toFixed(2)}) <br>
+                <b>E°cell = ${E_cell.toFixed(2)} V</b> <br><br>
+                Anode: ${anode} → ${anode}²⁺ + 2e⁻ <br>
+                Cathode: ${cathode}²⁺ + 2e⁻ → ${cathode}
+            `;
+
+            // Reset electron animation
+            electrons = [];
+            for(let i=0; i<10; i++) {
+                electrons.push({pos: i/10, speed: 0.005 + (E_cell * 0.002)});
+            }
+        }
+
+        function drawScene() {
+            ctx.clearRect(0,0,cvs.width, cvs.height);
+            let w = cvs.width; let h = cvs.height;
+            let cx = w/2; let cy = h/2;
+
+            let anode = document.getElementById('anode-sel').value;
+            let cathode = document.getElementById('cathode-sel').value;
+
+            // 1. 绘制烧杯
+            drawBeaker(cx - 200, cy + 50);
+            drawBeaker(cx + 200, cy + 50);
+
+            // 2. 绘制盐桥 (Salt Bridge)
+            ctx.strokeStyle = '#f1f5f9'; ctx.lineWidth = 25;
+            ctx.beginPath();
+            ctx.moveTo(cx - 150, cy + 50);
+            ctx.quadraticCurveTo(cx, cy - 20, cx + 150, cy + 50);
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.fillText("SALT BRIDGE (KNO₃)", cx - 40, cy + 10);
+
+            // 3. 绘制电极
+            drawElectrode(cx - 200, cy - 20, colors[anode], anode + " (Anode)");
+            drawElectrode(cx + 200, cy - 20, colors[cathode], cathode + " (Cathode)");
+
+            // 4. 绘制导线 (External Wire)
+            ctx.strokeStyle = '#475569'; ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(cx - 200, cy - 100);
+            ctx.lineTo(cx - 200, cy - 200);
+            ctx.lineTo(cx + 200, cy - 200);
+            ctx.lineTo(cx + 200, cy - 100);
+            ctx.stroke();
+
+            // 5. 绘制电压表
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(cx - 50, cy - 230, 100, 60);
+            ctx.strokeStyle = '#475569'; ctx.strokeRect(cx - 50, cy - 230, 100, 60);
+            ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 18px monospace';
+            ctx.fillText(document.getElementById('v-display').innerText, cx - 35, cy - 195);
+
+            // 6. 电子流动画 (Electron Flow)
+            tick++;
+            electrons.forEach(e => {
+                e.pos += e.speed;
+                if(e.pos > 1) e.pos = 0;
+                
+                let px, py;
+                let pathLen = 400 + 100 + 100; // Left-up, Top-across, Right-down
+                let segment = e.pos * 1000; // Normalized 0-1000
+                
+                if(segment < 250) { // Up
+                    px = cx - 200; py = (cy - 100) - (segment/250)*100;
+                } else if(segment < 750) { // Across
+                    px = (cx - 200) + ((segment-250)/500)*400; py = cy - 200;
+                } else { // Down
+                    px = cx + 200; py = (cy - 200) + ((segment-750)/250)*100;
+                }
+
+                ctx.fillStyle = '#38bdf8';
+                ctx.shadowBlur = 10; ctx.shadowColor = '#38bdf8';
+                ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI*2); ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#000'; ctx.font = 'bold 8px Arial';
+                ctx.fillText("e-", px-4, py+3);
+            });
+
+            // 7. 离子游动 (Ion movement in beakers)
+            drawIons(cx - 200, cy + 120, anode + "²⁺", '#38bdf8');
+            drawIons(cx + 200, cy + 120, cathode + "²⁺", '#ef4444');
+        }
+
+        function drawBeaker(x, y) {
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.2)';
+            ctx.fillRect(x - 80, y, 160, 150);
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 4;
+            ctx.strokeRect(x - 80, y, 160, 150);
+        }
+
+        function drawElectrode(x, y, color, label) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x - 20, y - 80, 40, 180);
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+            ctx.strokeRect(x - 20, y - 80, 40, 180);
+            ctx.fillStyle = '#ffffff'; ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(label, x, y + 120);
+        }
+
+        function drawIons(x, y, label, color) {
+            for(let i=0; i<3; i++) {
+                let offX = Math.sin(tick * 0.02 + i) * 30;
+                let offY = Math.cos(tick * 0.02 + i) * 20;
+                ctx.beginPath(); ctx.arc(x + offX, y + offY, 15, 0, Math.PI*2);
+                ctx.fillStyle = color; ctx.globalAlpha = 0.6; ctx.fill();
+                ctx.globalAlpha = 1.0;
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 10px Arial';
+                ctx.fillText(label, x + offX - 10, y + offY + 5);
+            }
+        }
+
+        function animate() {
+            drawScene();
+            requestAnimationFrame(animate);
+        }
+
+        setTimeout(() => { resize(); updateCell(); animate(); }, 100);
+    </script>
+</body>
+</html>

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 4.1: Advanced Dichotomous Key</title>
+    <style>
+        :root { --ml-green: #16a34a; --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --gold: #fbbf24; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--ml-green); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--gold); }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.3s;}
+        .back-link:hover { background: white; color: var(--ml-green); }
+        
+        .workspace { flex: 1; display: grid; grid-template-columns: 450px 1fr; gap: 20px; padding: 20px; box-sizing: border-box; overflow: hidden; }
+        .panel { background: var(--panel); border-radius: 15px; border: 1px solid #334155; padding: 20px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow-y: auto;}
+        
+        h3 { margin: 0; color: var(--gold); border-bottom: 1px dashed #475569; padding-bottom: 10px; font-size: 1.1rem;}
+
+        /* Specimen Tray */
+        .tray { display: flex; gap: 10px; margin-bottom: 10px;}
+        .slide-btn { background: #0f172a; color: #94a3b8; border: 2px solid #475569; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; flex: 1; transition: 0.2s;}
+        .slide-btn:hover { border-color: var(--gold); color: white;}
+        .slide-btn.active { background: var(--ml-green); border-color: #22c55e; color: white;}
+
+        /* Interactive Key */
+        .key-box { background: rgba(0,0,0,0.3); border: 1px solid #38bdf8; padding: 20px; border-radius: 10px;}
+        .step-title { font-weight: bold; color: #38bdf8; margin-bottom: 15px; font-size: 1.1rem;}
+        
+        .choice-btn { background: #334155; color: white; border: 1px solid #475569; padding: 15px; border-radius: 8px; cursor: pointer; text-align: left; width: 100%; margin-bottom: 10px; transition: 0.2s; display: flex; justify-content: space-between;}
+        .choice-btn:hover { background: #3b82f6; border-color: #38bdf8; transform: translateX(5px);}
+        
+        .result-box { padding: 20px; border-radius: 10px; text-align: center; display: none; font-weight: bold; font-size: 1.1rem; margin-top: 10px; border: 2px solid transparent;}
+
+        .btn-reset { background: #475569; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; margin-top: auto;}
+        .btn-reset:hover { background: #334155;}
+
+        /* Microscope View */
+        .microscope-container { background: #e2e8f0; border-radius: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; box-shadow: inset 0 0 50px rgba(0,0,0,0.5); padding: 20px;}
+        .eyepiece { width: 400px; height: 400px; background: #fff; border-radius: 50%; border: 20px solid #0f172a; position: relative; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.8), inset 0 0 40px rgba(0,0,0,0.2); cursor: grab;}
+        .eyepiece:active { cursor: grabbing;}
+        canvas { display: block; position: absolute; top: 0; left: 0;}
+        
+        /* Reticle (Crosshair) */
+        .reticle { position: absolute; inset: 0; pointer-events: none; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(0,0,0,0.1);}
+        .reticle::before, .reticle::after { content: ''; position: absolute; background: rgba(0,0,0,0.2); }
+        .reticle::before { top: 50%; left: 10%; right: 10%; height: 1px; }
+        .reticle::after { left: 50%; top: 10%; bottom: 10%; width: 1px; }
+
+        .tag { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.8); padding: 8px 15px; border-radius: 6px; font-weight: bold; color: var(--gold); font-size: 0.85rem;}
+        
+        .controls { background: #020617; padding: 15px; border-radius: 10px; border: 1px solid #334155; width: 80%; margin-top: 20px; display: flex; gap: 20px;}
+        .slider-group { flex: 1; display: flex; flex-direction: column; gap: 5px;}
+        .slider-group label { color: #cbd5e1; font-size: 0.85rem; font-weight: bold;}
+        input[type="range"] { width: 100%; accent-color: #38bdf8;}
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="unit4.html" class="back-link">⬅ Back to Unit 4</a>
+        <h2 style="margin:0;">Lab 4.1: Morphological Dichotomous Key</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Biological Sciences</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>1. Load Specimen Slide</h3>
+            <div class="tray">
+                <button class="slide-btn" id="btn-0" onclick="loadSpecimen(0)">Slide A</button>
+                <button class="slide-btn" id="btn-1" onclick="loadSpecimen(1)">Slide B</button>
+                <button class="slide-btn" id="btn-2" onclick="loadSpecimen(2)">Slide C</button>
+                <button class="slide-btn" id="btn-3" onclick="loadSpecimen(3)">Slide D</button>
+            </div>
+
+            <h3>2. Identification Key</h3>
+            <div class="key-box" id="key-ui">
+                </div>
+            
+            <div class="result-box" id="result-box"></div>
+
+            <button class="btn-reset" onclick="resetKey()">↩ Restart Key Logic</button>
+            
+            <div style="margin-top:10px; font-size:0.8rem; color:#64748b; line-height:1.4; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px;">
+                <b>Instructions:</b> Use the microscope zoom/focus to count legs (appendages), observe body segments (head, thorax, abdomen vs cephalothorax), and check for wings. Select the matching trait in the key.
+            </div>
+        </div>
+
+        <div class="microscope-container">
+            <div class="tag">COMPOUND MICROSCOPE (40x - 100x)</div>
+            
+            <div class="eyepiece" id="eyepiece">
+                <canvas id="specimenCanvas" width="360" height="360"></canvas>
+                <div class="reticle"></div>
+            </div>
+
+            <div class="controls">
+                <div class="slider-group">
+                    <label>Magnification (Zoom)</label>
+                    <input type="range" id="zoom-slider" min="1" max="3" step="0.1" value="1">
+                </div>
+                <div class="slider-group">
+                    <label>Fine Focus (Clarity)</label>
+                    <input type="range" id="focus-slider" min="0" max="10" step="1" value="0">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Specimen Data & Drawing Logic ---
+        const specimens = [
+            { 
+                id: 'A', correctId: 'Coleoptera', 
+                draw: (ctx) => {
+                    // Beetle: 3 segments, 6 legs, wings (elytra)
+                    ctx.fillStyle = '#1c1917'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+                    // Legs (3 pairs on thorax)
+                    for(let i of [-1, 1]) {
+                        ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(i*40, -40); ctx.lineTo(i*60, -20); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(i*45, 0); ctx.lineTo(i*70, 20); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(i*40, 40); ctx.lineTo(i*50, 70); ctx.stroke();
+                    }
+                    // Head
+                    ctx.beginPath(); ctx.ellipse(0, -45, 12, 10, 0, 0, Math.PI*2); ctx.fill();
+                    // Antennae
+                    ctx.beginPath(); ctx.moveTo(-5, -50); ctx.lineTo(-20, -70); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(5, -50); ctx.lineTo(20, -70); ctx.stroke();
+                    // Thorax
+                    ctx.beginPath(); ctx.ellipse(0, -20, 20, 15, 0, 0, Math.PI*2); ctx.fill();
+                    // Abdomen/Wings (Elytra)
+                    ctx.fillStyle = '#450a0a';
+                    ctx.beginPath(); ctx.ellipse(-15, 30, 15, 45, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                    ctx.beginPath(); ctx.ellipse(15, 30, 15, 45, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                }
+            },
+            { 
+                id: 'B', correctId: 'Araneae', 
+                draw: (ctx) => {
+                    // Spider: 2 segments, 8 legs, no wings
+                    ctx.fillStyle = '#27272a'; ctx.strokeStyle = '#18181b'; ctx.lineWidth = 4;
+                    // Legs (4 pairs on cephalothorax)
+                    for(let i of [-1, 1]) {
+                        ctx.beginPath(); ctx.moveTo(0, -15); ctx.lineTo(i*50, -60); ctx.lineTo(i*80, -40); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(i*60, -20); ctx.lineTo(i*90, 10); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(0, 5); ctx.lineTo(i*60, 20); ctx.lineTo(i*80, 50); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(0, 15); ctx.lineTo(i*45, 50); ctx.lineTo(i*60, 80); ctx.stroke();
+                    }
+                    // Cephalothorax
+                    ctx.beginPath(); ctx.ellipse(0, 0, 18, 22, 0, 0, Math.PI*2); ctx.fill();
+                    // Abdomen
+                    ctx.fillStyle = '#3f3f46';
+                    ctx.beginPath(); ctx.ellipse(0, 45, 30, 40, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                }
+            },
+            { 
+                id: 'C', correctId: 'Formicidae', 
+                draw: (ctx) => {
+                    // Ant: 3 segments, 6 legs, no wings, thin waist
+                    ctx.fillStyle = '#78350f'; ctx.strokeStyle = '#451a03'; ctx.lineWidth = 3;
+                    // Legs (3 pairs)
+                    for(let i of [-1, 1]) {
+                        ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(i*30, -30); ctx.lineTo(i*50, -10); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(i*35, 10); ctx.lineTo(i*55, 30); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(i*30, 40); ctx.lineTo(i*40, 70); ctx.stroke();
+                    }
+                    // Head
+                    ctx.beginPath(); ctx.ellipse(0, -35, 14, 16, 0, 0, Math.PI*2); ctx.fill();
+                    // Antennae (elbowed)
+                    ctx.beginPath(); ctx.moveTo(-8, -45); ctx.lineTo(-20, -55); ctx.lineTo(-25, -45); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(8, -45); ctx.lineTo(20, -55); ctx.lineTo(25, -45); ctx.stroke();
+                    // Thorax
+                    ctx.beginPath(); ctx.ellipse(0, -5, 12, 18, 0, 0, Math.PI*2); ctx.fill();
+                    // Pedicel (waist)
+                    ctx.beginPath(); ctx.ellipse(0, 20, 4, 6, 0, 0, Math.PI*2); ctx.fill();
+                    // Abdomen
+                    ctx.fillStyle = '#451a03';
+                    ctx.beginPath(); ctx.ellipse(0, 45, 18, 25, 0, 0, Math.PI*2); ctx.fill();
+                }
+            },
+            { 
+                id: 'D', correctId: 'Chilopoda', 
+                draw: (ctx) => {
+                    // Centipede: Many segments, 1 pair of legs per segment
+                    ctx.fillStyle = '#9a3412'; ctx.strokeStyle = '#7c2d12'; ctx.lineWidth = 2;
+                    let numSegments = 10;
+                    let segHeight = 12;
+                    
+                    for(let j=0; j<numSegments; j++) {
+                        let sy = -50 + j * segHeight;
+                        // Legs
+                        ctx.beginPath(); ctx.moveTo(-10, sy); ctx.lineTo(-30, sy-10); ctx.lineTo(-40, sy+5); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(10, sy); ctx.lineTo(30, sy-10); ctx.lineTo(40, sy+5); ctx.stroke();
+                        // Body segment
+                        ctx.beginPath(); ctx.ellipse(0, sy, 12, 8, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                    }
+                    // Head
+                    ctx.beginPath(); ctx.ellipse(0, -60, 10, 10, 0, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo(-5, -65); ctx.lineTo(-20, -90); ctx.stroke(); // Antennae
+                    ctx.beginPath(); ctx.moveTo(5, -65); ctx.lineTo(20, -90); ctx.stroke();
+                }
+            }
+        ];
+
+        // --- Dichotomous Key Logic ---
+        const keyData = {
+            1: {
+                title: "1. Observe Appendages (Legs):",
+                a: { text: "Specimen has exactly 6 legs (3 pairs)", next: 2 },
+                b: { text: "Specimen has 8 or more legs", next: 3 }
+            },
+            2: {
+                title: "2. Observe Dorsal Appendages (Wings):",
+                a: { text: "Wings are present (may be hardened like a shell)", next: 'Coleoptera' },
+                b: { text: "Wings are entirely absent", next: 'Formicidae' }
+            },
+            3: {
+                title: "3. Observe Body Segments:",
+                a: { text: "Body clearly divided into 2 main segments (Cephalothorax & Abdomen)", next: 'Araneae' },
+                b: { text: "Body elongated with many (>3) distinct segments", next: 'Chilopoda' }
+            }
+        };
+
+        // --- State Variables ---
+        let currentSpecimenIdx = -1;
+        let panX = 0, panY = 0;
+        let isDragging = false;
+        let startX, startY;
+
+        const cvs = document.getElementById('specimenCanvas');
+        const ctx = cvs.getContext('2d');
+        const zoomSlider = document.getElementById('zoom-slider');
+        const focusSlider = document.getElementById('focus-slider');
+
+        // --- Interaction Logic ---
+        function loadSpecimen(idx) {
+            currentSpecimenIdx = idx;
+            panX = 0; panY = 0;
+            zoomSlider.value = 1;
+            focusSlider.value = 8; // Start slightly out of focus to force student interaction
+            
+            // Update UI
+            document.querySelectorAll('.slide-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-'+idx).classList.add('active');
+            
+            resetKey();
+            drawMicroscope();
+        }
+
+        function resetKey() {
+            document.getElementById('result-box').style.display = 'none';
+            renderKeyStep(1);
+        }
+
+        function renderKeyStep(stepId) {
+            let ui = document.getElementById('key-ui');
+            ui.innerHTML = '';
+            
+            if(typeof stepId === 'string') {
+                // Reached a conclusion
+                checkAnswer(stepId);
+                return;
+            }
+
+            let step = keyData[stepId];
+            
+            let title = document.createElement('div');
+            title.className = 'step-title';
+            title.innerText = step.title;
+            ui.appendChild(title);
+
+            ['a', 'b'].forEach(opt => {
+                let btn = document.createElement('button');
+                btn.className = 'choice-btn';
+                let destTxt = typeof step[opt].next === 'number' ? `Go to Step ${step[opt].next}` : `Identify as ${step[opt].next}`;
+                btn.innerHTML = `<span>${stepId}${opt}. ${step[opt].text}</span> <span style="color:#94a3b8; font-size:0.85rem;">${destTxt}</span>`;
+                btn.onclick = () => renderKeyStep(step[opt].next);
+                ui.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(identifiedClass) {
+            let ui = document.getElementById('key-ui');
+            ui.innerHTML = '';
+            let res = document.getElementById('result-box');
+            res.style.display = 'block';
+
+            if(currentSpecimenIdx === -1) {
+                res.style.background = 'rgba(239, 68, 68, 0.2)';
+                res.style.borderColor = '#ef4444';
+                res.style.color = '#ef4444';
+                res.innerText = "Please load a specimen slide first!";
+                return;
+            }
+
+            let actualClass = specimens[currentSpecimenIdx].correctId;
+            
+            if(identifiedClass === actualClass) {
+                res.style.background = 'rgba(34, 197, 94, 0.2)';
+                res.style.borderColor = '#22c55e';
+                res.style.color = '#22c55e';
+                res.innerHTML = `✓ SUCCESS<br>Specimen perfectly identified as <b>${actualClass}</b>.`;
+            } else {
+                res.style.background = 'rgba(239, 68, 68, 0.2)';
+                res.style.borderColor = '#ef4444';
+                res.style.color = '#ef4444';
+                res.innerHTML = `❌ IDENTIFICATION FAILED<br>Your morphological observations do not match this specimen. Look closely at the legs and body segments.`;
+            }
+        }
+
+        // --- Microscope Canvas Engine ---
+        document.getElementById('eyepiece').addEventListener('mousedown', (e) => {
+            isDragging = true; startX = e.clientX - panX; startY = e.clientY - panY;
+        });
+        window.addEventListener('mouseup', () => isDragging = false);
+        window.addEventListener('mousemove', (e) => {
+            if(!isDragging) return;
+            panX = e.clientX - startX; panY = e.clientY - startY;
+            drawMicroscope();
+        });
+
+        zoomSlider.addEventListener('input', drawMicroscope);
+        focusSlider.addEventListener('input', drawMicroscope);
+
+        function drawMicroscope() {
+            ctx.clearRect(0, 0, cvs.width, cvs.height);
+            if(currentSpecimenIdx === -1) return;
+
+            let zoom = parseFloat(zoomSlider.value);
+            let blur = parseFloat(focusSlider.value);
+
+            ctx.save();
+            
+            // Base slide background (light circle)
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, cvs.width, cvs.height);
+            
+            // Apply Focus (Blur)
+            if(blur > 0) ctx.filter = `blur(${blur}px)`;
+            
+            // Apply Pan & Zoom
+            ctx.translate(cvs.width/2 + panX, cvs.height/2 + panY);
+            ctx.scale(zoom, zoom);
+            
+            // Draw Organism
+            specimens[currentSpecimenIdx].draw(ctx);
+
+            ctx.restore();
+            
+            // Vignette effect (Dark edges)
+            let gradient = ctx.createRadialGradient(cvs.width/2, cvs.height/2, 100, cvs.width/2, cvs.height/2, 200);
+            gradient.addColorStop(0, 'rgba(0,0,0,0)');
+            gradient.addColorStop(1, 'rgba(0,0,0,0.6)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, cvs.width, cvs.height);
+        }
+
+        // Initialize empty
+        drawMicroscope();
+    </script>
+</body>
+</html>

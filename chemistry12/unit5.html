@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Unit 5: REDOX and Electrochemistry</title>
+    <style>
+        :root{--ml-red:#b91c1c; --ml-gold:#fbbf24; --bg:#f8fafc;}
+        body{background:var(--bg);font-family:sans-serif;text-align:center;margin:0;}
+        .header{background:var(--ml-red);color:white;padding:30px; border-bottom: 4px solid var(--ml-gold);}
+        .list{max-width:850px;margin:30px auto;display:flex;flex-direction:column;gap:15px;padding:0 20px;}
+        .item{background:white;padding:20px;border-radius:12px;text-decoration:none;color:#333;border-left:8px solid var(--ml-red);text-align:left;box-shadow:0 4px 6px rgba(0,0,0,0.1);transition:0.2s;display:flex;align-items:center;}
+        .item:hover{transform:translateX(10px);background:#fef2f2;}
+        .item-content {flex:1;}
+        .item h3 {margin:0 0 5px 0;}
+        .item p {margin:0; color:#64748b; font-size:0.9rem;}
+        
+        .badge-sandbox { background: #8b5cf6; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; margin-left: 10px; font-weight:bold; white-space:nowrap;}
+        .badge-data { background: #22c55e; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; margin-left: 10px; font-weight:bold; white-space:nowrap;}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="chem12.html" style="color:white;float:left;text-decoration:none;font-weight:bold;border:1px solid white;padding:5px 10px;border-radius:5px;">⬅ 首页</a>
+        <h1 style="margin-top:0;">Unit 5: REDOX & Electrochemistry</h1>
+    </div>
+    <div class="list">
+        <a href="voltaic-cell.html" class="item">
+            <div class="item-content">
+                <h3>Lab 5.1: Voltaic Cell Builder</h3>
+                <p>组装自定义原电池，通过金属活性序预测并验证标准电池电势（E°cell）。</p>
+            </div>
+            <span class="badge-sandbox">Sandbox</span>
+        </a>
+        <a href="redox-titration.html" class="item">
+            <div class="item-content">
+                <h3>Lab 5.2: Redox Titration (Iron Analysis)</h3>
+                <p>利用高锰酸钾的自指示特性，定量分析未知溶液中铁离子的浓度。</p>
+            </div>
+            <span class="badge-data">Data Lab</span>
+        </a>
+        <a href="electrolysis-cell.html" class="item">
+            <div class="item-content">
+                <h3>Lab 5.3: Electrolytic Cells & Electroplating</h3>
+                <p>施加外部电压驱动非自发反应，实时观察铜电镀过程及质量变化。</p>
+            </div>
+            <span class="badge-sandbox">Sandbox</span>
+        </a>
+    </div>
+</body>
+</html>

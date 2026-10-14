@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 1.3: Cell Cycle & Cancer</title>
+    <style>
+        :root { --ml-green: #16a34a; --ml-gold: #fbbf24; --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--ml-green); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold); }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.3s;}
+        
+        .workspace { flex: 1; display: grid; grid-template-columns: 420px 1fr; gap: 20px; padding: 20px; box-sizing: border-box; }
+        .panel { background: var(--panel); border-radius: 15px; border: 1px solid #334155; padding: 20px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow-y: auto;}
+        
+        h3 { margin: 0; color: var(--ml-gold); border-bottom: 1px dashed #475569; padding-bottom: 10px; font-size: 1.1rem;}
+
+        .control-group { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border-left: 4px solid #3b82f6; margin-bottom: 10px;}
+        .control-group label { display: block; font-size: 0.9rem; margin-bottom: 8px; color: #94a3b8; font-weight: bold;}
+        input[type="range"] { width: 100%; cursor: pointer; accent-color: #ef4444;}
+
+        .btn { padding: 12px; border-radius: 8px; border: none; font-weight: bold; font-size: 1rem; cursor: pointer; transition: 0.2s; color: white; text-transform: uppercase;}
+        .btn-apop { background: #8b5cf6; box-shadow: 0 4px 10px rgba(139,92,246,0.3); width: 100%;} .btn-apop:hover { background: #7c3aed; transform: translateY(-2px);}
+        .btn-reset { background: #475569; width: 100%; margin-top: auto;} .btn-reset:hover { background: #334155; }
+
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: center;}
+        .dash-box { background: #020617; border: 1px solid #475569; padding: 10px; border-radius: 8px;}
+        .dash-num { font-size: 2.2rem; font-family: monospace; font-weight: bold; margin-top: 5px;}
+        .healthy-txt { color: #22c55e; } .cancer-txt { color: #ef4444; }
+
+        .visual-container { background: #000; border-radius: 15px; border: 4px solid #334155; position: relative; overflow: hidden; box-shadow: inset 0 0 80px rgba(0,0,0,0.8); }
+        canvas { width: 100%; height: 100%; display: block; }
+        .tag { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.8); padding: 8px 12px; border-radius: 6px; font-weight: bold; color: var(--ml-gold); font-size: 0.85rem; border: 1px solid #475569;}
+        
+        .alert-overlay { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(239, 68, 68, 0.9); color: white; padding: 10px 20px; border-radius: 8px; font-weight: bold; letter-spacing: 1px; display: none; z-index: 10;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit1.html" class="back-link">⬅ Back to Unit 1</a>
+        <h2 style="margin:0;">Lab 1.3: Cell Cycle Checkpoints & Tumor Suppression</h2>
+        <span style="font-size: 0.9rem; opacity: 0.8;">Maple Leaf Biological Sciences</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Microenvironment Controls</h3>
+            
+            <div class="control-group">
+                <label>Environmental Mutagens (e.g., UV Radiation)</label>
+                <input type="range" id="uv-slider" min="0" max="10" value="0">
+                <div style="font-size: 0.8rem; color:#cbd5e1; margin-top:5px;">High levels increase the chance of p53 tumor-suppressor gene failure during the G2 checkpoint.</div>
+            </div>
+
+            <button class="btn btn-apop" onclick="triggerApoptosis()">💉 Inject p53 (Induce Apoptosis)</button>
+            <p style="font-size:0.85rem; color:#94a3b8; text-align:center;">Manually trigger programmed cell death for mutated cells before they pass M phase.</p>
+
+            <div class="dashboard">
+                <div class="dash-box">
+                    <div style="font-size:0.8rem; color:#94a3b8;">Healthy Cells</div>
+                    <div class="dash-num healthy-txt" id="count-h">1</div>
+                </div>
+                <div class="dash-box" style="border-color:#7f1d1d;">
+                    <div style="font-size:0.8rem; color:#fca5a5;">Cancer Cells</div>
+                    <div class="dash-num cancer-txt" id="count-c">0</div>
+                </div>
+            </div>
+
+            <div style="margin-top:20px; padding: 15px; background: rgba(56, 189, 248, 0.1); border-radius: 8px; font-size: 0.85rem; color: #38bdf8; line-height: 1.5;">
+                <b>Observation:</b> Healthy cells exhibit <i>contact inhibition</i> (they stop dividing when crowded). Malignant cells ignore these chemical signals, dividing exponentially and consuming resources.
+            </div>
+
+            <button class="btn btn-reset" onclick="initSim()">🔄 Reseed Culture</button>
+        </div>
+
+        <div class="visual-container">
+            <div class="tag">PETRI DISH (Microscopic View)</div>
+            <div class="alert-overlay" id="alert-msg">⚠ MALIGNANT TUMOR DETECTED</div>
+            <canvas id="cellCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('cellCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        let cells = [];
+        let maxRadius = 15;
+        let bounds = {w: 0, h: 0};
+
+        function resize() {
+            cvs.width = cvs.offsetWidth; cvs.height = cvs.offsetHeight;
+            bounds.w = cvs.width; bounds.h = cvs.height;
+        }
+        window.addEventListener('resize', resize);
+
+        class Cell {
+            constructor(x, y, type) {
+                this.x = x; this.y = y;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.r = maxRadius;
+                this.type = type; // 'healthy', 'mutated', 'cancer'
+                this.cycleTimer = 0;
+                this.cycleLength = type === 'cancer' ? 100 : 250 + Math.random()*100;
+            }
+
+            update(others) {
+                // Physics & Boundary
+                this.x += this.vx; this.y += this.vy;
+                this.vx *= 0.9; this.vy *= 0.9; // friction
+
+                if(this.x < this.r) { this.x = this.r; this.vx *= -1; }
+                if(this.x > bounds.w - this.r) { this.x = bounds.w - this.r; this.vx *= -1; }
+                if(this.y < this.r) { this.y = this.r; this.vy *= -1; }
+                if(this.y > bounds.h - this.r) { this.y = bounds.h - this.r; this.vy *= -1; }
+
+                // Collision & Contact Inhibition
+                let contactCount = 0;
+                for(let o of others) {
+                    if(o === this) continue;
+                    let dx = o.x - this.x; let dy = o.y - this.y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+                    let minDist = this.r + o.r;
+                    
+                    if(dist < minDist) {
+                        contactCount++;
+                        // Push apart
+                        let force = (minDist - dist) * 0.05;
+                        this.vx -= (dx/dist) * force;
+                        this.vy -= (dy/dist) * force;
+                    }
+                }
+
+                // Cell Cycle Progression
+                if(this.type === 'cancer' || contactCount < 4) {
+                    this.cycleTimer++;
+                }
+
+                // Mutagenesis check during 'S' phase
+                let uv = parseInt(document.getElementById('uv-slider').value);
+                if(this.type === 'healthy' && this.cycleTimer === Math.floor(this.cycleLength * 0.5)) {
+                    if(Math.random() * 100 < uv * 2) {
+                        this.type = 'mutated'; // Waiting at G2
+                    }
+                }
+
+                // Division (M phase)
+                if(this.cycleTimer >= this.cycleLength) {
+                    if(this.type === 'mutated') {
+                        // Failed checkpoint -> Cancer
+                        this.type = 'cancer';
+                        this.cycleLength = 80; // divides faster
+                        document.getElementById('alert-msg').style.display = 'block';
+                    }
+                    return true; // signal to divide
+                }
+                return false;
+            }
+
+            draw(ctx) {
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
+                
+                // Colors based on state and cycle phase
+                if(this.type === 'healthy') {
+                    ctx.fillStyle = '#22c55e'; // Green
+                    ctx.strokeStyle = '#16a34a';
+                } else if(this.type === 'mutated') {
+                    ctx.fillStyle = '#f59e0b'; // Orange (Warning)
+                    ctx.strokeStyle = '#d97706';
+                } else if(this.type === 'cancer') {
+                    ctx.fillStyle = '#ef4444'; // Red
+                    ctx.strokeStyle = '#b91c1c';
+                }
+                ctx.fill(); ctx.lineWidth = 2; ctx.stroke();
+
+                // Nucleus indicating cycle progress
+                ctx.beginPath(); 
+                let nR = 3 + (this.cycleTimer / this.cycleLength) * 5;
+                ctx.arc(this.x, this.y, nR, 0, Math.PI*2);
+                ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fill();
+            }
+        }
+
+        function initSim() {
+            cells = [new Cell(bounds.w/2, bounds.h/2, 'healthy')];
+            document.getElementById('alert-msg').style.display = 'none';
+            document.getElementById('uv-slider').value = 0;
+        }
+
+        function triggerApoptosis() {
+            // Kills 'mutated' cells before they turn to cancer
+            cells = cells.filter(c => c.type !== 'mutated');
+            // If it's already cancer, p53 might fail, kill a random portion
+            cells = cells.filter(c => !(c.type === 'cancer' && Math.random() > 0.3));
+        }
+
+        function animate() {
+            ctx.clearRect(0,0,bounds.w, bounds.h);
+            
+            // Draw agar background
+            ctx.fillStyle = 'rgba(251, 191, 36, 0.05)';
+            ctx.fillRect(0, 0, bounds.w, bounds.h);
+
+            let newCells = [];
+            let hCount = 0; let cCount = 0;
+
+            cells.forEach(c => {
+                if(c.update(cells)) {
+                    c.cycleTimer = 0;
+                    if(cells.length < 350) { // Limit to prevent crashing
+                        let daughter = new Cell(c.x + (Math.random()-0.5)*10, c.y + (Math.random()-0.5)*10, c.type);
+                        newCells.push(daughter);
+                    }
+                }
+                c.draw(ctx);
+                
+                if(c.type === 'healthy' || c.type === 'mutated') hCount++;
+                if(c.type === 'cancer') cCount++;
+            });
+
+            cells = cells.concat(newCells);
+
+            document.getElementById('count-h').innerText = hCount;
+            document.getElementById('count-c').innerText = cCount;
+
+            requestAnimationFrame(animate);
+        }
+
+        setTimeout(() => { resize(); initSim(); animate(); }, 100);
+    </script>
+</body>
+</html>

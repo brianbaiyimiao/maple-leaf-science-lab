@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 1: 3D Isomer Builder & Dynamics</title>
+    <style>
+        :root { --ml-red: #b91c1c; --ml-gold: #fbbf24; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .nav { background: var(--ml-red); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1450px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 350px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column;}
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; font-size: 1.2rem;}
+        
+        select { width: 100%; padding: 10px; border-radius: 6px; border: 2px solid #cbd5e1; font-size: 1rem; font-weight: bold; color: #1e293b; cursor: pointer; outline: none; margin-bottom: 15px;}
+        select:focus { border-color: var(--ml-red); }
+
+        .info-card { background: #0f172a; color: white; padding: 20px; border-radius: 8px; margin-top: 10px; border: 3px solid #334155; box-shadow: inset 0 0 10px rgba(0,0,0,0.5);}
+        .info-title { color: #fbbf24; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; border-bottom: 1px dashed #475569; padding-bottom: 5px;}
+        .info-data { font-family: monospace; font-size: 1.1rem; color: #22c55e; margin-bottom: 15px;}
+        .info-data span { color: #e2e8f0; font-family: sans-serif; font-size: 0.9rem; }
+
+        .hint { margin-top: auto; background: #fef2f2; border-left: 4px solid var(--ml-red); padding: 15px; font-size: 0.85rem; color: #7f1d1d;}
+
+        .canvas-box { background: #111827; border-radius: 12px; border: 4px solid #475569; overflow: hidden; position: relative; box-shadow: inset 0 0 50px rgba(0,0,0,0.8); height: 100%; min-height: 600px;}
+        canvas { width: 100%; height: 100%; cursor: grab; }
+        canvas:active { cursor: grabbing; }
+
+        .overlay-text { position: absolute; bottom: 20px; right: 20px; color: rgba(255,255,255,0.3); font-family: monospace; font-size: 1.5rem; pointer-events: none; text-align: right;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit1.html" class="back-link">⬅ Back to Unit 1</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 1: Dynamics Isomer Builder</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Chemistry</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Molecular Selection</h3>
+            <select id="isomer-sel" onchange="loadMolecule()">
+                <optgroup label="C4H10 (Butanes)">
+                    <option value="0">n-Butane</option>
+                    <option value="1">Isobutane (2-Methylpropane)</option>
+                </optgroup>
+                <optgroup label="C5H12 (Pentanes)">
+                    <option value="2">n-Pentane</option>
+                    <option value="3">Isopentane (2-Methylbutane)</option>
+                    <option value="4">Neopentane (2,2-Dimethylpropane)</option>
+                </optgroup>
+                <optgroup label="C6H14 (Hexanes)">
+                    <option value="5">n-Hexane</option>
+                    <option value="6">2,3-Dimethylbutane</option>
+                    <option value="7">2,2-Dimethylbutane</option>
+                </optgroup>
+            </select>
+
+            <div class="info-card">
+                <div class="info-title">IUPAC Name</div>
+                <div class="info-data" id="ui-name">n-Butane</div>
+                
+                <div class="info-title">Molecular Formula</div>
+                <div class="info-data" id="ui-formula">C4H10</div>
+
+                <div class="info-title">Structural Data</div>
+                <div class="info-data" style="font-size: 0.95rem;">
+                    <div style="color: #38bdf8;">Carbon Atoms: <span id="ui-c">4</span></div>
+                    <div style="color: #e2e8f0;">Hydrogen Atoms: <span id="ui-h">10</span></div>
+                    <div style="color: #fbbf24; margin-top:5px;">Molar Mass: <span id="ui-mass">58.12</span> g/mol</div>
+                </div>
+            </div>
+
+            <div class="hint">
+                <b>Interactive Physics Engine:</b><br><br>
+                Try clicking and dragging any atom (Carbon or Hydrogen) with your mouse. Watch how the molecular bonds stretch and the entire molecule responds dynamically!
+            </div>
+        </div>
+
+        <div class="canvas-box">
+            <canvas id="simCanvas" width="1000" height="650"></canvas>
+            <div class="overlay-text">
+                FORCE-DIRECTED GRAPH<br>
+                <span style="font-size: 1rem; color: #fbbf24;">Physics Engine Active</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('simCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        let nodes = [];
+        let links = [];
+        
+        let cx = cvs.width / 2;
+        let cy = cvs.height / 2;
+
+        let draggedNode = null;
+
+        // --- 有机分子同分异构体数据库 ---
+        // 只需要定义碳骨架，强大的算法会自动补齐所有的氢！
+        const database = [
+            { formula: "C4H10", name: "n-Butane", c_edges: [[0,1], [1,2], [2,3]] },
+            { formula: "C4H10", name: "Isobutane (2-Methylpropane)", c_edges: [[0,1], [1,2], [1,3]] },
+            { formula: "C5H12", name: "n-Pentane", c_edges: [[0,1], [1,2], [2,3], [3,4]] },
+            { formula: "C5H12", name: "Isopentane (2-Methylbutane)", c_edges: [[0,1], [1,2], [2,3], [1,4]] },
+            { formula: "C5H12", name: "Neopentane (2,2-Dimethylpropane)", c_edges: [[0,1], [1,2], [1,3], [1,4]] },
+            { formula: "C6H14", name: "n-Hexane", c_edges: [[0,1], [1,2], [2,3], [3,4], [4,5]] },
+            { formula: "C6H14", name: "2,3-Dimethylbutane", c_edges: [[0,1], [1,2], [2,3], [1,4], [2,5]] },
+            { formula: "C6H14", name: "2,2-Dimethylbutane", c_edges: [[0,1], [1,2], [2,3], [1,4], [1,5]] }
+        ];
+
+        // --- 核心算法：组装分子与自动补氢 ---
+        function buildMolecule(config) {
+            nodes = [];
+            links = [];
+            
+            // 找出多少个碳原子
+            let numCarbons = 0;
+            config.c_edges.forEach(edge => {
+                if (edge[0] > numCarbons) numCarbons = edge[0];
+                if (edge[1] > numCarbons) numCarbons = edge[1];
+            });
+            numCarbons += 1;
+
+            // 记录每个碳连了几个键
+            let c_degrees = new Array(numCarbons).fill(0);
+
+            // 生成碳原子节点
+            for(let i=0; i<numCarbons; i++) {
+                nodes.push({
+                    id: i, type: 'C',
+                    x: cx + (Math.random()-0.5)*100, y: cy + (Math.random()-0.5)*100,
+                    vx: 0, vy: 0
+                });
+            }
+
+            // 建立碳-碳键
+            config.c_edges.forEach(edge => {
+                links.push({ source: edge[0], target: edge[1], type: 'C-C' });
+                c_degrees[edge[0]]++;
+                c_degrees[edge[1]]++;
+            });
+
+            // 自动补齐氢原子 (每个碳必须满足四价)
+            let hIndex = numCarbons;
+            for(let c=0; c<numCarbons; c++) {
+                let hydrogensNeeded = 4 - c_degrees[c];
+                for(let h=0; h<hydrogensNeeded; h++) {
+                    nodes.push({
+                        id: hIndex, type: 'H',
+                        x: nodes[c].x + (Math.random()-0.5)*50, 
+                        y: nodes[c].y + (Math.random()-0.5)*50,
+                        vx: 0, vy: 0
+                    });
+                    links.push({ source: c, target: hIndex, type: 'C-H' });
+                    hIndex++;
+                }
+            }
+
+            // Update UI Stats
+            document.getElementById('ui-name').innerText = config.name;
+            document.getElementById('ui-formula').innerText = config.formula;
+            document.getElementById('ui-c').innerText = numCarbons;
+            document.getElementById('ui-h').innerText = hIndex - numCarbons;
+            let mass = (numCarbons * 12.011) + ((hIndex - numCarbons) * 1.008);
+            document.getElementById('ui-mass').innerText = mass.toFixed(2);
+        }
+
+        function loadMolecule() {
+            let idx = parseInt(document.getElementById('isomer-sel').value);
+            buildMolecule(database[idx]);
+        }
+
+        // --- 鼠标交互控制 ---
+        cvs.addEventListener('mousedown', e => {
+            const rect = cvs.getBoundingClientRect();
+            let mx = (e.clientX - rect.left) * (cvs.width / rect.width);
+            let my = (e.clientY - rect.top) * (cvs.height / rect.height);
+            
+            // 寻找点击的原子
+            for(let n of nodes) {
+                let r = n.type === 'C' ? 25 : 12;
+                if(Math.hypot(n.x - mx, n.y - my) < r) {
+                    draggedNode = n;
+                    break;
+                }
+            }
+        });
+
+        cvs.addEventListener('mousemove', e => {
+            if(draggedNode) {
+                const rect = cvs.getBoundingClientRect();
+                draggedNode.x = (e.clientX - rect.left) * (cvs.width / rect.width);
+                draggedNode.y = (e.clientY - rect.top) * (cvs.height / rect.height);
+                draggedNode.vx = 0; draggedNode.vy = 0;
+            }
+        });
+
+        window.addEventListener('mouseup', () => { draggedNode = null; });
+
+        // --- 物理动力学引擎 (Force-Directed Graph) ---
+        function applyPhysics() {
+            // 1. 库仑斥力 (排斥所有的原子，让它们散开)
+            for(let i=0; i<nodes.length; i++) {
+                for(let j=i+1; j<nodes.length; j++) {
+                    let dx = nodes[i].x - nodes[j].x;
+                    let dy = nodes[i].y - nodes[j].y;
+                    let dist = Math.sqrt(dx*dx + dy*dy) || 1;
+                    
+                    // C-C斥力更强，散得更开
+                    let forceStrength = (nodes[i].type === 'C' && nodes[j].type === 'C') ? 4000 : 1500;
+                    let force = forceStrength / (dist * dist);
+                    
+                    let fx = (dx/dist) * force;
+                    let fy = (dy/dist) * force;
+                    
+                    nodes[i].vx += fx; nodes[i].vy += fy;
+                    nodes[j].vx -= fx; nodes[j].vy -= fy;
+                }
+                
+                // 2. 中心重力 (保持分子在屏幕中央)
+                nodes[i].vx += (cx - nodes[i].x) * 0.005;
+                nodes[i].vy += (cy - nodes[i].y) * 0.005;
+            }
+
+            // 3. 胡克弹力 (化学键互相拉扯)
+            for(let link of links) {
+                let n1 = nodes[link.source];
+                let n2 = nodes[link.target];
+                let dx = n2.x - n1.x;
+                let dy = n2.y - n1.y;
+                let dist = Math.sqrt(dx*dx + dy*dy) || 1;
+                
+                // C-C 键长 90, C-H 键长 50
+                let targetDist = link.type === 'C-C' ? 90 : 50;
+                let springK = link.type === 'C-C' ? 0.08 : 0.04;
+                
+                let force = (dist - targetDist) * springK;
+                let fx = (dx/dist) * force;
+                let fy = (dy/dist) * force;
+                
+                n1.vx += fx; n1.vy += fy;
+                n2.vx -= fx; n2.vy -= fy;
+            }
+
+            // 4. 更新位置与阻尼摩擦力
+            for(let n of nodes) {
+                if(n !== draggedNode) {
+                    n.x += n.vx;
+                    n.y += n.vy;
+                }
+                n.vx *= 0.85; // Friction
+                n.vy *= 0.85;
+            }
+        }
+
+        // --- 3D 渲染引擎 ---
+        function drawScene() {
+            ctx.clearRect(0,0, cvs.width, cvs.height);
+
+            // 绘制化学键 (Bonds)
+            for(let link of links) {
+                let n1 = nodes[link.source];
+                let n2 = nodes[link.target];
+                ctx.beginPath(); ctx.moveTo(n1.x, n1.y); ctx.lineTo(n2.x, n2.y);
+                
+                if (link.type === 'C-C') {
+                    ctx.strokeStyle = 'rgba(203, 213, 225, 0.8)'; // 浅灰 C-C 键
+                    ctx.lineWidth = 10;
+                } else {
+                    ctx.strokeStyle = 'rgba(148, 163, 184, 0.6)'; // 更暗更细的 C-H 键
+                    ctx.lineWidth = 4;
+                }
+                ctx.stroke();
+            }
+
+            // 绘制原子 (Atoms) - 保证先画氢，再画碳，形成遮挡关系
+            let sortedNodes = [...nodes].sort((a,b) => (a.type === 'H' ? -1 : 1));
+
+            for(let n of sortedNodes) {
+                ctx.beginPath();
+                let r = n.type === 'C' ? 24 : 12;
+                ctx.arc(n.x, n.y, r, 0, Math.PI*2);
+                
+                // Canvas 3D Radial Gradient shading
+                let grad = ctx.createRadialGradient(n.x - r*0.3, n.y - r*0.3, r*0.1, n.x, n.y, r);
+                if (n.type === 'C') {
+                    grad.addColorStop(0, '#64748b'); // 碳：黑灰色带反光
+                    grad.addColorStop(1, '#0f172a');
+                } else {
+                    grad.addColorStop(0, '#ffffff'); // 氢：纯白色带反光
+                    grad.addColorStop(1, '#94a3b8');
+                }
+                
+                ctx.fillStyle = grad;
+                ctx.fill();
+                
+                // 文字标签 (只给大球画 C)
+                if (n.type === 'C') {
+                    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                    ctx.font = 'bold 18px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText('C', n.x, n.y);
+                }
+            }
+        }
+
+        // --- 主循环 ---
+        function animate() {
+            applyPhysics();
+            drawScene();
+            requestAnimationFrame(animate);
+        }
+
+        // 启动
+        loadMolecule();
+        animate();
+    </script>
+</body>
+</html>

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Maple Leaf Chemistry 12 Virtual Lab</title>
+    <style>
+        :root { --ml-red: #b91c1c; --ml-gold: #fbbf24; --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--text); display: flex; flex-direction: column; min-height: 100vh; }
+        
+        .hero { position: relative; background: linear-gradient(135deg, #7f1d1d 0%, #b91c1c 100%); padding: 70px 20px; text-align: center; border-bottom: 5px solid var(--ml-gold); box-shadow: 0 10px 30px rgba(0,0,0,0.5);}
+        .hero h1 { margin: 0; font-size: 3rem; color: white; letter-spacing: 2px; text-transform: uppercase;}
+        .hero p { color: #fca5a5; font-size: 1.2rem; max-width: 600px; margin: 15px auto 0; line-height: 1.6;}
+
+        /* 顶部返回主页的终极按钮 */
+        .home-link { position: absolute; top: 20px; left: 25px; color: white; text-decoration: none; border: 2px solid rgba(255,255,255,0.4); padding: 8px 16px; border-radius: 8px; font-weight: bold; font-size: 0.95rem; transition: 0.3s; background: rgba(0,0,0,0.2);}
+        .home-link:hover { background: rgba(255,255,255,0.2); border-color: white; transform: translateY(-2px);}
+
+        .container { max-width: 1200px; margin: 40px auto; padding: 0 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 30px; flex: 1;}
+        
+        .unit-card { background: var(--panel); border: 2px solid #334155; border-radius: 15px; overflow: hidden; transition: 0.3s; text-decoration: none; display: flex; flex-direction: column; box-shadow: 0 10px 20px rgba(0,0,0,0.3);}
+        .unit-card:hover { transform: translateY(-10px); border-color: var(--ml-gold); box-shadow: 0 15px 30px rgba(251,191,36,0.2);}
+        
+        .unit-num { background: #334155; color: var(--ml-gold); padding: 15px 20px; font-size: 1.5rem; font-weight: bold; font-family: monospace; border-bottom: 2px solid #0f172a;}
+        .unit-card:hover .unit-num { background: var(--ml-gold); color: #0f172a; }
+
+        .unit-body { padding: 25px; flex: 1; display: flex; flex-direction: column;}
+        .unit-body h2 { margin: 0 0 15px 0; color: white; font-size: 1.4rem;}
+        .unit-body p { margin: 0 0 20px 0; color: #94a3b8; line-height: 1.5; font-size: 0.95rem; flex: 1;}
+        
+        .lab-count { display: inline-block; background: rgba(56, 189, 248, 0.1); color: #38bdf8; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; border: 1px solid #0284c7; align-self: flex-start;}
+
+        .footer { background: #020617; text-align: center; padding: 20px; color: #64748b; font-size: 0.9rem; border-top: 1px solid #334155; margin-top: 40px;}
+
+        /* --- 新增：智能词典专属样式 (适配暗黑/红色主题) --- */
+        .dict-fab { position: fixed; bottom: 30px; right: 30px; background: var(--panel); color: var(--ml-gold); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 3px solid var(--ml-gold); transition: 0.3s; z-index: 100;}
+        .dict-fab:hover { transform: scale(1.1) rotate(15deg); background: var(--ml-gold); color: var(--panel);}
+
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px;}
+        .modal-content { background: var(--panel); width: 100%; max-width: 800px; max-height: 85vh; border-radius: 15px; border: 2px solid var(--ml-red); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.5); animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);}
+        @keyframes slideUp { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
+
+        .modal-header { background: #020617; padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155;}
+        .modal-header h2 { margin: 0; color: var(--ml-gold); display: flex; align-items: center; gap: 10px;}
+        .close-btn { background: transparent; border: none; color: #94a3b8; font-size: 24px; cursor: pointer; transition: 0.2s;}
+        .close-btn:hover { color: #ef4444;}
+
+        .search-bar { padding: 20px; background: #0f172a; border-bottom: 1px solid #334155;}
+        .search-bar input { width: 100%; padding: 12px 20px; border-radius: 8px; border: 2px solid #7f1d1d; background: #020617; color: white; font-size: 1.1rem; outline: none; box-sizing: border-box; transition: 0.2s;}
+        .search-bar input:focus { border-color: #ef4444; box-shadow: 0 0 15px rgba(239,68,68,0.3);}
+
+        .vocab-list { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px;}
+        .vocab-item { background: #0f172a; border: 1px solid #334155; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 5px; text-align: left;}
+        .vocab-item .term { font-size: 1.2rem; font-weight: bold; color: #fca5a5;}
+        .vocab-item .translation { font-size: 1.1rem; color: var(--ml-gold); font-weight: bold;}
+        .vocab-item .desc { color: #cbd5e1; font-size: 0.9rem; line-height: 1.4; margin-top: 5px;}
+        .vocab-item .unit-tag { display: inline-block; background: #7f1d1d; color: #fecaca; font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; align-self: flex-start; margin-top: 5px; font-weight: bold;}
+
+        .vocab-list::-webkit-scrollbar { width: 8px; }
+        .vocab-list::-webkit-scrollbar-track { background: #0f172a; }
+        .vocab-list::-webkit-scrollbar-thumb { background: #7f1d1d; border-radius: 4px; }
+        .vocab-list::-webkit-scrollbar-thumb:hover { background: #b91c1c; }
+    </style>
+</head>
+<body>
+
+    <div class="hero">
+        <a href="../index.html" class="home-link">⬅ Back to Portal</a>
+        
+        <h1>Chemistry 12</h1>
+        <p>Interactive Virtual Laboratory Environment<br>Empowering Scientific Inquiry through Simulation</p>
+    </div>
+
+    <div class="container">
+        <a href="unit1.html" class="unit-card">
+            <div class="unit-num">UNIT 01</div>
+            <div class="unit-body">
+                <h2>Organic Chemistry</h2>
+                <p>Explore 3D isomer structures, apply Markovnikov's rule in alkene addition mechanisms, and analyze hydrocarbon saturation.</p>
+                <div class="lab-count">3 Interactive Labs</div>
+            </div>
+        </a>
+
+        <a href="unit2.html" class="unit-card">
+            <div class="unit-num">UNIT 02</div>
+            <div class="unit-body">
+                <h2>Kinetics & Energetics</h2>
+                <p>Investigate collision theory, manipulate potential energy profiles, and dissect multi-step reaction mechanisms.</p>
+                <div class="lab-count">3 Interactive Labs</div>
+            </div>
+        </a>
+
+        <a href="unit3.html" class="unit-card">
+            <div class="unit-num">UNIT 03</div>
+            <div class="unit-body">
+                <h2>Equilibrium Theory</h2>
+                <p>Observe Le Chatelier's principle in action, determine Ksp through dynamic solubility, and solve complex ICE tables.</p>
+                <div class="lab-count">3 Interactive Labs</div>
+            </div>
+        </a>
+
+        <a href="unit4.html" class="unit-card">
+            <div class="unit-num">UNIT 04</div>
+            <div class="unit-body">
+                <h2>Acids & Bases</h2>
+                <p>Perform high-precision titrations, test the physiological limits of blood buffers, and visualize salt hydrolysis.</p>
+                <div class="lab-count">3 Interactive Labs</div>
+            </div>
+        </a>
+
+        <a href="unit5.html" class="unit-card">
+            <div class="unit-num">UNIT 05</div>
+            <div class="unit-body">
+                <h2>Electrochemistry</h2>
+                <p>Construct voltaic cells from standard potentials, perform redox titrations, and drive electrolytic copper plating.</p>
+                <div class="lab-count">3 Interactive Labs</div>
+            </div>
+        </a>
+    </div>
+
+    <div class="footer">
+        Maple Leaf Educational Systems | Department of Science | Designed for SCHEM 12
+    </div>
+
+    <div class="dict-fab" onclick="toggleModal(true)" title="Open Chemistry Glossary">📖</div>
+
+    <div class="modal-overlay" id="dictModal" onclick="closeOnOutside(event)">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚗️ SCHEM12 Smart Glossary</h2>
+                <button class="close-btn" onclick="toggleModal(false)">✖</button>
+            </div>
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Search a term (e.g., Isomer, 平衡, Titration...)" oninput="filterVocab()">
+            </div>
+            <div class="vocab-list" id="vocabList">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        // ================= 化学 12 海量核心词汇库 (110+ 词汇) =================
+        const vocabData = [
+            // Unit 1: Organic Chemistry
+            { unit: "U1: Organic Chemistry", en: "Hydrocarbon", zh: "碳氢化合物 / 烃", desc: "An organic compound consisting entirely of hydrogen and carbon." },
+            { unit: "U1: Organic Chemistry", en: "Alkane", zh: "烷烃", desc: "A saturated hydrocarbon containing only single bonds between carbon atoms." },
+            { unit: "U1: Organic Chemistry", en: "Alkene", zh: "烯烃", desc: "An unsaturated hydrocarbon containing at least one carbon-carbon double bond." },
+            { unit: "U1: Organic Chemistry", en: "Alkyne", zh: "炔烃", desc: "An unsaturated hydrocarbon containing at least one carbon-carbon triple bond." },
+            { unit: "U1: Organic Chemistry", en: "Isomer", zh: "同分异构体", desc: "Molecules with the same molecular formula but a different structural arrangement of atoms." },
+            { unit: "U1: Organic Chemistry", en: "Structural Isomer", zh: "构造异构体", desc: "Molecules with the same molecular formula but different bonding patterns." },
+            { unit: "U1: Organic Chemistry", en: "Stereoisomer", zh: "立体异构体", desc: "Isomers that differ in the 3D arrangement of atoms in space, but have the same bonding sequence." },
+            { unit: "U1: Organic Chemistry", en: "Enantiomer", zh: "对映异构体", desc: "Stereoisomers that are non-superimposable mirror images of each other (chiral molecules)." },
+            { unit: "U1: Organic Chemistry", en: "Chiral", zh: "手性的", desc: "A molecule that cannot be superimposed on its mirror image (often having a carbon with 4 different groups)." },
+            { unit: "U1: Organic Chemistry", en: "Functional Group", zh: "官能团", desc: "A specific group of atoms or bonds within a molecule that is responsible for the characteristic chemical reactions." },
+            { unit: "U1: Organic Chemistry", en: "Alcohol", zh: "醇", desc: "An organic compound containing a hydroxyl (-OH) functional group." },
+            { unit: "U1: Organic Chemistry", en: "Ether", zh: "醚", desc: "An organic compound featuring an oxygen atom bonded to two alkyl or aryl groups (R-O-R')." },
+            { unit: "U1: Organic Chemistry", en: "Aldehyde", zh: "醛", desc: "An organic compound containing a formyl group (-CHO) typically at the end of a carbon chain." },
+            { unit: "U1: Organic Chemistry", en: "Ketone", zh: "酮", desc: "An organic compound characterized by a carbonyl group (C=O) bonded to two other carbon atoms." },
+            { unit: "U1: Organic Chemistry", en: "Carboxylic Acid", zh: "羧酸", desc: "An organic acid containing a carboxyl group (-COOH)." },
+            { unit: "U1: Organic Chemistry", en: "Ester", zh: "酯", desc: "A chemical compound derived from an acid where at least one -OH group is replaced by an -O-alkyl group." },
+            { unit: "U1: Organic Chemistry", en: "Amine", zh: "胺", desc: "Organic compounds and functional groups that contain a basic nitrogen atom with a lone pair." },
+            { unit: "U1: Organic Chemistry", en: "Amide", zh: "酰胺", desc: "A functional group containing a carbonyl group linked to a nitrogen atom." },
+            { unit: "U1: Organic Chemistry", en: "Aromatic", zh: "芳香族的", desc: "Compounds containing a planar unsaturated ring of atoms that is stabilized by an interaction of the bonds (e.g., Benzene)." },
+            { unit: "U1: Organic Chemistry", en: "Addition Reaction", zh: "加成反应", desc: "A reaction where two or more molecules combine to form a larger one (typical for alkenes/alkynes)." },
+            { unit: "U1: Organic Chemistry", en: "Substitution Reaction", zh: "取代反应", desc: "A reaction during which one functional group in a chemical compound is replaced by another functional group." },
+            { unit: "U1: Organic Chemistry", en: "Elimination Reaction", zh: "消除反应", desc: "A reaction in which two substituents are removed from a molecule in either a one- or two-step mechanism." },
+            { unit: "U1: Organic Chemistry", en: "Markovnikov's Rule", zh: "马氏规则", desc: "In addition reactions to unsymmetrical alkenes, the hydrogen atom adds to the carbon with the most hydrogens already attached." },
+            { unit: "U1: Organic Chemistry", en: "Polymerization", zh: "聚合反应", desc: "A process of reacting monomer molecules together in a chemical reaction to form polymer chains." },
+
+            // Unit 2: Kinetics & Energetics
+            { unit: "U2: Kinetics", en: "Reaction Rate", zh: "反应速率", desc: "The speed at which a chemical reaction proceeds, usually expressed as change in concentration per unit time." },
+            { unit: "U2: Kinetics", en: "Collision Theory", zh: "碰撞理论", desc: "Theory stating that for a reaction to occur, particles must collide with sufficient energy and correct orientation." },
+            { unit: "U2: Kinetics", en: "Activation Energy (Ea)", zh: "活化能", desc: "The minimum amount of energy required to initiate a chemical reaction." },
+            { unit: "U2: Kinetics", en: "Activated Complex", zh: "活化络合物 (过渡态)", desc: "The unstable, high-energy arrangement of atoms that exists at the peak of the activation energy barrier." },
+            { unit: "U2: Kinetics", en: "Catalyst", zh: "催化剂", desc: "A substance that lowers the activation energy and speeds up a reaction without being consumed." },
+            { unit: "U2: Kinetics", en: "Inhibitor", zh: "抑制剂", desc: "A substance that decreases the rate of, or prevents, a chemical reaction." },
+            { unit: "U2: Kinetics", en: "Enthalpy (ΔH)", zh: "焓变", desc: "The heat content of a system at constant pressure; ΔH represents the heat absorbed or released in a reaction." },
+            { unit: "U2: Kinetics", en: "Exothermic", zh: "放热的", desc: "A reaction that releases heat to its surroundings (ΔH is negative)." },
+            { unit: "U2: Kinetics", en: "Endothermic", zh: "吸热的", desc: "A reaction that absorbs heat from its surroundings (ΔH is positive)." },
+            { unit: "U2: Kinetics", en: "Reaction Mechanism", zh: "反应机理", desc: "The step-by-step sequence of elementary reactions by which overall chemical change occurs." },
+            { unit: "U2: Kinetics", en: "Elementary Step", zh: "基元反应", desc: "A single step in a reaction mechanism that describes a single molecular event." },
+            { unit: "U2: Kinetics", en: "Rate-Determining Step", zh: "决速步", desc: "The slowest step in a reaction mechanism, which dictates the overall rate of the reaction." },
+            { unit: "U2: Kinetics", en: "Reaction Intermediate", zh: "反应中间体", desc: "A chemical species that is formed in one elementary step and consumed in a subsequent step." },
+            { unit: "U2: Kinetics", en: "Order of Reaction", zh: "反应级数", desc: "The power to which the concentration of a reactant is raised in the rate law equation." },
+
+            // Unit 3: Equilibrium Theory
+            { unit: "U3: Equilibrium", en: "Dynamic Equilibrium", zh: "动态平衡", desc: "A state where the forward and reverse reactions occur at the same rate, resulting in no observable change in macroscopic properties." },
+            { unit: "U3: Equilibrium", en: "Le Chatelier's Principle", zh: "勒夏特列原理", desc: "If a closed system at equilibrium is subjected to a change (stress), the system will shift to counteract the change." },
+            { unit: "U3: Equilibrium", en: "Equilibrium Constant (Keq)", zh: "平衡常数", desc: "The ratio of product concentrations to reactant concentrations at equilibrium, each raised to the power of their stoichiometric coefficients." },
+            { unit: "U3: Equilibrium", en: "Reaction Quotient (Q)", zh: "反应商", desc: "A value calculated using the mass action expression with non-equilibrium concentrations to predict the direction of a reaction." },
+            { unit: "U3: Equilibrium", en: "Macroscopic Property", zh: "宏观性质", desc: "Properties of a system that can be observed or measured (e.g., color, pressure, temperature)." },
+            { unit: "U3: Equilibrium", en: "ICE Table", zh: "ICE 表格", desc: "A tabular system (Initial, Change, Equilibrium) used to calculate equilibrium concentrations." },
+            { unit: "U3: Equilibrium", en: "Solubility", zh: "溶解度", desc: "The maximum amount of solute that can dissolve in a given amount of solvent at a specific temperature." },
+            { unit: "U3: Equilibrium", en: "Saturated Solution", zh: "饱和溶液", desc: "A solution in which the maximum amount of solute has been dissolved; an equilibrium exists between dissolved and undissolved solute." },
+            { unit: "U3: Equilibrium", en: "Solubility Product Constant (Ksp)", zh: "溶度积常数", desc: "The equilibrium constant for the dissociation of a sparingly soluble ionic compound into its aqueous ions." },
+            { unit: "U3: Equilibrium", en: "Precipitate", zh: "沉淀物", desc: "An insoluble solid that forms and separates from a liquid solution." },
+            { unit: "U3: Equilibrium", en: "Common Ion Effect", zh: "同离子效应", desc: "The decrease in solubility of an ionic precipitate by the addition to the solution of a soluble compound with an ion in common with the precipitate." },
+
+            // Unit 4: Acids & Bases
+            { unit: "U4: Acids & Bases", en: "Arrhenius Acid", zh: "阿伦尼乌斯酸", desc: "A substance that dissociates in water to form hydrogen ions (H+)." },
+            { unit: "U4: Acids & Bases", en: "Bronsted-Lowry Acid", zh: "布朗斯特-劳里酸", desc: "A molecule or ion that is a proton (H+) donor." },
+            { unit: "U4: Acids & Bases", en: "Bronsted-Lowry Base", zh: "布朗斯特-劳里碱", desc: "A molecule or ion that is a proton (H+) acceptor." },
+            { unit: "U4: Acids & Bases", en: "Conjugate Acid-Base Pair", zh: "共轭酸碱对", desc: "Two species that differ only by the presence or absence of a single proton (H+)." },
+            { unit: "U4: Acids & Bases", en: "Amphiprotic / Amphoteric", zh: "两性的", desc: "A substance that can act as either a Bronsted-Lowry acid or base (e.g., water, HCO3-)." },
+            { unit: "U4: Acids & Bases", en: "Hydronium Ion", zh: "水合氢离子", desc: "The H3O+ ion, formed when an acid donates a proton to water." },
+            { unit: "U4: Acids & Bases", en: "Strong Acid", zh: "强酸", desc: "An acid that dissociates (ionizes) completely 100% in an aqueous solution." },
+            { unit: "U4: Acids & Bases", en: "Weak Acid", zh: "弱酸", desc: "An acid that only partially dissociates in an aqueous solution, establishing an equilibrium." },
+            { unit: "U4: Acids & Bases", en: "Kw (Ion Product of Water)", zh: "水的离子积", desc: "The equilibrium constant for the autoionization of water; Kw = [H3O+][OH-] = 1.0 x 10^-14 at 25°C." },
+            { unit: "U4: Acids & Bases", en: "Ka (Acid Dissociation Constant)", zh: "酸解离常数", desc: "A quantitative measure of the strength of an acid in solution." },
+            { unit: "U4: Acids & Bases", en: "Neutralization", zh: "中和反应", desc: "A chemical reaction in which an acid and a base react quantitatively with each other to produce a salt and water." },
+            { unit: "U4: Acids & Bases", en: "Titration", zh: "滴定", desc: "A quantitative analytical technique used to determine the unknown concentration of an identified analyte." },
+            { unit: "U4: Acids & Bases", en: "Equivalence Point", zh: "等当点", desc: "The point in a titration where the amount of titrant added is enough to completely neutralize the analyte solution." },
+            { unit: "U4: Acids & Bases", en: "Endpoint", zh: "滴定终点", desc: "The point during a titration when an indicator shows that the amount of reactant necessary for a complete reaction has been added." },
+            { unit: "U4: Acids & Bases", en: "Indicator", zh: "指示剂", desc: "A weak organic acid or base that changes color over a specific pH range." },
+            { unit: "U4: Acids & Bases", en: "Hydrolysis", zh: "水解", desc: "The chemical breakdown of a compound due to reaction with water; often used to describe the reaction of salt ions to affect pH." },
+            { unit: "U4: Acids & Bases", en: "Buffer Solution", zh: "缓冲溶液", desc: "A solution that resists changes in pH when small amounts of acid or base are added; consists of a weak acid and its conjugate base." },
+
+            // Unit 5: Electrochemistry
+            { unit: "U5: Electrochemistry", en: "Oxidation", zh: "氧化", desc: "The loss of electrons during a reaction by a molecule, atom or ion." },
+            { unit: "U5: Electrochemistry", en: "Reduction", zh: "还原", desc: "The gain of electrons during a reaction by a molecule, atom or ion." },
+            { unit: "U5: Electrochemistry", en: "Redox Reaction", zh: "氧化还原反应", desc: "A type of chemical reaction that involves a transfer of electrons between two species." },
+            { unit: "U5: Electrochemistry", en: "Oxidizing Agent", zh: "氧化剂", desc: "A substance that causes oxidation by accepting electrons; therefore, it gets reduced." },
+            { unit: "U5: Electrochemistry", en: "Reducing Agent", zh: "还原剂", desc: "A substance that causes reduction by donating electrons; therefore, it gets oxidized." },
+            { unit: "U5: Electrochemistry", en: "Oxidation Number", zh: "氧化数 / 氧化态", desc: "A number assigned to an element in chemical combination which represents the number of electrons lost or gained." },
+            { unit: "U5: Electrochemistry", en: "Half-Reaction", zh: "半反应", desc: "Either the oxidation or reduction component of a redox reaction." },
+            { unit: "U5: Electrochemistry", en: "Voltaic Cell (Galvanic)", zh: "原电池", desc: "An electrochemical cell that derives electrical energy from spontaneous redox reactions." },
+            { unit: "U5: Electrochemistry", en: "Electrolytic Cell", zh: "电解池", desc: "An electrochemical cell that uses external electrical energy to drive a non-spontaneous redox reaction." },
+            { unit: "U5: Electrochemistry", en: "Anode", zh: "阳极", desc: "The electrode where oxidation occurs." },
+            { unit: "U5: Electrochemistry", en: "Cathode", zh: "阴极", desc: "The electrode where reduction occurs." },
+            { unit: "U5: Electrochemistry", en: "Salt Bridge", zh: "盐桥", desc: "A laboratory device used to connect the oxidation and reduction half-cells of a galvanic cell, maintaining electrical neutrality." },
+            { unit: "U5: Electrochemistry", en: "Standard Reduction Potential", zh: "标准还原电势 (E°)", desc: "The tendency for a chemical species to be reduced, and is measured in volts at standard conditions." },
+            { unit: "U5: Electrochemistry", en: "Spontaneous Reaction", zh: "自发反应", desc: "A reaction that favors the formation of products at the conditions under which the reaction is occurring (E°cell > 0)." },
+            { unit: "U5: Electrochemistry", en: "Electroplating", zh: "电镀", desc: "A process that uses an electric current to reduce dissolved metal cations so that they form a thin coherent metal coating on an electrode." }
+        ];
+
+        const listContainer = document.getElementById('vocabList');
+
+        function renderList(data) {
+            listContainer.innerHTML = '';
+            if(data.length === 0) {
+                listContainer.innerHTML = '<div style="color:#64748b; text-align:center; margin-top:20px;">No vocabulary found matching your search.</div>';
+                return;
+            }
+
+            data.forEach(word => {
+                let item = document.createElement('div');
+                item.className = 'vocab-item';
+                item.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div class="term">${word.en}</div>
+                        <div class="translation">${word.zh}</div>
+                    </div>
+                    <div class="desc">${word.desc}</div>
+                    <div class="unit-tag">${word.unit}</div>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+        function filterVocab() {
+            let query = document.getElementById('searchInput').value.toLowerCase();
+            let filtered = vocabData.filter(w => 
+                w.en.toLowerCase().includes(query) || 
+                w.zh.includes(query) || 
+                w.desc.toLowerCase().includes(query)
+            );
+            renderList(filtered);
+        }
+
+        function toggleModal(show) {
+            let modal = document.getElementById('dictModal');
+            modal.style.display = show ? 'flex' : 'none';
+            if(show) {
+                document.getElementById('searchInput').value = '';
+                renderList(vocabData);
+                document.getElementById('searchInput').focus();
+            }
+        }
+
+        function closeOnOutside(e) {
+            if(e.target.id === 'dictModal') toggleModal(false);
+        }
+
+        renderList(vocabData);
+    </script>
+</body>
+</html>

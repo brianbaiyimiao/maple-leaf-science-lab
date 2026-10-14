@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 4.2: Buffer Solutions</title>
+    <style>
+        :root { --ml-red: #b91c1c; --ml-gold: #fbbf24; --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--ml-red); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold); }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.3s;}
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+
+        .workspace { flex: 1; display: grid; grid-template-columns: 420px 1fr; gap: 20px; padding: 20px; box-sizing: border-box; }
+        .panel { background: var(--panel); border-radius: 15px; border: 1px solid #334155; padding: 25px; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow-y: auto;}
+        
+        h3 { margin: 0 0 15px 0; color: var(--ml-gold); border-bottom: 1px dashed #475569; padding-bottom: 10px; font-size: 1.1rem;}
+
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: block; font-size: 0.95rem; margin-bottom: 8px; color: #cbd5e1; font-weight: bold;}
+        select { width: 100%; padding: 10px; border-radius: 6px; border: 2px solid #475569; background: #0f172a; color: white; font-size: 1rem; outline: none; margin-bottom: 5px; cursor: pointer;}
+        
+        .btn-group { display: flex; gap: 10px; margin-top: 10px; }
+        .btn { flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: bold; font-size: 1rem; cursor: pointer; transition: 0.2s; color: white;}
+        .btn-acid { background: #ef4444; border: 2px solid #b91c1c; } .btn-acid:hover { background: #dc2626; }
+        .btn-base { background: #3b82f6; border: 2px solid #1d4ed8; } .btn-base:hover { background: #2563eb; }
+        .btn-reset { background: #64748b; margin-top: 15px; width: 100%;} .btn-reset:hover { background: #475569; }
+
+        .meter-box { background: #020617; border: 2px solid #475569; padding: 15px; border-radius: 10px; margin-top: 20px; text-align: center; position: relative;}
+        .ph-val { font-family: monospace; font-size: 3.5rem; font-weight: bold; color: #22c55e; transition: color 0.3s;}
+        
+        .alert { color: #ef4444; font-weight: bold; margin-top: 10px; min-height: 20px; font-size: 0.9rem;}
+
+        .visual-container { display: grid; grid-template-rows: 1fr 200px; gap: 20px; min-height: 0;}
+        .canvas-box { background: #000; border-radius: 15px; border: 4px solid #334155; position: relative; overflow: hidden; }
+        canvas { width: 100%; height: 100%; display: block; }
+        .tag { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 5px 10px; border-radius: 6px; font-weight: bold; color: var(--ml-gold); font-size: 0.8rem; border: 1px solid #475569;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit4.html" class="back-link">⬅ Back to Unit 4 Labs</a>
+        <h2 style="margin:0;">Lab 4.2: Buffer Capacity & Blood pH</h2>
+        <span style="font-size: 0.9rem; opacity: 0.8;">Maple Leaf Advanced Chemistry</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Test Environment</h3>
+            
+            <div class="control-group">
+                <label>Select Target Solution (1.0 L):</label>
+                <select id="sol-sel" onchange="resetSim()">
+                    <option value="water">Pure Water (Unbuffered)</option>
+                    <option value="acetate">Acetic Acid Buffer (pH 4.76)</option>
+                    <option value="blood">Human Blood Buffer (pH 7.40)</option>
+                </select>
+            </div>
+
+            <h3>Stress Testing</h3>
+            <p style="font-size:0.85rem; color:#94a3b8; margin-top:0;">Add drops of strong acid (HCl) or strong base (NaOH) to test resistance.</p>
+            <div class="btn-group">
+                <button class="btn btn-acid" onclick="addStress('acid')">+ 0.01 mol H⁺</button>
+                <button class="btn btn-base" onclick="addStress('base')">+ 0.01 mol OH⁻</button>
+            </div>
+            
+            <div class="meter-box">
+                <div style="font-size:0.9rem; color:#94a3b8; text-transform:uppercase;">Real-Time pH</div>
+                <div class="ph-val" id="ph-display">7.00</div>
+                <div class="alert" id="alert-msg"></div>
+            </div>
+
+            <button class="btn btn-reset" onclick="resetSim()">🔄 Reset Solution</button>
+
+            <div style="margin-top:auto; font-size:0.85rem; color:#64748b; line-height:1.5; background:#020617; padding:15px; border-radius:8px; border-left: 4px solid var(--ml-gold);">
+                <b>Henderson-Hasselbalch Equation:</b><br>
+                pH = pKa + log([A⁻] / [HA])<br>
+                A buffer works by converting added strong acids/bases into weak ones, significantly reducing the change in free [H⁺].
+            </div>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box">
+                <div class="tag">BUFFER RESERVOIR (HA vs A⁻)</div>
+                <canvas id="barCanvas"></canvas>
+            </div>
+            <div class="canvas-box" style="background: #020617;">
+                <div class="tag">pH COLORIMETRIC VIEW</div>
+                <canvas id="beakerCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const bCvs = document.getElementById('barCanvas');
+        const bCtx = bCvs.getContext('2d');
+        const cCvs = document.getElementById('beakerCanvas');
+        const cCtx = cCvs.getContext('2d');
+
+        // Initial States
+        const solutions = {
+            "water": { name: "Pure Water", pKa: 7.0, init_HA: 0, init_A: 0, initial_pH: 7.0 },
+            "acetate": { name: "Acetate Buffer", pKa: 4.76, init_HA: 0.1, init_A: 0.1, initial_pH: 4.76 },
+            "blood": { name: "Blood (Carbonate)", pKa: 6.1, init_HA: 0.0012, init_A: 0.024, initial_pH: 7.40 } // Physiological ratio 1:20
+        };
+
+        let currentSol = "water";
+        let moles_HA = 0;
+        let moles_A = 0;
+        let excess_H = 0;
+        let excess_OH = 0;
+        let current_pH = 7.0;
+        let isBroken = false;
+
+        function resize() {
+            bCvs.width = bCvs.offsetWidth; bCvs.height = bCvs.offsetHeight;
+            cCvs.width = cCvs.offsetWidth; cCvs.height = cCvs.offsetHeight;
+            drawAll();
+        }
+        window.addEventListener('resize', resize);
+
+        function resetSim() {
+            currentSol = document.getElementById('sol-sel').value;
+            let sol = solutions[currentSol];
+            moles_HA = sol.init_HA;
+            moles_A = sol.init_A;
+            excess_H = 0;
+            excess_OH = 0;
+            current_pH = sol.initial_pH;
+            isBroken = false;
+            
+            if(currentSol === "water") {
+                excess_H = 1e-7; // pure water H+ concentration
+            }
+            
+            document.getElementById('alert-msg').innerText = "";
+            updateUI();
+            drawAll();
+        }
+
+        function addStress(type) {
+            let amount = 0.01; // 0.01 moles
+            let sol = solutions[currentSol];
+
+            if (currentSol === "water" || isBroken) {
+                // No buffering
+                if (type === "acid") {
+                    if(excess_OH > 0) {
+                        excess_OH -= amount;
+                        if(excess_OH < 0) { excess_H = Math.abs(excess_OH); excess_OH = 0; }
+                    } else {
+                        excess_H += amount;
+                    }
+                } else {
+                    if(excess_H > 0) {
+                        excess_H -= amount;
+                        if(excess_H < 0) { excess_OH = Math.abs(excess_H); excess_H = 0; }
+                    } else {
+                        excess_OH += amount;
+                    }
+                }
+            } else {
+                // Buffer active
+                if (type === "acid") {
+                    // H+ reacts with A- to make HA
+                    if (moles_A >= amount) {
+                        moles_A -= amount;
+                        moles_HA += amount;
+                    } else {
+                        // Buffer breaks!
+                        moles_HA += moles_A;
+                        excess_H = amount - moles_A;
+                        moles_A = 0;
+                        isBroken = true;
+                    }
+                } else {
+                    // OH- reacts with HA to make A-
+                    if (moles_HA >= amount) {
+                        moles_HA -= amount;
+                        moles_A += amount;
+                    } else {
+                        // Buffer breaks!
+                        moles_A += moles_HA;
+                        excess_OH = amount - moles_HA;
+                        moles_HA = 0;
+                        isBroken = true;
+                    }
+                }
+            }
+
+            // Calculate new pH
+            if (isBroken || currentSol === "water") {
+                if (excess_H > 0) {
+                    current_pH = -Math.log10(excess_H);
+                } else if (excess_OH > 0) {
+                    current_pH = 14 + Math.log10(excess_OH);
+                } else {
+                    current_pH = 7.0;
+                }
+            } else {
+                // Henderson-Hasselbalch
+                current_pH = sol.pKa + Math.log10(moles_A / moles_HA);
+            }
+
+            // Cap pH
+            current_pH = Math.max(0, Math.min(14, current_pH));
+            
+            // Check Blood death
+            if(currentSol === "blood" && (current_pH < 7.35 || current_pH > 7.45)) {
+                document.getElementById('alert-msg').innerText = "⚠ WARNING: Outside physiological range (Death)";
+            } else if (isBroken) {
+                document.getElementById('alert-msg').innerText = "💥 BUFFER BROKEN! Capacity Exceeded.";
+            } else {
+                document.getElementById('alert-msg').innerText = "";
+            }
+
+            updateUI();
+            drawAll();
+        }
+
+        function updateUI() {
+            let phDisplay = document.getElementById('ph-display');
+            phDisplay.innerText = current_pH.toFixed(2);
+            
+            if (current_pH < 3) phDisplay.style.color = '#ef4444'; // Red
+            else if (current_pH > 10) phDisplay.style.color = '#3b82f6'; // Blue
+            else phDisplay.style.color = '#22c55e'; // Green
+        }
+
+        // --- Draw Bar Chart (HA vs A-) ---
+        function drawBars() {
+            bCtx.clearRect(0,0,bCvs.width, bCvs.height);
+            if(currentSol === "water") {
+                bCtx.fillStyle = '#64748b'; bCtx.font = '20px Arial'; bCtx.textAlign='center';
+                bCtx.fillText("No Buffer Components Present", bCvs.width/2, bCvs.height/2);
+                return;
+            }
+
+            let w = bCvs.width; let h = bCvs.height;
+            let baseY = h - 40;
+            let maxM = currentSol === "blood" ? 0.05 : 0.2; // Scaling
+
+            let toY = (val) => baseY - (val / maxM) * (h - 80);
+
+            // Draw Bars
+            let barW = 80;
+            let cx1 = w/2 - 60; let cx2 = w/2 + 60;
+
+            // HA Bar (Acid component)
+            bCtx.fillStyle = '#ef4444';
+            bCtx.fillRect(cx1 - barW/2, toY(moles_HA), barW, baseY - toY(moles_HA));
+            
+            // A- Bar (Base component)
+            bCtx.fillStyle = '#3b82f6';
+            bCtx.fillRect(cx2 - barW/2, toY(moles_A), barW, baseY - toY(moles_A));
+
+            // Labels
+            bCtx.fillStyle = '#f8fafc'; bCtx.font = 'bold 16px Arial'; bCtx.textAlign='center';
+            bCtx.fillText("Weak Acid (HA)", cx1, baseY + 20);
+            bCtx.fillText("Conj. Base (A⁻)", cx2, baseY + 20);
+            
+            bCtx.font = '14px Arial';
+            bCtx.fillText(moles_HA.toFixed(4) + " mol", cx1, toY(moles_HA) - 10);
+            bCtx.fillText(moles_A.toFixed(4) + " mol", cx2, toY(moles_A) - 10);
+
+            // Base line
+            bCtx.strokeStyle = '#475569'; bCtx.lineWidth = 3;
+            bCtx.beginPath(); bCtx.moveTo(40, baseY); bCtx.lineTo(w-40, baseY); bCtx.stroke();
+        }
+
+        // --- Draw pH Colorimetric View ---
+        function getPHColor(ph) {
+            // Smooth gradient from Red (0) to Green (7) to Blue (14)
+            let r, g, b;
+            if(ph < 7) {
+                let ratio = ph / 7;
+                r = Math.floor(239 - ratio * (239 - 34));
+                g = Math.floor(68 + ratio * (197 - 68));
+                b = Math.floor(68 + ratio * (94 - 68));
+            } else {
+                let ratio = (ph - 7) / 7;
+                r = Math.floor(34 - ratio * (34 - 59));
+                g = Math.floor(197 - ratio * (197 - 130));
+                b = Math.floor(94 + ratio * (246 - 94));
+            }
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        function drawBeaker() {
+            cCtx.clearRect(0,0,cCvs.width, cCvs.height);
+            let w = cCvs.width; let h = cCvs.height;
+
+            let bgColor = getPHColor(current_pH);
+            cCtx.fillStyle = bgColor;
+            cCtx.fillRect(0, 0, w, h);
+
+            // Overlay gradient for liquid look
+            let grad = cCtx.createLinearGradient(0,0,0,h);
+            grad.addColorStop(0, 'rgba(255,255,255,0.2)');
+            grad.addColorStop(1, 'rgba(0,0,0,0.6)');
+            cCtx.fillStyle = grad;
+            cCtx.fillRect(0,0,w,h);
+
+            // Draw a Universal Indicator Strip
+            cCtx.fillStyle = '#ffffff'; cCtx.fillRect(w/2 - 20, 20, 40, h-40);
+            cCtx.fillStyle = bgColor; cCtx.fillRect(w/2 - 15, 25, 30, h-50);
+            cCtx.strokeStyle = '#000'; cCtx.lineWidth = 2; cCtx.strokeRect(w/2 - 20, 20, 40, h-40);
+        }
+
+        function drawAll() {
+            drawBars();
+            drawBeaker();
+        }
+
+        setTimeout(() => { resize(); resetSim(); }, 100);
+    </script>
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hess's Law Lab - Maple Leaf High</title>
+    <style>
+        :root { --main: #f43f5e; --dark: #0f172a; --accent: #10b981; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: #e2e8f0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        
+        .nav { background: var(--dark); color: white; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .back-link { color: white; text-decoration: none; border: 1px solid #475569; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: bold; }
+
+        .workspace { display: grid; grid-template-rows: auto 1fr auto; gap: 15px; padding: 20px; flex: 1; overflow: hidden; }
+
+        /* 目标反应区 */
+        .target-box { background: var(--dark); color: white; padding: 20px; border-radius: 16px; text-align: center; border: 3px solid var(--main); }
+        .target-title { font-size: 10px; color: var(--main); font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
+        .target-eq { font-size: 1.5rem; font-family: serif; font-weight: bold; }
+
+        /* 拼图操作区 */
+        .puzzle-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 15px; overflow-y: auto; padding-bottom: 20px; }
+        .step-card { background: white; border-radius: 16px; padding: 20px; border: 1px solid #cbd5e1; display: flex; flex-direction: column; transition: 0.3s; }
+        .step-card.modified { border-color: var(--main); box-shadow: 0 4px 12px rgba(244, 63, 94, 0.1); }
+        .eq-display { font-family: serif; font-size: 1.1rem; margin: 15px 0; text-align: center; }
+        .controls { display: flex; gap: 10px; justify-content: center; }
+        .btn { padding: 8px 15px; border-radius: 8px; border: 1px solid #ddd; cursor: pointer; font-weight: bold; font-size: 12px; background: white; }
+        .btn:hover { background: #f1f5f9; }
+        .btn.active { background: var(--main); color: white; border-color: var(--main); }
+
+        /* 结果统计 */
+        .summary-bar { background: white; border-radius: 16px; padding: 20px; border: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center; }
+        .total-h { font-size: 1.8rem; font-weight: bold; font-family: 'JetBrains Mono', monospace; color: var(--main); }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit6.html" class="back-link">⬅ Back</a>
+        <h2>Lab 16: Hess's Law Puzzle Master</h2>
+        <span id="level-indicator" style="font-size: 12px; opacity: 0.7;">Challenge 1 of 5</span>
+    </div>
+
+    <div class="workspace">
+        <div class="target-box">
+            <div class="target-title">Target Overall Reaction (Solve for ΔH)</div>
+            <div id="target-eq" class="target-eq">C(s) + 2H₂(g) → CH₄(g)</div>
+        </div>
+
+        <div class="puzzle-grid" id="steps-container">
+            </div>
+
+        <div class="summary-bar">
+            <div>
+                <div style="font-size: 10px; color: #64748b; font-weight: bold;">TOTAL SUM OF ENTHALPY</div>
+                <div id="total-dh" class="total-h">0.0 kJ</div>
+            </div>
+            <button onclick="checkAnswer()" style="padding: 15px 40px; background: var(--accent); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer;">VERIFY SOLUTION</button>
+        </div>
+    </div>
+
+    <script>
+        const LEVELS = [
+            {
+                target: "C(s) + 2H₂(g) → CH₄(g)",
+                ans: -74.8,
+                steps: [
+                    { eq: "C(s) + O₂(g) → CO₂(g)", dh: -393.5, mod: 1, rev: false },
+                    { eq: "H₂(g) + 0.5O₂(g) → H₂O(l)", dh: -285.8, mod: 1, rev: false },
+                    { eq: "CH₄(g) + 2O₂(g) → CO₂(g) + 2H₂O(l)", dh: -890.3, mod: 1, rev: false }
+                ]
+            }
+            // Additional levels could be added here
+        ];
+
+        let currentLevel = 0;
+        let userSteps = [];
+
+        function init() {
+            const lvl = LEVELS[currentLevel];
+            document.getElementById('target-eq').innerText = lvl.target;
+            userSteps = lvl.steps.map(s => ({ ...s }));
+            renderSteps();
+        }
+
+        function renderSteps() {
+            const container = document.getElementById('steps-container');
+            container.innerHTML = '';
+            let total = 0;
+
+            userSteps.forEach((s, i) => {
+                const effectiveDH = s.dh * s.mod * (s.rev ? -1 : 1);
+                total += effectiveDH;
+
+                const card = document.createElement('div');
+                card.className = `step-card ${s.mod !== 1 || s.rev ? 'modified' : ''}`;
+                
+                // Construct modified equation display (simplified simulation)
+                let dispEq = s.eq;
+                if (s.rev) dispEq = "[REVERSED] " + dispEq;
+                if (s.mod !== 1) dispEq = `(${s.mod}) x ` + dispEq;
+
+                card.innerHTML = `
+                    <div style="font-size: 10px; color: #94a3b8; font-weight: bold;">STEP REACTION ${i+1}</div>
+                    <div class="eq-display">${dispEq}</div>
+                    <div style="text-align:center; font-weight:bold; color:var(--main); margin-bottom:15px;">ΔH = ${effectiveDH.toFixed(1)} kJ</div>
+                    <div class="controls">
+                        <button class="btn ${s.rev ? 'active' : ''}" onclick="toggleRev(${i})">Flip (Reverse)</button>
+                        <button class="btn ${s.mod === 0.5 ? 'active' : ''}" onclick="setMod(${i}, 0.5)">x 0.5</button>
+                        <button class="btn ${s.mod === 1 ? 'active' : ''}" onclick="setMod(${i}, 1)">x 1</button>
+                        <button class="btn ${s.mod === 2 ? 'active' : ''}" onclick="setMod(${i}, 2)">x 2</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            document.getElementById('total-dh').innerText = total.toFixed(1) + " kJ";
+        }
+
+        function toggleRev(i) { userSteps[i].rev = !userSteps[i].rev; renderSteps(); }
+        function setMod(i, m) { userSteps[i].mod = m; renderSteps(); }
+
+        function checkAnswer() {
+            const currentTotal = parseFloat(document.getElementById('total-dh').innerText);
+            if (Math.abs(currentTotal - LEVELS[currentLevel].ans) < 0.1) {
+                alert("Perfect! You've correctly manipulated the steps to find the target enthalpy.");
+            } else {
+                alert("Not quite. Hint: Check the methane combustion step - do you need to reverse it to get CH4 on the product side?");
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

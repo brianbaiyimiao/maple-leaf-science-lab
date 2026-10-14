@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 4.1: Acid-Base Titration</title>
+    <style>
+        :root { --ml-red: #b91c1c; --ml-gold: #fbbf24; --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--ml-red); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold); }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.3s;}
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+
+        .workspace { flex: 1; display: grid; grid-template-columns: 400px 1fr; gap: 20px; padding: 20px; box-sizing: border-box; }
+        .panel { background: var(--panel); border-radius: 15px; border: 1px solid #334155; padding: 20px; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow-y: auto;}
+        
+        h3 { margin: 0 0 15px 0; color: var(--ml-gold); border-bottom: 1px dashed #475569; padding-bottom: 10px; font-size: 1.1rem;}
+
+        .control-group { margin-bottom: 15px; }
+        .control-group label { display: block; font-size: 0.9rem; margin-bottom: 5px; color: #94a3b8; font-weight: bold;}
+        select { width: 100%; padding: 10px; border-radius: 6px; border: 2px solid #475569; background: #0f172a; color: white; font-size: 1rem; outline: none; margin-bottom: 5px; cursor: pointer;}
+        
+        .btn-group { display: flex; gap: 10px; margin-top: 15px; }
+        .btn { flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: bold; font-size: 1rem; cursor: pointer; transition: 0.2s; color: white;}
+        .btn-drop { background: #3b82f6; } .btn-drop:hover { background: #2563eb; }
+        .btn-auto { background: #22c55e; } .btn-auto:hover { background: #16a34a; }
+        .btn-reset { background: #ef4444; } .btn-reset:hover { background: #dc2626; }
+
+        .meter-box { background: #020617; border: 2px solid #475569; padding: 15px; border-radius: 10px; margin-top: 20px; text-align: center;}
+        .ph-val { font-family: monospace; font-size: 3rem; font-weight: bold; color: #38bdf8; text-shadow: 0 0 10px rgba(56,189,248,0.5);}
+        .vol-val { color: #cbd5e1; font-size: 1.1rem; margin-top: 5px; font-weight: bold;}
+
+        .visual-container { display: grid; grid-template-columns: 300px 1fr; gap: 20px; min-height: 0;}
+        .canvas-box { background: #000; border-radius: 15px; border: 4px solid #334155; position: relative; overflow: hidden; }
+        canvas { width: 100%; height: 100%; display: block; }
+        .tag { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 5px 10px; border-radius: 6px; font-weight: bold; color: var(--ml-gold); font-size: 0.8rem; border: 1px solid #475569;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit4.html" class="back-link">⬅ Back to Unit 4 Labs</a>
+        <h2 style="margin:0;">Lab 4.1: Acid-Base Titration Simulator</h2>
+        <span style="font-size: 0.9rem; opacity: 0.8;">Maple Leaf Advanced Chemistry</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Reaction Setup</h3>
+            
+            <div class="control-group">
+                <label>Analyte in Flask (Unknown):</label>
+                <select id="acid-sel" onchange="resetTitration()">
+                    <option value="HCl">Strong Acid: HCl (0.1 M, 25.0 mL)</option>
+                    <option value="CH3COOH">Weak Acid: Acetic Acid (0.1 M, 25.0 mL)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Titrant in Buret (Standard):</label>
+                <select disabled>
+                    <option>Strong Base: NaOH (0.1 M)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>pH Indicator:</label>
+                <select id="ind-sel" onchange="resetTitration()">
+                    <option value="phenolphthalein">Phenolphthalein (Changes at pH 8.2 - 10.0)</option>
+                    <option value="bromothymol">Bromothymol Blue (Changes at pH 6.0 - 7.6)</option>
+                </select>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-drop" onclick="addDrop(1)">💧 Add 1 mL</button>
+                <button class="btn btn-auto" id="btn-auto" onclick="toggleAuto()">▶ Auto Titrate</button>
+            </div>
+            <button class="btn btn-reset" style="width: 100%; margin-top: 10px;" onclick="resetTitration()">🔄 Reset Experiment</button>
+
+            <div class="meter-box">
+                <div style="font-size:0.9rem; color:#94a3b8; text-transform:uppercase;">Digital pH Meter</div>
+                <div class="ph-val" id="ph-display">1.00</div>
+                <div class="vol-val" id="vol-display">Volume Added: 0.00 mL</div>
+            </div>
+
+            <div style="margin-top:auto; font-size:0.85rem; color:#64748b; line-height:1.5; background:#020617; padding:15px; border-radius:8px;">
+                <b>Observation:</b> Watch how the pH changes slowly in the buffer region (if using a weak acid), but shoots up dramatically near the Equivalence Point.
+            </div>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box">
+                <div class="tag">TITRATION SETUP</div>
+                <canvas id="labCanvas"></canvas>
+            </div>
+            <div class="canvas-box" style="background: #020617;">
+                <div class="tag">TITRATION CURVE (pH vs. Vol)</div>
+                <canvas id="graphCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const lCvs = document.getElementById('labCanvas');
+        const lCtx = lCvs.getContext('2d');
+        const gCvs = document.getElementById('graphCanvas');
+        const gCtx = gCvs.getContext('2d');
+
+        // Titration Constants
+        const Va = 25.0; 
+        const Ca = 0.1;
+        const Cb = 0.1;
+        const Ka_acetic = 1.8e-5;
+
+        // Experiment State
+        let Vb = 0.0;
+        let currentPH = 1.0;
+        let isAuto = false;
+        let dataPoints = [];
+        let dropAnim = 0;
+
+        function resize() {
+            lCvs.width = lCvs.offsetWidth; lCvs.height = lCvs.offsetHeight;
+            gCvs.width = gCvs.offsetWidth; gCvs.height = gCvs.offsetHeight;
+            drawAll();
+        }
+        window.addEventListener('resize', resize);
+
+        function resetTitration() {
+            Vb = 0.0;
+            isAuto = false;
+            document.getElementById('btn-auto').innerText = "▶ Auto Titrate";
+            document.getElementById('btn-auto').style.background = "#22c55e";
+            dataPoints = [];
+            calculatePH();
+            drawAll();
+        }
+
+        function toggleAuto() {
+            isAuto = !isAuto;
+            let btn = document.getElementById('btn-auto');
+            if(isAuto) {
+                btn.innerText = "⏸ Pause";
+                btn.style.background = "#f59e0b";
+                autoLoop();
+            } else {
+                btn.innerText = "▶ Auto Titrate";
+                btn.style.background = "#22c55e";
+            }
+        }
+
+        function autoLoop() {
+            if(!isAuto) return;
+            if(Vb < 50.0) {
+                addDrop(0.2); // Smaller steps for smooth curve
+                requestAnimationFrame(autoLoop);
+            } else {
+                toggleAuto();
+            }
+        }
+
+        function addDrop(amount) {
+            if(Vb + amount > 50.0) return;
+            Vb += amount;
+            dropAnim = 1.0; // Trigger drop animation
+            calculatePH();
+            drawAll();
+        }
+
+        // 核心数学：计算滴定曲线
+        function calculatePH() {
+            let acidType = document.getElementById('acid-sel').value;
+            let moles_H_initial = Ca * Va;
+            let moles_OH_added = Cb * Vb;
+            let V_total = Va + Vb;
+
+            if (acidType === "HCl") {
+                // Strong Acid + Strong Base
+                if (moles_H_initial > moles_OH_added) {
+                    let H_excess = (moles_H_initial - moles_OH_added) / V_total;
+                    currentPH = -Math.log10(H_excess);
+                } else if (moles_H_initial === moles_OH_added) {
+                    currentPH = 7.0;
+                } else {
+                    let OH_excess = (moles_OH_added - moles_H_initial) / V_total;
+                    currentPH = 14 + Math.log10(OH_excess);
+                }
+            } else {
+                // Weak Acid (Acetic) + Strong Base
+                if (Vb === 0) {
+                    let H_init = Math.sqrt(Ka_acetic * Ca);
+                    currentPH = -Math.log10(H_init);
+                } else if (moles_H_initial > moles_OH_added) {
+                    // Buffer Region (Henderson-Hasselbalch)
+                    let pKa = -Math.log10(Ka_acetic);
+                    let ratio = moles_OH_added / (moles_H_initial - moles_OH_added);
+                    currentPH = pKa + Math.log10(ratio);
+                } else if (Math.abs(moles_H_initial - moles_OH_added) < 0.0001) {
+                    // Equivalence Point (Hydrolysis of basic salt)
+                    let C_salt = moles_H_initial / V_total;
+                    let Kb = 1e-14 / Ka_acetic;
+                    let OH_eq = Math.sqrt(Kb * C_salt);
+                    currentPH = 14 + Math.log10(OH_eq);
+                } else {
+                    // Excess Base (Dominates)
+                    let OH_excess = (moles_OH_added - moles_H_initial) / V_total;
+                    currentPH = 14 + Math.log10(OH_excess);
+                }
+            }
+
+            // Cap pH between 0 and 14 just in case
+            currentPH = Math.max(0, Math.min(14, currentPH));
+
+            document.getElementById('ph-display').innerText = currentPH.toFixed(2);
+            document.getElementById('vol-display').innerText = `Volume Added: ${Vb.toFixed(1)} mL`;
+
+            dataPoints.push({ x: Vb, y: currentPH });
+        }
+
+        // 计算指示剂颜色
+        function getIndicatorColor() {
+            let ind = document.getElementById('ind-sel').value;
+            if (ind === "phenolphthalein") {
+                // Colorless < 8.2, Pink > 10.0
+                if (currentPH < 8.2) return 'rgba(255, 255, 255, 0.2)';
+                if (currentPH > 10.0) return 'rgba(236, 72, 153, 0.7)'; // Hot Pink
+                // Transition
+                let ratio = (currentPH - 8.2) / (10.0 - 8.2);
+                return `rgba(236, 72, 153, ${0.2 + ratio * 0.5})`;
+            } else {
+                // Bromothymol Blue: Yellow < 6.0, Blue > 7.6
+                if (currentPH < 6.0) return 'rgba(250, 204, 21, 0.5)'; // Yellow
+                if (currentPH > 7.6) return 'rgba(59, 130, 246, 0.5)'; // Blue
+                // Transition to Green
+                let ratio = (currentPH - 6.0) / (7.6 - 6.0);
+                let r = Math.floor(250 - ratio*(250-59));
+                let g = Math.floor(204 - ratio*(204-130));
+                let b = Math.floor(21 + ratio*(246-21));
+                return `rgba(${r}, ${g}, ${b}, 0.5)`;
+            }
+        }
+
+        // --- 绘制实验台 ---
+        function drawLab() {
+            lCtx.clearRect(0,0,lCvs.width, lCvs.height);
+            let cx = lCvs.width / 2;
+            let h = lCvs.height;
+
+            // Buret (滴定管)
+            lCtx.strokeStyle = 'rgba(255,255,255,0.8)'; lCtx.lineWidth = 4;
+            lCtx.beginPath(); lCtx.moveTo(cx-15, 20); lCtx.lineTo(cx-15, h-250); lCtx.lineTo(cx-5, h-200); lCtx.lineTo(cx-5, h-170); lCtx.stroke();
+            lCtx.beginPath(); lCtx.moveTo(cx+15, 20); lCtx.lineTo(cx+15, h-250); lCtx.lineTo(cx+5, h-200); lCtx.lineTo(cx+5, h-170); lCtx.stroke();
+            
+            // Titrant level
+            let levelY = 40 + (Vb / 50.0) * (h - 320);
+            lCtx.fillStyle = 'rgba(255,255,255,0.3)';
+            lCtx.fillRect(cx-12, levelY, 24, h-250-levelY);
+
+            // Stopcock (开关)
+            lCtx.fillStyle = isAuto ? '#22c55e' : '#ef4444';
+            lCtx.fillRect(cx-15, h-190, 30, 10);
+
+            // Drop Animation
+            if(dropAnim > 0) {
+                lCtx.fillStyle = 'rgba(255,255,255,0.6)';
+                let dropY = h-170 + (1-dropAnim)*60;
+                lCtx.beginPath(); lCtx.arc(cx, dropY, 4, 0, Math.PI*2); lCtx.fill();
+                dropAnim -= 0.1;
+                if(dropAnim < 0) dropAnim = 0;
+            }
+
+            // Flask (锥形瓶)
+            let baseColor = getIndicatorColor();
+            lCtx.fillStyle = baseColor;
+            
+            lCtx.beginPath();
+            lCtx.moveTo(cx-20, h-120); lCtx.lineTo(cx+20, h-120);
+            lCtx.lineTo(cx+60, h-30); lCtx.lineTo(cx-60, h-30); lCtx.closePath();
+            lCtx.fill();
+
+            // Flask Outline
+            lCtx.strokeStyle = 'rgba(255,255,255,0.6)'; lCtx.lineWidth = 4;
+            lCtx.stroke();
+            lCtx.beginPath(); lCtx.moveTo(cx-20, h-150); lCtx.lineTo(cx-20, h-120); lCtx.stroke();
+            lCtx.beginPath(); lCtx.moveTo(cx+20, h-150); lCtx.lineTo(cx+20, h-120); lCtx.stroke();
+
+            // Stir bar (磁力搅拌子)
+            lCtx.save();
+            lCtx.translate(cx, h-40);
+            lCtx.rotate(Date.now() * 0.01);
+            lCtx.fillStyle = '#f8fafc'; lCtx.fillRect(-15, -4, 30, 8);
+            lCtx.restore();
+            
+            // Stir plate
+            lCtx.fillStyle = '#334155'; lCtx.fillRect(cx-80, h-25, 160, 20);
+        }
+
+        // --- 绘制滴定图表 ---
+        function drawGraph() {
+            gCtx.clearRect(0,0,gCvs.width, gCvs.height);
+            let w = gCvs.width; let h = gCvs.height;
+            let padX = 50; let padY = 40;
+
+            let toX = (vol) => padX + (vol / 50.0) * (w - padX - 20);
+            let toY = (ph) => (h - padY) - (ph / 14.0) * (h - padY - 20);
+
+            // Draw Indicator Background Range
+            let ind = document.getElementById('ind-sel').value;
+            gCtx.fillStyle = ind === "phenolphthalein" ? 'rgba(236, 72, 153, 0.15)' : 'rgba(59, 130, 246, 0.15)';
+            if(ind === "phenolphthalein") {
+                gCtx.fillRect(padX, toY(10.0), w-padX-20, toY(8.2) - toY(10.0));
+            } else {
+                gCtx.fillRect(padX, toY(7.6), w-padX-20, toY(6.0) - toY(7.6));
+            }
+
+            // Axes
+            gCtx.strokeStyle = '#475569'; gCtx.lineWidth = 2;
+            gCtx.beginPath(); gCtx.moveTo(padX, 20); gCtx.lineTo(padX, h - padY); gCtx.lineTo(w - 20, h - padY); gCtx.stroke();
+
+            // Y Ticks (pH 0-14)
+            gCtx.fillStyle = '#64748b'; gCtx.font = '12px Arial'; gCtx.textAlign = 'right'; gCtx.textBaseline='middle';
+            for(let i=0; i<=14; i+=2) {
+                let py = toY(i);
+                gCtx.fillText(i, padX - 10, py);
+                gCtx.beginPath(); gCtx.moveTo(padX - 5, py); gCtx.lineTo(padX, py); gCtx.stroke();
+            }
+            gCtx.fillText("pH", padX - 10, 15);
+
+            // X Ticks (Vol 0-50)
+            gCtx.textAlign = 'center'; gCtx.textBaseline = 'top';
+            for(let i=0; i<=50; i+=10) {
+                let px = toX(i);
+                gCtx.fillText(i, px, h - padY + 10);
+                gCtx.beginPath(); gCtx.moveTo(px, h - padY); gCtx.lineTo(px, h - padY + 5); gCtx.stroke();
+            }
+            gCtx.fillText("Volume of NaOH Added (mL)", w/2 + 20, h - 15);
+
+            // Equivalence Point Line (V = 25)
+            gCtx.strokeStyle = 'rgba(251, 191, 36, 0.3)'; gCtx.setLineDash([5,5]); gCtx.lineWidth = 2;
+            gCtx.beginPath(); gCtx.moveTo(toX(25), 20); gCtx.lineTo(toX(25), h-padY); gCtx.stroke();
+            gCtx.setLineDash([]);
+
+            // Draw Data Curve
+            if(dataPoints.length > 0) {
+                gCtx.strokeStyle = '#38bdf8'; gCtx.lineWidth = 3; gCtx.lineJoin = 'round';
+                gCtx.beginPath();
+                for(let i=0; i<dataPoints.length; i++) {
+                    let pt = dataPoints[i];
+                    if(i===0) gCtx.moveTo(toX(pt.x), toY(pt.y));
+                    else gCtx.lineTo(toX(pt.x), toY(pt.y));
+                }
+                gCtx.stroke();
+
+                // Draw leading dot
+                let lastPt = dataPoints[dataPoints.length-1];
+                gCtx.fillStyle = '#ffffff'; gCtx.shadowBlur = 10; gCtx.shadowColor = '#38bdf8';
+                gCtx.beginPath(); gCtx.arc(toX(lastPt.x), toY(lastPt.y), 6, 0, Math.PI*2); gCtx.fill();
+                gCtx.shadowBlur = 0;
+            }
+        }
+
+        function drawAll() {
+            drawLab();
+            drawGraph();
+            if(dropAnim > 0) requestAnimationFrame(drawAll); // Keep animating drop
+        }
+
+        setTimeout(() => { resize(); resetTitration(); }, 100);
+    </script>
+</body>
+</html>

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 3.1: Le Chatelier's Principle</title>
+    <style>
+        :root { --ml-red: #b91c1c; --ml-gold: #fbbf24; --bg: #0f172a; --panel: #1e293b;}
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: white; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--ml-red); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold); }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.3s;}
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; display: grid; grid-template-columns: 380px 1fr; gap: 20px; padding: 20px; box-sizing: border-box; }
+        .panel { background: var(--panel); padding: 25px; border-radius: 15px; border: 1px solid #334155; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow-y: auto;}
+        
+        h3 { margin: 0; color: var(--ml-gold); border-bottom: 1px solid #334155; padding-bottom: 10px; font-size: 1.1rem;}
+        
+        .eq-banner { background: #020617; border: 2px solid #475569; padding: 15px; border-radius: 8px; text-align: center; font-size: 1.2rem; font-weight: bold; letter-spacing: 1px; color: #f8fafc;}
+        .heat-tag { color: #ef4444; }
+
+        .btn-group { display: flex; gap: 10px; }
+        .btn { flex: 1; padding: 10px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; color: white;}
+        .btn-n2 { background: #3b82f6; } .btn-n2:hover { background: #2563eb; }
+        .btn-h2 { background: #cbd5e1; color: #0f172a; } .btn-h2:hover { background: #94a3b8; }
+        .btn-nh3 { background: #22c55e; } .btn-nh3:hover { background: #16a34a; }
+        .btn-remove { background: #ea580c; } .btn-remove:hover { background: #c2410c; }
+
+        .control-group label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 5px; color: #94a3b8; font-weight: bold;}
+        input[type="range"] { width: 100%; accent-color: var(--ml-gold); cursor: pointer; margin-bottom: 10px;}
+
+        .visual-container { display: grid; grid-template-rows: 40% 1fr; gap: 20px; min-height: 0;}
+        .canvas-box { background: #000; border-radius: 15px; border: 4px solid #334155; position: relative; overflow: hidden; }
+        canvas { width: 100%; height: 100%; display: block; }
+        .tag { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 5px 12px; border-radius: 6px; font-weight: bold; color: var(--ml-gold); font-size: 0.85rem; border: 1px solid #475569; z-index: 10;}
+
+        /* Legend */
+        .legend { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 6px; font-size: 0.8rem; border: 1px solid #475569; z-index: 10;}
+        .leg-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px;}
+        .leg-color { width: 15px; height: 15px; border-radius: 50%; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit3.html" class="back-link">⬅ Back to Unit 3 Labs</a>
+        <h2 style="margin:0;">Lab 3.1: Le Chatelier's Principle</h2>
+        <span style="font-size: 0.9rem; opacity: 0.8;">Haber Process</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>The Haber Process</h3>
+            
+            <div class="eq-banner">
+                N₂ <span style="color:#64748b;">(g)</span> + 3H₂ <span style="color:#64748b;">(g)</span> &rightleftharpoons; 2NH₃ <span style="color:#64748b;">(g)</span> + <span class="heat-tag">Heat</span>
+            </div>
+
+            <h3 style="margin-top:10px;">Disturb Equilibrium (Stress)</h3>
+            
+            <label style="font-size: 0.85rem; color:#94a3b8; font-weight:bold;">1. Concentration Changes</label>
+            <div class="btn-group">
+                <button class="btn btn-n2" onclick="inject('N2')">+ Inject N₂</button>
+                <button class="btn btn-h2" onclick="inject('H2')">+ Inject H₂</button>
+            </div>
+            <div class="btn-group" style="margin-top: 10px;">
+                <button class="btn btn-nh3" onclick="inject('NH3')">+ Inject NH₃</button>
+                <button class="btn btn-remove" onclick="remove('NH3')">- Remove NH₃</button>
+            </div>
+
+            <label style="font-size: 0.85rem; color:#94a3b8; font-weight:bold; margin-top:20px;">2. Volume / Pressure Change</label>
+            <div class="control-group">
+                <label>Vessel Volume (V): <span id="v-val">10.0 L</span></label>
+                <input type="range" id="v-slider" min="5" max="15" step="0.5" value="10" oninput="changeVolume()">
+                <div style="font-size: 0.75rem; color: #64748b; text-align:right;">Decreasing Volume = Increasing Pressure</div>
+            </div>
+
+            <label style="font-size: 0.85rem; color:#94a3b8; font-weight:bold; margin-top:10px;">3. Temperature Change</label>
+            <div class="control-group">
+                <label>System Temperature (T): <span id="t-val" style="color:#ef4444;">400 K</span></label>
+                <input type="range" id="t-slider" min="200" max="800" step="10" value="400" oninput="changeTemp()">
+                <div style="font-size: 0.75rem; color: #64748b; text-align:right;">Reaction is Exothermic (ΔH < 0)</div>
+            </div>
+
+            <div style="margin-top:auto; font-size:0.85rem; color:#94a3b8; line-height:1.5; background:#020617; padding:15px; border-radius:8px; border-left: 4px solid var(--ml-gold);">
+                <b>Le Chatelier's Principle:</b> If a dynamic equilibrium is disturbed, the system will shift its position to counteract the disturbance and restore a new equilibrium.
+            </div>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box">
+                <div class="tag">REACTION VESSEL</div>
+                <canvas id="vesselCanvas"></canvas>
+            </div>
+            <div class="canvas-box" style="background:#020617;">
+                <div class="tag">CONCENTRATION vs. TIME (c-t Graph)</div>
+                <div class="legend">
+                    <div class="leg-item"><div class="leg-color" style="background:#3b82f6;"></div> [N₂]</div>
+                    <div class="leg-item"><div class="leg-color" style="background:#cbd5e1;"></div> [H₂]</div>
+                    <div class="leg-item"><div class="leg-color" style="background:#22c55e;"></div> [NH₃]</div>
+                </div>
+                <canvas id="graphCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const vCvs = document.getElementById('vesselCanvas');
+        const vCtx = vCvs.getContext('2d');
+        const gCvs = document.getElementById('graphCanvas');
+        const gCtx = gCvs.getContext('2d');
+
+        // 热力学变量 (以物质的量 Moles 为基准计算，再除以体积得浓度)
+        let moles = { N2: 2.0, H2: 6.0, NH3: 4.0 };
+        let volume = 10.0;
+        let temp = 400;
+
+        // 图表历史记录
+        let history = [];
+        let maxHistory = 300; 
+        let tick = 0;
+
+        // 平衡常数计算 (基于浓度)
+        function getConcentration(mol) { return mol / volume; }
+        
+        let Keq_target = 0; 
+        
+        function calculateKeqTarget() {
+            Keq_target = 1000 * Math.exp(-temp / 100); 
+        }
+
+        function init() {
+            window.addEventListener('resize', resize);
+            resize();
+            calculateKeqTarget();
+            for(let i=0; i<maxHistory; i++) recordState(); 
+            animate();
+        }
+
+        function resize() {
+            vCvs.width = vCvs.offsetWidth; vCvs.height = vCvs.offsetHeight;
+            gCvs.width = gCvs.offsetWidth; gCvs.height = gCvs.offsetHeight;
+        }
+
+        function inject(gas) {
+            moles[gas] += 2.0;
+            recordState(); 
+        }
+
+        function remove(gas) {
+            if(moles[gas] >= 2.0) moles[gas] -= 2.0;
+            else moles[gas] = 0.1;
+            recordState();
+        }
+
+        function changeVolume() {
+            let newV = parseFloat(document.getElementById('v-slider').value);
+            document.getElementById('v-val').innerText = newV.toFixed(1) + " L";
+            volume = newV;
+            recordState(); 
+        }
+
+        function changeTemp() {
+            temp = parseInt(document.getElementById('t-slider').value);
+            document.getElementById('t-val').innerText = temp + " K";
+            calculateKeqTarget();
+        }
+
+        function stepEquilibrium() {
+            let c_N2 = getConcentration(moles.N2);
+            let c_H2 = Math.max(getConcentration(moles.H2), 0.001); 
+            let c_NH3 = getConcentration(moles.NH3);
+            
+            let Q = (c_NH3 * c_NH3) / (c_N2 * Math.pow(c_H2, 3));
+            
+            let shiftRate = 0.05; 
+            let diff = (Keq_target - Q) / Math.max(Keq_target, Q); 
+
+            let shiftAmount = diff * shiftRate;
+
+            if(shiftAmount > 0) { // Shift Right
+                let maxShift = Math.min(moles.N2, moles.H2 / 3) * 0.1;
+                shiftAmount = Math.min(shiftAmount, maxShift);
+            } else { // Shift Left
+                let maxShift = (moles.NH3 / 2) * 0.1;
+                shiftAmount = Math.max(shiftAmount, -maxShift);
+            }
+
+            moles.N2 -= shiftAmount;
+            moles.H2 -= shiftAmount * 3;
+            moles.NH3 += shiftAmount * 2;
+
+            moles.N2 = Math.max(moles.N2, 0.1);
+            moles.H2 = Math.max(moles.H2, 0.1);
+            moles.NH3 = Math.max(moles.NH3, 0.1);
+        }
+
+        function recordState() {
+            history.push({
+                n2: getConcentration(moles.N2),
+                h2: getConcentration(moles.H2),
+                nh3: getConcentration(moles.NH3)
+            });
+            if(history.length > maxHistory) history.shift();
+        }
+
+        function drawVessel() {
+            vCtx.clearRect(0,0,vCvs.width, vCvs.height);
+            let cx = vCvs.width / 2;
+            
+            let cylinderH = vCvs.height - 70;
+            let pistonY = 50 + cylinderH * (1 - (volume - 5)/10);
+
+            vCtx.strokeStyle = '#94a3b8'; vCtx.lineWidth = 6;
+            vCtx.beginPath();
+            vCtx.moveTo(cx - 150, 20); vCtx.lineTo(cx - 150, vCvs.height - 20);
+            vCtx.lineTo(cx + 150, vCvs.height - 20); vCtx.lineTo(cx + 150, 20);
+            vCtx.stroke();
+
+            vCtx.fillStyle = '#64748b';
+            vCtx.fillRect(cx - 147, pistonY - 20, 294, 20);
+            vCtx.fillStyle = '#475569';
+            vCtx.fillRect(cx - 10, 20, 20, pistonY - 20); 
+
+            let heatRed = Math.min(255, (temp/800)*255);
+            let grad = vCtx.createLinearGradient(0, vCvs.height, 0, pistonY);
+            grad.addColorStop(0, `rgba(${heatRed}, 50, 50, 0.6)`);
+            grad.addColorStop(1, 'rgba(15, 23, 42, 0.1)');
+            vCtx.fillStyle = grad;
+            vCtx.fillRect(cx - 147, pistonY, 294, vCvs.height - 20 - pistonY);
+
+            drawAbstractParticles(cx - 140, cx + 140, pistonY + 10, vCvs.height - 30);
+        }
+
+        function drawAbstractParticles(xMin, xMax, yMin, yMax) {
+            drawDots(moles.N2 * 5, xMin, xMax, yMin, yMax, '#3b82f6', 6);
+            drawDots(moles.H2 * 5, xMin, xMax, yMin, yMax, '#cbd5e1', 3);
+            drawDots(moles.NH3 * 5, xMin, xMax, yMin, yMax, '#22c55e', 8);
+        }
+
+        function drawDots(count, xMin, xMax, yMin, yMax, color, r) {
+            vCtx.fillStyle = color;
+            for(let i=0; i<count; i++) {
+                let seed = i * 12345 + tick * 0.1;
+                let px = xMin + ((Math.sin(seed) + 1)/2) * (xMax - xMin);
+                let py = yMin + ((Math.cos(seed*1.3) + 1)/2) * (yMax - yMin);
+                vCtx.beginPath(); vCtx.arc(px, py, r, 0, Math.PI*2); vCtx.fill();
+            }
+        }
+
+        // --- 绘制浓度-时间曲线 (c-t Graph) ---
+        function drawGraph() {
+            gCtx.clearRect(0,0,gCvs.width, gCvs.height);
+            let w = gCvs.width; let h = gCvs.height;
+            let padX = 50; let padY = 30; // 调整了 X 轴的 padding，留出绘制数值的空间
+            
+            // 轴线
+            gCtx.strokeStyle = '#475569'; gCtx.lineWidth = 2;
+            gCtx.beginPath(); gCtx.moveTo(padX, 20); gCtx.lineTo(padX, h - padY); gCtx.lineTo(w - 20, h - padY); gCtx.stroke();
+            gCtx.fillStyle = '#94a3b8'; gCtx.font = '12px Arial';
+            gCtx.textAlign = 'left'; gCtx.textBaseline = 'alphabetic';
+            gCtx.fillText("Concentration (mol/L)", 5, 15);
+            gCtx.fillText("Time (t)", w - 60, h - 10);
+
+            if(history.length === 0) return;
+
+            // 寻找最大浓度以缩放Y轴
+            let maxC = 2.0; 
+            for(let state of history) {
+                if(state.n2 > maxC) maxC = state.n2;
+                if(state.h2 > maxC) maxC = state.h2;
+                if(state.nh3 > maxC) maxC = state.nh3;
+            }
+            maxC *= 1.2; // 留出顶部空间
+
+            let toY = (val) => (h - padY) - (val / maxC) * (h - padY - 30);
+            let stepX = (w - padX - 20) / maxHistory;
+
+            // --- 新增：绘制 Y 轴数值与刻度 ---
+            gCtx.fillStyle = '#64748b'; gCtx.textAlign = 'right'; gCtx.textBaseline = 'middle';
+            let ySteps = 4;
+            for(let i=0; i<=ySteps; i++) {
+                let val = (maxC / ySteps) * i;
+                let py = toY(val);
+                gCtx.fillText(val.toFixed(1), padX - 8, py); // 写入数字
+                // 绘制小短线
+                gCtx.beginPath(); gCtx.moveTo(padX - 4, py); gCtx.lineTo(padX, py); gCtx.stroke();
+            }
+
+            // --- 新增：绘制 X 轴数值与刻度 ---
+            gCtx.textAlign = 'center'; gCtx.textBaseline = 'top';
+            let xSteps = 6;
+            for(let i=0; i<=xSteps; i++) {
+                let tVal = (maxHistory / xSteps) * i;
+                let px = padX + tVal * stepX;
+                gCtx.fillText(Math.round(tVal), px, h - padY + 8); // 写入数字
+                // 绘制小短线
+                gCtx.beginPath(); gCtx.moveTo(px, h - padY); gCtx.lineTo(px, h - padY + 4); gCtx.stroke();
+            }
+            // 恢复对齐
+            gCtx.textAlign = 'left'; gCtx.textBaseline = 'alphabetic';
+
+            // 绘制三条曲线
+            drawLine(history.map(s => s.n2), '#3b82f6', padX, stepX, toY);
+            drawLine(history.map(s => s.h2), '#cbd5e1', padX, stepX, toY);
+            drawLine(history.map(s => s.nh3), '#22c55e', padX, stepX, toY);
+        }
+
+        function drawLine(dataArray, color, startX, stepX, toY) {
+            gCtx.strokeStyle = color; gCtx.lineWidth = 3; gCtx.lineJoin = 'round';
+            gCtx.beginPath();
+            for(let i=0; i<dataArray.length; i++) {
+                let px = startX + i * stepX;
+                let py = toY(dataArray[i]);
+                if(i===0) gCtx.moveTo(px, py);
+                else gCtx.lineTo(px, py);
+            }
+            gCtx.stroke();
+        }
+
+        function animate() {
+            tick++;
+            if(tick % 2 === 0) {
+                stepEquilibrium();
+                recordState();
+            }
+            drawVessel();
+            drawGraph();
+            requestAnimationFrame(animate);
+        }
+
+        setTimeout(init, 100);
+    </script>
+</body>
+</html>

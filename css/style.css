@@ -1,0 +1,213 @@
+/* =========================================
+   MAPLE LEAF SCIENCE LAB - MASTER STYLESHEET
+   Theme: Cyber-Science / Glassmorphism
+========================================= */
+
+/* 1. 全局变量 (Global Variables) */
+:root {
+    --bg-color: #020617;
+    --glass-bg: rgba(15, 23, 42, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    
+    /* 学科专属霓虹色 */
+    --color-phy: #38bdf8;  /* 物理量子蓝 */
+    --color-chem: #f97316; /* 化学反应橙 */
+    --color-bio: #22c55e;  /* 生物基因绿 */
+    --color-sci: #a855f7;  /* 综合科学紫 */
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: #f8fafc;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow-x: hidden;
+}
+
+/* 2. 顶部导航栏 (Glass Navbar) */
+nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 50px;
+    background: rgba(2, 6, 23, 0.8);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border-bottom: 1px solid var(--glass-border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-shadow: 0 0 10px rgba(255,255,255,0.3);
+}
+
+.nav-links { list-style: none; display: flex; gap: 30px; }
+.nav-links a {
+    color: #cbd5e1;
+    text-decoration: none;
+    font-weight: 600;
+    transition: 0.3s;
+    text-transform: uppercase;
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+}
+.nav-links a:hover { color: var(--color-phy); text-shadow: 0 0 10px var(--color-phy); }
+
+/* 3. 英雄主屏 (Hero Section) */
+.hero {
+    text-align: center;
+    padding: 80px 20px 40px;
+    position: relative;
+}
+
+.hero h1 {
+    font-size: 4rem;
+    margin-bottom: 15px;
+    background: linear-gradient(to right, #38bdf8, #a855f7, #ec4899);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 15px rgba(168,85,247,0.4));
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.hero p {
+    font-size: 1.2rem;
+    color: #94a3b8;
+    max-width: 700px;
+    margin: 0 auto;
+    line-height: 1.6;
+}
+
+/* 4. 全局搜索框 (Omni-Search) */
+.omni-search {
+    margin-top: 30px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    z-index: 20;
+    position: relative;
+}
+.omni-search input {
+    width: 100%;
+    max-width: 500px;
+    padding: 15px 25px;
+    font-size: 1.1rem;
+    background: rgba(15, 23, 42, 0.7);
+    border: 2px solid rgba(56,189,248,0.5);
+    border-radius: 30px;
+    color: white;
+    outline: none;
+    backdrop-filter: blur(10px);
+    transition: 0.3s;
+}
+.omni-search input:focus {
+    border-color: var(--color-phy);
+    box-shadow: 0 0 20px rgba(56,189,248,0.4);
+}
+.omni-search button {
+    padding: 0 30px;
+    border-radius: 30px;
+    background: var(--color-phy);
+    color: #020617;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+    transition: 0.3s;
+    text-transform: uppercase;
+}
+.omni-search button:hover {
+    background: white;
+    box-shadow: 0 0 15px var(--color-phy);
+}
+
+/* 5. 主体网格布局 */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px 60px;
+    position: relative;
+    z-index: 10;
+}
+
+.grade-title {
+    font-size: 1.8rem;
+    color: white;
+    border-bottom: 2px solid #334155;
+    padding-bottom: 10px;
+    margin-top: 50px;
+}
+
+.divider { border: 0; height: 1px; background: #1e293b; margin: 50px 0; }
+
+.subject-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
+    margin-top: 30px;
+}
+
+/* 6. 高级拟物卡片 (Glass Cards) */
+.card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 35px 25px;
+    text-align: center;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+}
+
+.card:hover { transform: translateY(-12px); }
+
+/* 学科专属悬停发光 */
+.science-card:hover { border-color: var(--color-sci); box-shadow: 0 20px 40px rgba(168,85,247,0.3); }
+.physics-card:hover { border-color: var(--color-phy); box-shadow: 0 20px 40px rgba(56,189,248,0.3); }
+.chemistry-card:hover { border-color: var(--color-chem); box-shadow: 0 20px 40px rgba(249,115,22,0.3); }
+.biology-card:hover { border-color: var(--color-bio); box-shadow: 0 20px 40px rgba(34,197,94,0.3); }
+
+.icon { font-size: 3.5rem; margin-bottom: 15px; transition: 0.3s; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5)); }
+.card:hover .icon { transform: scale(1.15); }
+
+.card h3 { font-size: 1.6rem; color: white; margin-bottom: 10px; }
+.card p { color: #94a3b8; font-size: 1rem; margin-bottom: 25px; flex-grow: 1; }
+
+/* 卡片内按钮 */
+.card button {
+    background: transparent;
+    color: white;
+    border: 2px solid white;
+    padding: 10px 25px;
+    border-radius: 30px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+    text-transform: uppercase;
+}
+
+.science-card:hover button { background: var(--color-sci); border-color: var(--color-sci); }
+.physics-card:hover button { background: var(--color-phy); border-color: var(--color-phy); }
+.chemistry-card:hover button { background: var(--color-chem); border-color: var(--color-chem); }
+.biology-card:hover button { background: var(--color-bio); border-color: var(--color-bio); }
+
+/* 7. 页脚 */
+footer { text-align: center; padding: 30px; border-top: 1px solid #1e293b; color: #475569; margin-top: 50px; background: rgba(2,6,23,0.8); }
+
+/* 动态 Canvas 层级控制 */
+#science-network { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; opacity: 0.8; }

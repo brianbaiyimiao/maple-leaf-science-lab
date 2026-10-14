@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Advanced Periodic Trends - Maple Leaf Lab</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --chem-green: #059669; --dark: #0f172a; --accent: #3b82f6; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f1f5f9; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        .nav { background: var(--dark); color: white; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .back-btn { color: white; text-decoration: none; border: 1px solid #444; padding: 6px 12px; border-radius: 4px; font-size: 13px; }
+
+        .workspace { display: grid; grid-template-columns: 350px 1fr; gap: 15px; padding: 15px; flex: 1; overflow: hidden; }
+        .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; display: flex; flex-direction: column; }
+        
+        /* 趋势控制 */
+        .btn-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+        .mode-btn { 
+            padding: 12px; border: 1px solid #e2e8f0; background: white; border-radius: 8px; 
+            cursor: pointer; text-align: left; font-weight: bold; transition: 0.2s; font-size: 13px;
+        }
+        .mode-btn.active { background: var(--chem-green); color: white; border-color: var(--chem-green); }
+
+        /* 周期表 */
+        .ptable { 
+            display: grid; grid-template-columns: repeat(18, 1fr); gap: 4px; 
+            background: #fff; padding: 10px; border-radius: 8px;
+        }
+        .element {
+            aspect-ratio: 1; border: 1px solid #eee; border-radius: 4px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.2s; position: relative; overflow: hidden;
+        }
+        .element:hover { border-color: var(--chem-green); transform: scale(1.05); z-index: 5; }
+        .element.selected { border: 2px solid var(--accent); background: #eff6ff !important; }
+        .element .sym { font-weight: bold; font-size: 12px; z-index: 2; }
+        
+        /* 半径圆圈可视化 */
+        .radius-circle { 
+            position: absolute; border-radius: 50%; background: rgba(5, 150, 105, 0.2); 
+            pointer-events: none; z-index: 1; transition: 0.3s;
+        }
+
+        /* 比较图表 */
+        .chart-container { height: 180px; margin-top: 15px; }
+        .comparison-info { font-size: 12px; color: #64748b; line-height: 1.5; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit1.html" class="back-btn">⬅ Back</a>
+        <h2 style="margin:0; font-size: 18px;">Lab 2: Periodic Trends Visual Explorer</h2>
+        <span style="font-size: 12px; opacity: 0.8;">Chemistry 11 Academic Tool</span>
+    </div>
+
+    <div class="workspace">
+        <div class="card">
+            <h3>Visual Trends</h3>
+            <div class="btn-group">
+                <button class="mode-btn active" onclick="updateMode('radius', this)">Atomic Radius (pm)</button>
+                <button class="mode-btn" onclick="updateMode('en', this)">Electronegativity</button>
+                <button class="mode-btn" onclick="updateMode('ie', this)">Ionization Energy (kJ/mol)</button>
+            </div>
+
+            <h3 style="border-left-color: var(--accent); margin-top:10px;">Comparison Analysis</h3>
+            <div class="chart-container">
+                <canvas id="compareChart"></canvas>
+            </div>
+            <div id="compare-text" class="comparison-info">
+                Click <b>two elements</b> on the table to compare their values and analyze the trend.
+            </div>
+        </div>
+
+        <div class="card" style="overflow-x: auto;">
+            <div class="ptable" id="ptable">
+                </div>
+            <div style="margin-top:20px; display:flex; gap:20px; font-size:12px; color:#64748b;">
+                <div>🟢 <b>Color Density:</b> Value Intensity</div>
+                <div>⭕ <b>Circle Size:</b> Physical Radius Representation</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const elementData = [
+            { s: "H", r: 37, en: 2.2, ie: 1312, g: 1, p: 1 }, { s: "He", r: 31, en: 0, ie: 2372, g: 18, p: 1 },
+            { s: "Li", r: 152, en: 0.98, ie: 520, g: 1, p: 2 }, { s: "Be", r: 112, en: 1.57, ie: 899, g: 2, p: 2 },
+            { s: "B", r: 85, en: 2.04, ie: 801, g: 13, p: 2 }, { s: "C", r: 77, en: 2.55, ie: 1086, g: 14, p: 2 },
+            { s: "N", r: 75, en: 3.04, ie: 1402, g: 15, p: 2 }, { s: "O", r: 73, en: 3.44, ie: 1314, g: 16, p: 2 },
+            { s: "F", r: 71, en: 3.98, ie: 1681, g: 17, p: 2 }, { s: "Ne", r: 69, en: 0, ie: 2081, g: 18, p: 2 },
+            { s: "Na", r: 186, en: 0.93, ie: 496, g: 1, p: 3 }, { s: "Mg", r: 160, en: 1.31, ie: 738, g: 2, p: 3 },
+            { s: "Al", r: 143, en: 1.61, ie: 578, g: 13, p: 3 }, { s: "Si", r: 118, en: 1.90, ie: 786, g: 14, p: 3 },
+            { s: "P", r: 110, en: 2.19, ie: 1012, g: 15, p: 3 }, { s: "S", r: 103, en: 2.58, ie: 1000, g: 16, p: 3 },
+            { s: "Cl", r: 99, en: 3.16, ie: 1251, g: 17, p: 3 }, { s: "Ar", r: 97, en: 0, ie: 1521, g: 18, p: 3 },
+            { s: "K", r: 227, en: 0.82, ie: 419, g: 1, p: 4 }, { s: "Ca", r: 197, en: 1.00, ie: 590, g: 2, p: 4 }
+        ];
+
+        let currentMode = 'radius';
+        let selectedElements = [];
+        let myChart;
+
+        function init() {
+            const table = document.getElementById('ptable');
+            for(let row=1; row<=4; row++){
+                for(let col=1; col<=18; col++){
+                    const el = elementData.find(d => d.g === col && d.p === row);
+                    const div = document.createElement('div');
+                    div.className = el ? 'element' : 'empty';
+                    if(el) {
+                        div.innerHTML = `<div class="radius-circle" id="circle-${el.s}"></div><span class="sym">${el.s}</span>`;
+                        div.onclick = () => selectElement(el, div);
+                        div.id = `node-${el.s}`;
+                    }
+                    div.style.gridColumn = col; div.style.gridRow = row;
+                    table.appendChild(div);
+                }
+            }
+            updateVisuals();
+            initChart();
+        }
+
+        function updateMode(mode, btn) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            updateVisuals();
+            if(selectedElements.length > 0) refreshChart();
+        }
+
+        function updateVisuals() {
+            const vals = elementData.map(d => d[currentMode]).filter(v => v > 0);
+            const max = Math.max(...vals);
+            elementData.forEach(el => {
+                const node = document.getElementById(`node-${el.s}`);
+                const circle = document.getElementById(`circle-${el.s}`);
+                const val = el[currentMode];
+                
+                // 颜色深度
+                const intensity = val > 0 ? (val / max) : 0;
+                node.style.background = `rgba(5, 150, 105, ${0.05 + intensity * 0.5})`;
+                
+                // 半径圆圈大小可视化 (仅在Radius模式下最直观)
+                const size = (el.r / 227) * 90; // 归一化比例
+                circle.style.width = size + '%';
+                circle.style.height = size + '%';
+                circle.style.display = currentMode === 'radius' ? 'block' : 'none';
+            });
+        }
+
+        function selectElement(el, div) {
+            if (selectedElements.includes(el)) {
+                selectedElements = selectedElements.filter(item => item !== el);
+                div.classList.remove('selected');
+            } else {
+                if (selectedElements.length >= 2) {
+                    const oldEl = selectedElements.shift();
+                    document.getElementById(`node-${oldEl.s}`).classList.remove('selected');
+                }
+                selectedElements.push(el);
+                div.classList.add('selected');
+            }
+            refreshChart();
+        }
+
+        function initChart() {
+            myChart = new Chart(document.getElementById('compareChart'), {
+                type: 'bar',
+                data: { labels: [], datasets: [{ data: [], backgroundColor: ['#3b82f6', '#ec4899'] }] },
+                options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
+
+        function refreshChart() {
+            myChart.data.labels = selectedElements.map(e => e.s);
+            myChart.data.datasets[0].data = selectedElements.map(e => e[currentMode]);
+            myChart.update();
+            
+            if(selectedElements.length === 2) {
+                const [e1, e2] = selectedElements;
+                const diff = Math.abs(e1[currentMode] - e2[currentMode]).toFixed(2);
+                document.getElementById('compare-text').innerHTML = `
+                    <b>Comparison:</b> Difference is ${diff}.<br>
+                    ${e1.s} vs ${e2.s}. Analyze why the ${currentMode} changes based on their positions in the Periodic Table.
+                `;
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

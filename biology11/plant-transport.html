@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Transpiration & Transport Simulator</title>
+    <style>
+        :root { --ml-red: #881337; --ml-green: #16a34a; --bg: #f8fafc; --dark: #0f172a; --water: #0ea5e9; --sugar: #f59e0b; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-green); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-red);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1250px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 350px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: flex; justify-content: space-between; font-weight: bold; color: #475569; margin-bottom: 8px; font-size: 0.95rem; }
+        .control-group input[type="range"] { width: 100%; margin-top: 5px; cursor: pointer; }
+        
+        .toggle-btn { background: #e2e8f0; color: #475569; border: 2px solid #cbd5e1; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-bottom: 15px; }
+        .toggle-btn.active { background: var(--ml-green); color: white; border-color: var(--ml-green); }
+
+        .visual-container { display: flex; flex-direction: column; gap: 15px; }
+        .canvas-box { background: #0f172a; border-radius: 12px; border: 4px solid #94a3b8; overflow: hidden; position: relative; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 0 30px rgba(0,0,0,0.8); }
+        canvas { width: 100%; height: 100%; }
+
+        .info-box { background: #f0fdf4; border-left: 5px solid var(--ml-green); padding: 15px; border-radius: 0 8px 8px 0; margin-top: auto; font-size: 0.9rem; line-height: 1.5; color: #166534; }
+        .data-box { background: #1e293b; color: var(--water); padding: 15px; border-radius: 8px; font-family: monospace; font-size: 1.1rem; text-align: center; font-weight: bold; margin-bottom: 20px;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit3.html" class="back-link">⬅ Back to Unit 3</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 9: Transpiration & Transport</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Biology</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Transport Controls</h3>
+            
+            <div class="data-box">
+                Transpiration Rate: <span id="rate-val">0</span> ml/hr
+            </div>
+
+            <button id="stomata-btn" class="toggle-btn active" onclick="toggleStomata()">Stomata: OPEN</button>
+
+            <div class="control-group">
+                <label>Temperature (Heat): <span id="temp-val" style="color:#ef4444;">25°C</span></label>
+                <input type="range" id="temp-slider" min="10" max="40" value="25" oninput="updateEnv()">
+            </div>
+
+            <div class="control-group">
+                <label>Environmental Humidity: <span id="hum-val" style="color:#0ea5e9;">50%</span></label>
+                <input type="range" id="hum-slider" min="10" max="100" value="50" oninput="updateEnv()">
+            </div>
+
+            <div class="info-box">
+                <b>Legend:</b><br>
+                🔵 <b>Xylem (木质部):</b> Transports water UP from roots to leaves (Cohesion-Tension Theory).<br>
+                🟧 <b>Phloem (韧皮部):</b> Transports sugars DOWN/AROUND from leaves (Source to Sink).<br><br>
+                <i>Notice how closing the stomata or increasing humidity stops the upward pull of water!</i>
+            </div>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box" style="height: 380px;">
+                <canvas id="plantCanvas" width="850" height="380"></canvas>
+            </div>
+            
+            <div class="canvas-box" style="height: 150px; background: white; box-shadow: none;">
+                <canvas id="graphCanvas" width="850" height="150"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cCtx = document.getElementById('plantCanvas').getContext('2d');
+        const gCtx = document.getElementById('graphCanvas').getContext('2d');
+        
+        let temp = 25;
+        let humidity = 50;
+        let stomataOpen = true;
+        let transRate = 0; // 0 to 100
+        let time = 0;
+        
+        let waterParticles = [];
+        let sugarParticles = [];
+        let rateHistory = Array(170).fill(0);
+
+        function toggleStomata() {
+            stomataOpen = !stomataOpen;
+            let btn = document.getElementById('stomata-btn');
+            if(stomataOpen) {
+                btn.innerText = "Stomata: OPEN";
+                btn.classList.add('active');
+            } else {
+                btn.innerText = "Stomata: CLOSED";
+                btn.classList.remove('active');
+            }
+            updateEnv();
+        }
+
+        function updateEnv() {
+            temp = parseInt(document.getElementById('temp-slider').value);
+            humidity = parseInt(document.getElementById('hum-slider').value);
+            
+            document.getElementById('temp-val').innerText = temp + '°C';
+            document.getElementById('hum-val').innerText = humidity + '%';
+
+            // 蒸腾作用核心数学模型
+            if (!stomataOpen) {
+                transRate = 0; // 气孔关闭，蒸腾拉力消失
+            } else {
+                // 温度越高越快，湿度越低越快
+                let tempFactor = (temp - 10) / 30; // 0 to 1
+                let humFactor = (100 - humidity) / 90; // 0 to 1
+                transRate = (tempFactor * 0.6 + humFactor * 0.4) * 100;
+            }
+            
+            document.getElementById('rate-val').innerText = transRate.toFixed(1);
+        }
+
+        function spawnParticles() {
+            // 生成从根部上升的水分子
+            if (transRate > 0 && Math.random() * 100 < transRate / 2) {
+                waterParticles.push({
+                    x: 390 + Math.random() * 20, // 木质部管道内
+                    y: 380, // 从底部开始
+                    speed: 0.5 + (transRate / 20)
+                });
+            }
+
+            // 生成从叶片下降的糖分 (韧皮部运输较慢，受蒸腾拉力影响较小)
+            if (Math.random() * 100 < 5) {
+                sugarParticles.push({
+                    x: 430 + Math.random() * 20, // 韧皮部管道内
+                    y: 100, // 从叶片高度开始
+                    speed: 1.5
+                });
+            }
+        }
+
+        function drawPlant() {
+            cCtx.fillStyle = '#0f172a';
+            cCtx.fillRect(0, 0, 850, 380);
+
+            // 绘制气孔显微放大镜 (右上角)
+            cCtx.fillStyle = '#1e293b'; cCtx.beginPath(); cCtx.arc(700, 100, 70, 0, Math.PI*2); cCtx.fill();
+            cCtx.strokeStyle = '#64748b'; cCtx.lineWidth = 4; cCtx.stroke();
+            cCtx.fillStyle = 'white'; cCtx.font = '14px Arial'; cCtx.textAlign = 'center'; cCtx.fillText("Stomata View", 700, 20);
+            
+            // 绘制保卫细胞 (Guard Cells)
+            cCtx.fillStyle = '#22c55e';
+            cCtx.save();
+            cCtx.translate(700, 100);
+            if (stomataOpen) {
+                // 气孔张开 (膨胀的香肠形)
+                cCtx.beginPath(); cCtx.ellipse(-20, 0, 25, 50, 0, Math.PI/2, Math.PI*1.5); cCtx.fill();
+                cCtx.beginPath(); cCtx.ellipse(20, 0, 25, 50, 0, -Math.PI/2, Math.PI/2); cCtx.fill();
+                // 释放出的水蒸气
+                if (transRate > 0) {
+                    cCtx.fillStyle = 'rgba(14, 165, 233, 0.4)';
+                    cCtx.beginPath(); cCtx.arc(0, -30 - (time*10)%40, 8, 0, Math.PI*2); cCtx.fill();
+                }
+            } else {
+                // 气孔关闭 (扁平)
+                cCtx.beginPath(); cCtx.ellipse(-10, 0, 10, 50, 0, 0, Math.PI*2); cCtx.fill();
+                cCtx.beginPath(); cCtx.ellipse(10, 0, 10, 50, 0, 0, Math.PI*2); cCtx.fill();
+            }
+            cCtx.restore();
+
+            // 绘制主干管道
+            // Xylem (Left, Blue)
+            cCtx.fillStyle = 'rgba(14, 165, 233, 0.1)'; cCtx.fillRect(385, 50, 30, 330);
+            cCtx.strokeStyle = '#0ea5e9'; cCtx.lineWidth = 2; cCtx.strokeRect(385, 50, 30, 330);
+            // Phloem (Right, Orange)
+            cCtx.fillStyle = 'rgba(245, 158, 11, 0.1)'; cCtx.fillRect(425, 50, 30, 330);
+            cCtx.strokeStyle = '#f59e0b'; cCtx.strokeRect(425, 50, 30, 330);
+
+            // 绘制叶片
+            cCtx.fillStyle = 'rgba(34, 197, 94, 0.8)';
+            cCtx.beginPath();
+            cCtx.ellipse(300, 100, 100, 40, -Math.PI/6, 0, Math.PI*2); // 左边大叶片
+            cCtx.fill();
+            // 叶脉连接木质部
+            cCtx.strokeStyle = '#0ea5e9'; cCtx.lineWidth = 2;
+            cCtx.beginPath(); cCtx.moveTo(385, 100); cCtx.lineTo(250, 100); cCtx.stroke();
+
+            // 标签
+            cCtx.fillStyle = '#0ea5e9'; cCtx.textAlign='left'; cCtx.fillText("Xylem (H₂O)", 300, 360);
+            cCtx.fillStyle = '#f59e0b'; cCtx.fillText("Phloem (Sugar)", 465, 360);
+
+            // 渲染并移动粒子
+            cCtx.fillStyle = '#38bdf8'; // 水滴
+            for (let i = waterParticles.length - 1; i >= 0; i--) {
+                let p = waterParticles[i];
+                p.y -= p.speed; // 水往高处流 (蒸腾拉力)
+                
+                // 到了叶子高度，部分进入叶片
+                if (p.y < 110 && p.y > 90 && p.x > 385) {
+                    p.x -= p.speed * 2; // 向左侧叶片移动
+                }
+
+                cCtx.beginPath(); cCtx.arc(p.x, p.y, 4, 0, Math.PI*2); cCtx.fill();
+                
+                // 蒸发或到达顶端消失
+                if (p.y < 50 || p.x < 220) waterParticles.splice(i, 1);
+            }
+
+            cCtx.fillStyle = '#fbbf24'; // 糖分块
+            for (let i = sugarParticles.length - 1; i >= 0; i--) {
+                let p = sugarParticles[i];
+                p.y += p.speed; // 糖分向下运送到根部
+                cCtx.fillRect(p.x - 4, p.y - 4, 8, 8);
+                if (p.y > 380) sugarParticles.splice(i, 1);
+            }
+        }
+
+        function drawGraph() {
+            rateHistory.push(transRate);
+            rateHistory.shift();
+
+            gCtx.clearRect(0, 0, 850, 150);
+            
+            // Grid
+            gCtx.strokeStyle = '#e2e8f0'; gCtx.lineWidth = 1;
+            gCtx.beginPath(); gCtx.moveTo(40, 75); gCtx.lineTo(850, 75); gCtx.stroke();
+            gCtx.fillStyle = '#64748b'; gCtx.font = '12px Arial';
+            gCtx.fillText("100%", 5, 15); gCtx.fillText("Rate", 5, 80); gCtx.fillText("0%", 15, 145);
+
+            // Line
+            gCtx.strokeStyle = '#0ea5e9'; gCtx.lineWidth = 3;
+            gCtx.beginPath();
+            for(let i=0; i<rateHistory.length; i++) {
+                let x = 40 + (i * 5); 
+                let y = 150 - (rateHistory[i] / 100 * 140); 
+                if (i === 0) gCtx.moveTo(x, y);
+                else gCtx.lineTo(x, y);
+            }
+            gCtx.stroke();
+            
+            // Fill
+            gCtx.lineTo(850, 150); gCtx.lineTo(40, 150);
+            gCtx.fillStyle = 'rgba(14, 165, 233, 0.2)'; gCtx.fill();
+        }
+
+        function animate() {
+            time += 0.05;
+            spawnParticles();
+            drawPlant();
+            drawGraph();
+            requestAnimationFrame(animate);
+        }
+
+        // Initialize
+        updateEnv();
+        animate();
+    </script>
+</body>
+</html>

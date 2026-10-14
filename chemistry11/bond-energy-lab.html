@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Enthalpy Explorer - Maple Leaf High</title>
+    <style>
+        :root { --main: #f43f5e; --dark: #0f172a; --break: #3b82f6; --form: #10b981; --bg: #f8fafc; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: #e2e8f0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        
+        .nav { background: var(--dark); color: white; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .back-link { color: white; text-decoration: none; border: 1px solid #475569; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: bold; }
+
+        .workspace { display: grid; grid-template-columns: 450px 1fr; gap: 15px; padding: 15px; flex: 1; overflow: hidden; }
+        
+        /* 左侧面板：反应库与数据 */
+        .panel-left { background: white; border-radius: 24px; border: 1px solid #cbd5e1; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .scroll-area { flex: 1; overflow-y: auto; padding: 20px; }
+        
+        .rxn-list { height: 250px; border: 1px solid #e2e8f0; border-radius: 12px; overflow-y: auto; background: var(--bg); margin-bottom: 20px; }
+        .rxn-item { padding: 10px 15px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 13px; font-family: serif; display: flex; justify-content: space-between; }
+        .rxn-item:hover { background: #fff1f2; }
+        .rxn-item.active { background: var(--main); color: white; font-weight: bold; }
+
+        .dashboard { background: #f1f5f9; padding: 15px; border-radius: 16px; display: flex; flex-direction: column; gap: 10px; }
+        .meter { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: bold; }
+        .energy-val { font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; color: var(--main); }
+
+        /* 右侧面板：组装区 */
+        .panel-right { display: grid; grid-template-rows: 1fr 1fr; gap: 15px; overflow: hidden; }
+        .zone { background: white; border-radius: 24px; border: 1px solid #cbd5e1; padding: 25px; position: relative; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: 10px; }
+        .zone-label { position: absolute; top: 15px; left: 20px; font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .bond-btn { padding: 12px 18px; background: white; border: 2px solid #e2e8f0; border-radius: 10px; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 14px; }
+        .bond-btn.break { border-color: var(--break); color: var(--break); }
+        .bond-btn.form { border-color: var(--form); color: var(--form); }
+        .bond-btn:disabled { opacity: 0.15; cursor: default; transform: scale(0.9); }
+
+        .summary-overlay { position: absolute; bottom: 20px; right: 20px; background: var(--dark); color: white; padding: 20px; border-radius: 15px; text-align: center; min-width: 200px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit6.html" class="back-link">⬅ Back</a>
+        <h2 style="margin:0; font-size: 1.1rem;">Lab 15: Bond Enthalpy Master</h2>
+        <span style="font-size: 11px; opacity: 0.7;">Dataset: 20+ Reactions</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel-left">
+            <div class="scroll-area">
+                <div class="section-label" style="font-size: 11px; font-weight: 800; color: #94a3b8; margin-bottom: 8px;">01. SELECT REACTION</div>
+                <div class="rxn-list" id="rxn-list"></div>
+
+                <div class="section-label" style="font-size: 11px; font-weight: 800; color: #94a3b8; margin-bottom: 8px;">02. ENERGY TRACKER</div>
+                <div class="dashboard">
+                    <div class="meter"><span>Breaking (+):</span> <span id="v-break" class="energy-val" style="color: var(--break);">0 kJ</span></div>
+                    <div class="meter"><span>Forming (-):</span> <span id="v-form" class="energy-val" style="color: var(--form);">0 kJ</span></div>
+                    <div style="height: 2px; background: #cbd5e1; margin: 5px 0;"></div>
+                    <div class="meter"><span>Net ΔH:</span> <span id="v-total" class="energy-val" style="color: var(--dark);">0 kJ</span></div>
+                </div>
+                
+                <p id="type-note" style="font-size: 11px; text-align: center; margin-top: 15px; font-weight: bold;"></p>
+                <button onclick="resetLab()" style="width: 100%; padding: 12px; margin-top: 10px; border-radius: 10px; border: 1px solid #ddd; background: white; cursor: pointer; font-size: 12px;">Reset Current Simulation</button>
+            </div>
+        </div>
+
+        <div class="panel-right">
+            <div class="zone" id="zone-r">
+                <div class="zone-label">Reactants: Break Bonds (Step 1)</div>
+            </div>
+            <div class="zone" id="zone-p">
+                <div class="zone-label">Products: Form Bonds (Step 2)</div>
+                <div class="summary-overlay" id="summary-card" style="display:none;">
+                    <div style="font-size: 10px; opacity: 0.7;">RESULTING ENTHALPY</div>
+                    <div id="final-h" style="font-size: 1.5rem; font-weight: bold; margin: 5px 0;">-- kJ</div>
+                    <div id="final-type" style="font-size: 11px; color: #4ade80;">EXOTHERMIC</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BONDS = {
+            "H-H": 436, "Cl-Cl": 242, "H-Cl": 431, "C-H": 413, "O=O": 495, "C=O": 799, "O-H": 463, 
+            "N≡N": 941, "N-H": 391, "C-C": 348, "C=C": 614, "C≡C": 839, "F-F": 158, "H-F": 567,
+            "Br-Br": 193, "H-Br": 366, "I-I": 151, "H-I": 299, "C-Cl": 339, "O-O": 146
+        };
+
+        const DATASET = [
+            { eq: "H₂ + Cl₂ → 2HCl", r: {"H-H":1, "Cl-Cl":1}, p: {"H-Cl":2} },
+            { eq: "H₂ + F₂ → 2HF", r: {"H-H":1, "F-F":1}, p: {"H-F":2} },
+            { eq: "CH₄ + 2O₂ → CO₂ + 2H₂O", r: {"C-H":4, "O=O":2}, p: {"C=O":2, "O-H":4} },
+            { eq: "N₂ + 3H₂ → 2NH₃", r: {"N≡N":1, "H-H":3}, p: {"N-H":6} },
+            { eq: "2H₂ + O₂ → 2H₂O", r: {"H-H":2, "O=O":1}, p: {"O-H":4} },
+            { eq: "C₂H₄ + H₂ → C₂H₆", r: {"C=C":1, "C-H":4, "H-H":1}, p: {"C-C":1, "C-H":6} },
+            { eq: "C₂H₂ + 2H₂ → C₂H₆", r: {"C≡C":1, "C-H":2, "H-H":2}, p: {"C-C":1, "C-H":6} },
+            { eq: "H₂ + Br₂ → 2HBr", r: {"H-H":1, "Br-Br":1}, p: {"H-Br":2} },
+            { eq: "H₂ + I₂ → 2HI", r: {"H-H":1, "I-I":1}, p: {"H-I":2} },
+            { eq: "2H₂O₂ → 2H₂O + O₂", r: {"O-H":4, "O-O":2}, p: {"O-H":4, "O=O":1} },
+            { eq: "CH₄ + Cl₂ → CH₃Cl + HCl", r: {"C-H":4, "Cl-Cl":1}, p: {"C-H":3, "C-Cl":1, "H-Cl":1} },
+            { eq: "2NH₃ → N₂ + 3H₂", r: {"N-H":6}, p: {"N≡N":1, "H-H":3} },
+            { eq: "CO + H₂O → CO₂ + H₂", r: {"C≡O":1, "O-H":2}, p: {"C=O":2, "H-H":1} }, // C≡O is approx 1072, but we use a simpler map
+            { eq: "C₂H₄ + Cl₂ → C₂H₄Cl₂", r: {"C=C":1, "C-H":4, "Cl-Cl":1}, p: {"C-C":1, "C-H":4, "C-Cl":2} },
+            { eq: "2F₂ + 2H₂O → 4HF + O₂", r: {"F-F":2, "O-H":4}, p: {"H-F":4, "O=O":1} },
+            { eq: "N₂H₄ + O₂ → N₂ + 2H₂O", r: {"N-H":4, "N-N":1, "O=O":1}, p: {"N≡N":1, "O-H":4} },
+            { eq: "CH₃OH + ... (Combustion)", r: {"C-H":3, "C-O":1, "O-H":1, "O=O":1.5}, p: {"C=O":1, "O-H":4} },
+            { eq: "C₃H₈ + 5O₂ → 3CO₂ + 4H₂O", r: {"C-C":2, "C-H":8, "O=O":5}, p: {"C=O":6, "O-H":8} },
+            { eq: "N₂O₄ → 2NO₂", r: {"N-N":1, "N=O":4}, p: {"N=O":4} },
+            { eq: "H₂O → H₂ + 0.5O₂", r: {"O-H":2}, p: {"H-H":1, "O=O":0.5} }
+        ];
+
+        // Ensure C≡O and other bonds are added if missing
+        BONDS["C≡O"] = 1072; BONDS["N-N"] = 163; BONDS["C-O"] = 358;
+
+        let selected = 0, absorbed = 0, released = 0;
+
+        function init() {
+            const list = document.getElementById('rxn-list');
+            DATASET.forEach((d, i) => {
+                const div = document.createElement('div');
+                div.className = `rxn-item ${i===0?'active':''}`;
+                div.innerHTML = `<span>${d.eq}</span>`;
+                div.onclick = () => {
+                    selected = i;
+                    document.querySelectorAll('.rxn-item').forEach(el => el.classList.remove('active'));
+                    div.classList.add('active');
+                    resetLab();
+                };
+                list.appendChild(div);
+            });
+            renderBonds();
+        }
+
+        function renderBonds() {
+            const rxn = DATASET[selected];
+            const zR = document.getElementById('zone-r');
+            const zP = document.getElementById('zone-p');
+            zR.innerHTML = '<div class="zone-label">Reactants: Break Bonds (Step 1)</div>';
+            zP.innerHTML = '<div class="zone-label">Products: Form Bonds (Step 2)</div>';
+
+            for(let b in rxn.r) {
+                for(let i=0; i < rxn.r[b]; i++) {
+                    const btn = createBondBtn(b, 'break');
+                    zR.appendChild(btn);
+                }
+            }
+            for(let b in rxn.p) {
+                for(let i=0; i < rxn.p[b]; i++) {
+                    const btn = createBondBtn(b, 'form');
+                    zP.appendChild(btn);
+                }
+            }
+        }
+
+        function createBondBtn(type, mode) {
+            const btn = document.createElement('button');
+            btn.className = `bond-btn ${mode}`;
+            btn.innerText = type;
+            btn.onclick = () => {
+                if(mode === 'break') absorbed += BONDS[type];
+                else released += BONDS[type];
+                btn.disabled = true;
+                update();
+            };
+            return btn;
+        }
+
+        function update() {
+            document.getElementById('v-break').innerText = absorbed + " kJ";
+            document.getElementById('v-form').innerText = released + " kJ";
+            const dh = absorbed - released;
+            document.getElementById('v-total').innerText = dh + " kJ";
+
+            const note = document.getElementById('type-note');
+            if(dh < 0) { note.innerText = "EXOTHERMIC (释放能量)"; note.style.color = "var(--form)"; }
+            else if(dh > 0) { note.innerText = "ENDOTHERMIC (吸收能量)"; note.style.color = "var(--main)"; }
+
+            // Check completion
+            const all = document.querySelectorAll('.bond-btn');
+            const done = document.querySelectorAll('.bond-btn:disabled');
+            if(all.length > 0 && all.length === done.length) {
+                const card = document.getElementById('summary-card');
+                card.style.display = 'block';
+                document.getElementById('final-h').innerText = dh + " kJ/mol";
+                document.getElementById('final-type').innerText = dh < 0 ? "EXOTHERMIC" : "ENDOTHERMIC";
+                document.getElementById('final-type').style.color = dh < 0 ? "#4ade80" : "#fb7185";
+            }
+        }
+
+        function resetLab() {
+            absorbed = 0; released = 0;
+            document.getElementById('summary-card').style.display = 'none';
+            renderBonds();
+            update();
+        }
+
+        init();
+    </script>
+</body>
+</html>

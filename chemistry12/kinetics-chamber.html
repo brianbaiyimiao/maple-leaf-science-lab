@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 2.1: Collision Theory Chamber</title>
+    <style>
+        :root { --ml-red: #b91c1c; --ml-gold: #fbbf24; --bg: #0f172a; --panel: #1e293b; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: white; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--ml-red); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold); }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; }
+        
+        .workspace { flex: 1; display: grid; grid-template-columns: 350px 1fr; gap: 20px; padding: 20px; box-sizing: border-box; }
+        .panel { background: var(--panel); padding: 25px; border-radius: 15px; border: 1px solid #334155; display: flex; flex-direction: column; gap: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        
+        h3 { margin: 0; color: var(--ml-gold); border-bottom: 1px solid #334155; padding-bottom: 10px; }
+        .control-group label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 10px; color: #94a3b8; }
+        input[type="range"] { width: 100%; accent-color: var(--ml-gold); cursor: pointer; }
+        
+        .stat-card { background: #020617; padding: 15px; border-radius: 10px; border-left: 4px solid #22c55e; }
+        .stat-val { font-family: monospace; font-size: 1.8rem; color: #22c55e; display: block; margin-top: 5px; }
+
+        .visual-container { display: grid; grid-template-rows: 1fr 250px; gap: 20px; }
+        .canvas-box { background: #000; border-radius: 15px; border: 2px solid #334155; position: relative; overflow: hidden; box-shadow: inset 0 0 50px rgba(0,0,0,1); }
+        canvas { width: 100%; height: 100%; display: block; }
+        .label-tag { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 5px 12px; border-radius: 5px; font-size: 0.8rem; color: var(--ml-gold); font-weight: bold; border: 1px solid #334155; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit2.html" class="back-link">⬅ Back to Unit 2 Labs</a>
+        <h2 style="margin:0;">Lab 2.1: Microscopic Collision Theory</h2>
+        <span style="font-size: 0.9rem; opacity: 0.8;">Maple Leaf Chemistry 12</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Environment Controls</h3>
+            
+            <div class="control-group">
+                <label>System Temperature (T): <span id="t-read">300 K</span></label>
+                <input type="range" id="t-slider" min="100" max="1000" step="10" value="300">
+            </div>
+
+            <div class="control-group">
+                <label>Activation Energy (Ea): <span id="ea-read">400 J</span></label>
+                <input type="range" id="ea-slider" min="100" max="800" step="10" value="400">
+            </div>
+
+            <div class="stat-card">
+                <span style="font-size: 0.8rem; text-transform: uppercase; color: #94a3b8;">Effective Collisions</span>
+                <span class="stat-val" id="rate-display">0.00%</span>
+                <p style="font-size: 0.75rem; color: #64748b; margin: 8px 0 0 0;">Particles with KE &ge; Ea</p>
+            </div>
+
+            <div style="margin-top: auto; font-size: 0.85rem; line-height: 1.5; color: #94a3b8; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px;">
+                <b>Scientific Inquiry:</b> Observe how heating the system flattens the Boltzmann curve and shifts the peak to the right, increasing the fraction of "Effective Collisions".
+            </div>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box">
+                <div class="label-tag">REACTION CHAMBER (Elastic Collisions)</div>
+                <canvas id="chamberCvs"></canvas>
+            </div>
+            <div class="canvas-box" style="background: #020617;">
+                <div class="label-tag">MAXWELL-BOLTZMANN ENERGY DISTRIBUTION</div>
+                <canvas id="graphCvs"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cCvs = document.getElementById('chamberCvs');
+        const cCtx = cCvs.getContext('2d');
+        const gCvs = document.getElementById('graphCvs');
+        const gCtx = gCvs.getContext('2d');
+
+        let particles = [];
+        let temp = 300;
+        let Ea = 400;
+
+        function init() {
+            window.addEventListener('resize', resize);
+            resize();
+            for(let i=0; i<120; i++) particles.push(new Particle());
+            animate();
+        }
+
+        function resize() {
+            cCvs.width = cCvs.offsetWidth; cCvs.height = cCvs.offsetHeight;
+            gCvs.width = gCvs.offsetWidth; gCvs.height = gCvs.offsetHeight;
+        }
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * cCvs.width;
+                this.y = Math.random() * cCvs.height;
+                let angle = Math.random() * Math.PI * 2;
+                this.v = Math.random() * 2;
+                this.vx = Math.cos(angle) * this.v;
+                this.vy = Math.sin(angle) * this.v;
+            }
+            update() {
+                let speedScale = Math.sqrt(temp / 100);
+                this.x += this.vx * speedScale;
+                this.y += this.vy * speedScale;
+
+                if(this.x < 5 || this.x > cCvs.width - 5) this.vx *= -1;
+                if(this.y < 5 || this.y > cCvs.height - 5) this.vy *= -1;
+                
+                this.ke = 0.5 * (this.v * speedScale) ** 2 * 1000; 
+            }
+            draw() {
+                let isEffective = this.ke >= Ea;
+                cCtx.beginPath();
+                cCtx.arc(this.x, this.y, 4, 0, Math.PI*2);
+                if(isEffective) {
+                    cCtx.fillStyle = '#22c55e';
+                    cCtx.shadowBlur = 15; cCtx.shadowColor = '#22c55e';
+                } else {
+                    let r = Math.min(255, (this.ke/Ea)*255);
+                    cCtx.fillStyle = `rgb(${r}, 100, ${255-r})`;
+                    cCtx.shadowBlur = 0;
+                }
+                cCtx.fill();
+            }
+        }
+
+        function drawGraph() {
+            gCtx.clearRect(0,0,gCvs.width, gCvs.height);
+            let w = gCvs.width; let h = gCvs.height;
+            let padding = 40;
+
+            gCtx.strokeStyle = '#334155'; gCtx.lineWidth = 2;
+            gCtx.beginPath();
+            gCtx.moveTo(padding, 20); gCtx.lineTo(padding, h-padding); gCtx.lineTo(w-20, h-padding);
+            gCtx.stroke();
+
+            // 绘制分布曲线 (Maxwell-Boltzmann Approximation)
+            gCtx.beginPath();
+            gCtx.strokeStyle = '#38bdf8'; gCtx.lineWidth = 3;
+            let effectiveArea = 0;
+            let totalArea = 0;
+
+            for(let x=0; x<w-padding-20; x++) {
+                let energy = (x / (w-padding)) * 1000;
+                let kT = temp * 0.8;
+                let prob = 100 * Math.sqrt(energy) * Math.exp(-energy / kT);
+                let px = padding + x;
+                let py = (h-padding) - prob;
+
+                if(x === 0) gCtx.moveTo(px, py); else gCtx.lineTo(px, py);
+
+                totalArea += prob;
+                if(energy >= Ea) {
+                    effectiveArea += prob;
+                    // 填充有效区域
+                    gCtx.save();
+                    gCtx.strokeStyle = 'rgba(34, 197, 94, 0.2)';
+                    gCtx.beginPath(); gCtx.moveTo(px, h-padding); gCtx.lineTo(px, py); gCtx.stroke();
+                    gCtx.restore();
+                }
+            }
+            gCtx.stroke();
+
+            // 绘制 Ea 垂线
+            let eaPx = padding + (Ea / 1000) * (w-padding);
+            gCtx.setLineDash([5, 5]);
+            gCtx.strokeStyle = '#ef4444';
+            gCtx.beginPath(); gCtx.moveTo(eaPx, h-padding); gCtx.lineTo(eaPx, 20); gCtx.stroke();
+            gCtx.setLineDash([]);
+            gCtx.fillStyle = '#ef4444'; gCtx.fillText("Ea", eaPx - 10, 15);
+
+            document.getElementById('rate-display').innerText = ((effectiveArea/totalArea)*100).toFixed(2) + "%";
+        }
+
+        function animate() {
+            cCtx.fillStyle = 'rgba(0,0,0,0.3)'; cCtx.fillRect(0,0,cCvs.width,cCvs.height);
+            temp = document.getElementById('t-slider').value;
+            Ea = document.getElementById('ea-slider').value;
+            document.getElementById('t-read').innerText = temp + " K";
+            document.getElementById('ea-read').innerText = Ea + " J";
+
+            particles.forEach(p => { p.update(); p.draw(); });
+            drawGraph();
+            requestAnimationFrame(animate);
+        }
+
+        init();
+    </script>
+</body>
+</html>

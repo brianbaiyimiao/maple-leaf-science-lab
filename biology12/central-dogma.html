@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 2.2: Central Dogma Simulator</title>
+    <style>
+        :root { --ml-green: #16a34a; --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --gold: #fbbf24; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--ml-green); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--gold); z-index: 10;}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.3s;}
+        .back-link:hover { background: white; color: var(--ml-green);}
+        
+        .workspace { flex: 1; display: grid; grid-template-columns: 420px 1fr; gap: 20px; padding: 20px; box-sizing: border-box; overflow: hidden; }
+        .panel { background: var(--panel); border-radius: 15px; border: 1px solid #334155; padding: 20px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow-y: auto;}
+        
+        h3 { margin: 0; color: var(--gold); border-bottom: 1px dashed #475569; padding-bottom: 10px; font-size: 1.1rem;}
+
+        .step-box { background: rgba(0,0,0,0.3); border: 1px solid #334155; padding: 15px; border-radius: 8px; transition: 0.3s;}
+        .step-box.active { border-color: #38bdf8; box-shadow: 0 0 15px rgba(56,189,248,0.2);}
+        .step-title { font-weight: bold; color: #38bdf8; margin-bottom: 8px;}
+        .step-box.completed .step-title { color: var(--ml-green); }
+
+        /* RNA Keyboard */
+        .keyboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; display: none;}
+        .key-btn { padding: 15px; font-size: 1.2rem; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; color: white;}
+        .key-A { background: #ef4444; } .key-U { background: #eab308; } .key-C { background: #3b82f6; } .key-G { background: #22c55e; }
+        .key-btn:hover { filter: brightness(1.2); transform: translateY(-2px);}
+        .key-btn:active { transform: translateY(2px);}
+
+        /* Codon Chart Simulator */
+        .tRNA-tray { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; display: none;}
+        .trna-btn { background: #475569; color: white; border: 2px solid #64748b; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; display: flex; justify-content: space-between;}
+        .trna-btn:hover { background: #334155; border-color: #38bdf8;}
+        .aa-name { color: var(--gold);}
+
+        .btn-reset { background: #0f172a; border: 2px solid #ef4444; color: #ef4444; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: auto; transition: 0.2s;}
+        .btn-reset:hover { background: #ef4444; color: white;}
+
+        .canvas-container { background: #020617; border-radius: 15px; position: relative; overflow: hidden; box-shadow: inset 0 0 50px rgba(0,0,0,0.8); }
+        canvas { width: 100%; height: 100%; display: block; }
+        
+        .tag { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.8); padding: 8px 15px; border-radius: 6px; font-weight: bold; color: var(--gold); font-size: 0.85rem;}
+        
+        /* Error Flash Overlay */
+        #error-flash { position: absolute; inset: 0; background: rgba(239, 68, 68, 0.3); pointer-events: none; opacity: 0; transition: opacity 0.2s;}
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="unit2.html" class="back-link">⬅ Back to Unit 2</a>
+        <h2 style="margin:0;">Lab 2.2: Central Dogma Assembly Line</h2>
+        <span style="font-size: 0.9rem; opacity: 0.8;">Maple Leaf Biological Sciences</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Molecular Assembly SOP</h3>
+            
+            <div class="step-box active" id="step-transcription">
+                <div class="step-title">Phase 1: Transcription (Nucleus)</div>
+                <div style="font-size:0.85rem; color:#cbd5e1;">Build the mRNA strand by pairing RNA nucleotides to the DNA template. Remember: RNA uses Uracil (U) instead of Thymine (T).</div>
+                
+                <div class="keyboard" id="rna-keyboard">
+                    <button class="key-btn key-A" onclick="transcribe('A')">A</button>
+                    <button class="key-btn key-U" onclick="transcribe('U')">U</button>
+                    <button class="key-btn key-C" onclick="transcribe('C')">C</button>
+                    <button class="key-btn key-G" onclick="transcribe('G')">G</button>
+                </div>
+            </div>
+
+            <div class="step-box" id="step-translation">
+                <div class="step-title">Phase 2: Translation (Ribosome)</div>
+                <div style="font-size:0.85rem; color:#cbd5e1;">Read the mRNA codons (groups of 3 bases) inside the Ribosome. Select the correct tRNA to deliver the specific Amino Acid.</div>
+                
+                <div class="tRNA-tray" id="trna-tray">
+                    <button class="trna-btn" onclick="translateAA('Met')"><span>AUG</span> <span class="aa-name">Met (Start)</span></button>
+                    <button class="trna-btn" onclick="translateAA('Ala')"><span>GCC</span> <span class="aa-name">Ala</span></button>
+                    <button class="trna-btn" onclick="translateAA('Asp')"><span>GAC</span> <span class="aa-name">Asp</span></button>
+                    <button class="trna-btn" onclick="translateAA('Stop')"><span>UGA</span> <span class="aa-name">STOP</span></button>
+                </div>
+            </div>
+
+            <div style="padding: 15px; background: rgba(56, 189, 248, 0.1); border-radius: 8px; font-size: 0.85rem; color: #38bdf8; line-height: 1.5; margin-top: 10px;">
+                <b>The Genetic Code:</b> DNA → mRNA → Protein. This directional flow of genetic information is the foundation of all cellular life.
+            </div>
+
+            <button class="btn-reset" onclick="initSim()">🔄 Reset Simulation</button>
+        </div>
+
+        <div class="canvas-container" id="canvas-wrapper">
+            <div class="tag" id="view-tag">NUCLEUS (Transcription View)</div>
+            <div id="error-flash"></div>
+            <canvas id="molCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('molCanvas');
+        const ctx = cvs.getContext('2d');
+        const wrapper = document.getElementById('canvas-wrapper');
+
+        // Scientific Data Sequence
+        // Target sequence: TAC CGG CTG ACT
+        // Expected mRNA:   AUG GCC GAC UGA
+        // Expected AA:     Met - Ala - Asp - STOP
+        const dnaTemplate = ['T', 'A', 'C', 'C', 'G', 'G', 'C', 'T', 'G', 'A', 'C', 'T'];
+        const rnaMatch =    ['A', 'U', 'G', 'G', 'C', 'C', 'G', 'A', 'C', 'U', 'G', 'A'];
+        const targetAAs =   ['Met', 'Ala', 'Asp', 'Stop'];
+        
+        let currentState = 'transcription'; // transcription, translation, complete
+        let rnaBuilt = [];
+        let aaBuilt = [];
+        let bounds = {w:0, h:0};
+        
+        // Colors
+        const colors = {
+            'A': '#ef4444', 'T': '#eab308', 'U': '#eab308', 'C': '#3b82f6', 'G': '#22c55e',
+            'DNA': '#94a3b8', 'RNA': '#fbbf24', 'AA': '#a855f7'
+        };
+
+        function resize() {
+            bounds.w = wrapper.offsetWidth; bounds.h = wrapper.offsetHeight;
+            cvs.width = bounds.w; cvs.height = bounds.h;
+            draw();
+        }
+        window.addEventListener('resize', resize);
+
+        function initSim() {
+            rnaBuilt = [];
+            aaBuilt = [];
+            currentState = 'transcription';
+            
+            document.getElementById('step-transcription').className = 'step-box active';
+            document.getElementById('rna-keyboard').style.display = 'grid';
+            
+            document.getElementById('step-translation').className = 'step-box';
+            document.getElementById('trna-tray').style.display = 'none';
+            
+            document.getElementById('view-tag').innerText = 'NUCLEUS (Transcription View)';
+            draw();
+        }
+
+        function flashError() {
+            let flash = document.getElementById('error-flash');
+            flash.style.opacity = 1;
+            setTimeout(() => { flash.style.opacity = 0; }, 200);
+        }
+
+        function transcribe(base) {
+            if(currentState !== 'transcription') return;
+            let currentIndex = rnaBuilt.length;
+            
+            if(base === rnaMatch[currentIndex]) {
+                rnaBuilt.push(base);
+                if(rnaBuilt.length === dnaTemplate.length) {
+                    // Transcription Complete, move to translation
+                    setTimeout(() => {
+                        currentState = 'translation';
+                        document.getElementById('step-transcription').className = 'step-box completed';
+                        document.getElementById('rna-keyboard').style.display = 'none';
+                        
+                        document.getElementById('step-translation').className = 'step-box active';
+                        document.getElementById('trna-tray').style.display = 'grid';
+                        document.getElementById('view-tag').innerText = 'CYTOPLASM (Ribosome Translation)';
+                        draw();
+                    }, 800);
+                }
+                draw();
+            } else {
+                flashError();
+            }
+        }
+
+        function translateAA(aa) {
+            if(currentState !== 'translation') return;
+            let currentIndex = aaBuilt.length;
+            
+            if(aa === targetAAs[currentIndex]) {
+                aaBuilt.push(aa);
+                if(aaBuilt.length === targetAAs.length) {
+                    currentState = 'complete';
+                    document.getElementById('step-translation').className = 'step-box completed';
+                    document.getElementById('trna-tray').style.display = 'none';
+                    document.getElementById('view-tag').innerText = 'POLYPEPTIDE SYNTHESIS COMPLETE';
+                }
+                draw();
+            } else {
+                flashError();
+            }
+        }
+
+        // --- Visual Engine ---
+        function drawBase(x, y, letter, isDNA) {
+            ctx.fillStyle = colors[letter] || '#fff';
+            ctx.fillRect(x - 15, y - 15, 30, 30);
+            
+            // Draw backbone connector
+            ctx.fillStyle = isDNA ? colors['DNA'] : colors['RNA'];
+            if(isDNA) ctx.fillRect(x - 15, y - 25, 30, 10);
+            else ctx.fillRect(x - 15, y + 15, 30, 10);
+
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 18px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(letter, x, y);
+        }
+
+        function draw() {
+            ctx.clearRect(0,0,bounds.w, bounds.h);
+            let w = bounds.w; let h = bounds.h;
+            let startX = 60; let spacing = 45;
+
+            if(currentState === 'transcription') {
+                // Draw DNA Template (Top)
+                ctx.fillStyle = colors['DNA'];
+                ctx.fillRect(startX - 20, h*0.3 - 25, (dnaTemplate.length * spacing), 10); // Backbone
+                
+                dnaTemplate.forEach((base, i) => {
+                    let bx = startX + i*spacing;
+                    drawBase(bx, h*0.3, base, true);
+                    
+                    // Highlight current target
+                    if(i === rnaBuilt.length) {
+                        ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 3;
+                        ctx.strokeRect(bx - 18, h*0.3 - 18, 36, 36);
+                    }
+                });
+
+                // Draw Built RNA (Bottom)
+                if(rnaBuilt.length > 0) {
+                    ctx.fillStyle = colors['RNA'];
+                    ctx.fillRect(startX - 20, h*0.5 + 15, (rnaBuilt.length * spacing) - 5, 10); // RNA Backbone
+                    rnaBuilt.forEach((base, i) => {
+                        let bx = startX + i*spacing;
+                        drawBase(bx, h*0.5, base, false);
+                        // Draw hydrogen bond
+                        ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+                        ctx.beginPath(); ctx.moveTo(bx, h*0.3 + 15); ctx.lineTo(bx, h*0.5 - 15); ctx.stroke();
+                        ctx.setLineDash([]);
+                    });
+                }
+            } 
+            else if (currentState === 'translation' || currentState === 'complete') {
+                // Ribosome Phase
+                // Draw RNA Strand across the middle
+                ctx.fillStyle = colors['RNA'];
+                ctx.fillRect(startX - 20, h*0.6 + 15, (rnaMatch.length * spacing) - 5, 10);
+                rnaMatch.forEach((base, i) => {
+                    let bx = startX + i*spacing;
+                    drawBase(bx, h*0.6, base, false);
+                });
+
+                // Draw Ribosome focusing on current Codon
+                let codonIndex = aaBuilt.length;
+                if(codonIndex < targetAAs.length) {
+                    let riboX = startX + (codonIndex * 3 + 1) * spacing;
+                    
+                    // Large Subunit
+                    ctx.fillStyle = 'rgba(148, 163, 184, 0.2)';
+                    ctx.beginPath(); ctx.ellipse(riboX, h*0.5, 90, 60, 0, 0, Math.PI*2); ctx.fill();
+                    // Small Subunit
+                    ctx.beginPath(); ctx.ellipse(riboX, h*0.7, 70, 30, 0, 0, Math.PI*2); ctx.fill();
+                    
+                    // Highlight reading frame (3 bases)
+                    ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 3;
+                    ctx.strokeRect(riboX - spacing*1.5 - 15, h*0.6 - 18, spacing*3, 46);
+                }
+
+                // Draw Polypeptide Chain
+                if(aaBuilt.length > 0) {
+                    aaBuilt.forEach((aa, i) => {
+                        // Position above the corresponding codon
+                        let ax = startX + (i * 3 + 1) * spacing;
+                        let ay = h*0.3 - (i*10); // Angle upwards slightly
+                        
+                        // Peptide bond
+                        if(i > 0) {
+                            let prevAx = startX + ((i-1) * 3 + 1) * spacing;
+                            let prevAy = h*0.3 - ((i-1)*10);
+                            ctx.strokeStyle = '#fff'; ctx.lineWidth = 4;
+                            ctx.beginPath(); ctx.moveTo(prevAx, prevAy); ctx.lineTo(ax, ay); ctx.stroke();
+                        }
+
+                        // Amino Acid Bead
+                        ctx.fillStyle = aa === 'Stop' ? '#ef4444' : colors['AA'];
+                        ctx.beginPath(); ctx.arc(ax, ay, 20, 0, Math.PI*2); ctx.fill();
+                        ctx.strokeStyle = '#d8b4fe'; ctx.lineWidth = 2; ctx.stroke();
+                        
+                        ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center'; ctx.textBaseline='middle';
+                        ctx.fillText(aa, ax, ay);
+                    });
+                }
+            }
+        }
+
+        setTimeout(() => { resize(); initSim(); }, 100);
+    </script>
+</body>
+</html>

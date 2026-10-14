@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Organic Mechanism: Markovnikov's Rule</title>
+    <style>
+        :root { --ml-red: #b91c1c; --ml-gold: #fbbf24; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-red); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1450px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 450px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow-y: auto;}
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: flex; justify-content: space-between; font-weight: bold; color: #475569; margin-bottom: 8px; font-size: 0.95rem; }
+        .control-group select, .control-group input[type="range"] { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer;}
+        
+        .timeline-container { background: #f1f5f9; padding: 15px; border-radius: 8px; border: 2px solid #e2e8f0; margin-top: 10px;}
+        .btn-group { display: flex; gap: 10px; margin-top: 10px;}
+        .btn { flex: 1; background: var(--ml-red); color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s;}
+        .btn:hover { background: #991b1b; }
+        .btn-play { background: #16a34a; } .btn-play:hover { background: #15803d; }
+
+        .calc-board { background: #0f172a; color: #e2e8f0; padding: 20px; border-radius: 8px; font-family: 'Segoe UI', sans-serif; font-size: 0.95rem; line-height: 1.6; margin-top: 20px; border: 3px solid #334155; box-shadow: inset 0 0 15px rgba(0,0,0,0.8);}
+        .calc-title { color: #fbbf24; font-weight: bold; border-bottom: 1px dashed #475569; padding-bottom: 5px; margin-bottom: 10px; font-size: 1.1rem;}
+        .highlight-maj { color: #22c55e; font-weight: bold; }
+        .highlight-min { color: #ef4444; font-weight: bold; }
+        .energy-bar-container { width: 100%; height: 10px; background: #334155; border-radius: 5px; margin-top: 5px; overflow: hidden;}
+        .energy-bar { height: 100%; background: #ef4444; transition: width 0.3s;}
+
+        .visual-container { display: flex; flex-direction: column; gap: 15px; }
+        .canvas-box { background: #ffffff; border-radius: 12px; border: 4px solid #cbd5e1; overflow: hidden; position: relative; box-shadow: inset 0 0 30px rgba(0,0,0,0.05); height: 100%; min-height: 550px;}
+        canvas { width: 100%; height: 100%; }
+
+        .stage-label { position: absolute; top: 20px; left: 20px; font-size: 1.2rem; font-weight: bold; color: #1e293b; background: rgba(255,255,255,0.9); padding: 8px 15px; border-radius: 8px; border: 2px solid #cbd5e1;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit1.html" class="back-link">⬅ Back to Unit 1 Labs</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 2: Alkene Addition & Markovnikov's Rule</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Chemistry</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>1. Reaction Setup</h3>
+            
+            <div class="control-group">
+                <label>Asymmetrical Alkene:</label>
+                <select id="alkene-sel" disabled>
+                    <option value="propene">Propene (CH&sub3;-CH=CH&sub2;)</option>
+                </select>
+                <small style="color:#64748b;">Propene selected to demonstrate Markovnikov selectivity.</small>
+            </div>
+
+            <div class="control-group">
+                <label>Electrophilic Reagent:</label>
+                <select id="reagent-sel">
+                    <option value="HCl">Hydrogen Chloride (HCl)</option>
+                    <option value="HBr">Hydrogen Bromide (HBr)</option>
+                </select>
+            </div>
+
+            <h3>2. Reaction Timeline</h3>
+            <div class="timeline-container">
+                <label style="display:flex; justify-content:space-between; font-weight:bold; color:#1e293b; font-size:0.9rem;">
+                    Reaction Progress: <span id="time-val">0%</span>
+                </label>
+                <input type="range" id="time-slider" min="0" max="100" value="0" oninput="manualScrub()">
+                <div class="btn-group">
+                    <button class="btn btn-play" id="play-btn" onclick="togglePlay()">&#9658; Auto Play</button>
+                    <button class="btn" onclick="resetTime()">&#8634; Reset</button>
+                </div>
+            </div>
+
+            <h3>3. Microscopic Analysis</h3>
+            <div class="calc-board" id="calc-board"></div>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box">
+                <div class="stage-label" id="stage-label">Stage 1: Reactants Approach</div>
+                <canvas id="mechCanvas" width="900" height="600"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('mechCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        let progress = 0; 
+        let isPlaying = false;
+        let playInterval;
+        let reagent = "HCl";
+        let X_name = "Cl";
+
+        function updateUI() {
+            reagent = document.getElementById('reagent-sel').value;
+            X_name = reagent === "HCl" ? "Cl" : "Br";
+            document.getElementById('time-val').innerText = Math.round(progress) + "%";
+
+            let stageLabel = document.getElementById('stage-label');
+            let board = document.getElementById('calc-board');
+
+            if (progress < 20) {
+                stageLabel.innerText = "Stage 1: Reactants Approach";
+                board.innerHTML = `
+                    <div class="calc-title">Electrophilic Attack Begins</div>
+                    <p>The electron-rich &pi; (pi) bond of the alkene approaches the partially positive Hydrogen atom of ${reagent}.</p>
+                    <p>Propene is an <b>asymmetrical alkene</b>. The H<sup>+</sup> can attack either Carbon-1 or Carbon-2.</p>
+                `;
+            } else if (progress < 50) {
+                stageLabel.innerText = "Stage 2: Carbocation Formation";
+                board.innerHTML = `
+                    <div class="calc-title">Rate-Determining Step</div>
+                    <p>The &pi; bond breaks to form a bond with H<sup>+</sup>. This creates a highly reactive intermediate: a <b>Carbocation (C<sup>+</sup>)</b>.</p>
+                    <p>Two possible paths emerge...</p>
+                `;
+            } else if (progress < 80) {
+                stageLabel.innerText = "Stage 3: Carbocation Stability Analysis";
+                board.innerHTML = `
+                    <div class="calc-title">Markovnikov's Rule Explained</div>
+                    <p><b>Path A (Major):</b> Forms a 2&deg; Carbocation. Alkyl groups are electron-donating, making it <b>more stable</b> (lower energy).</p>
+                    <div style="font-size:0.8rem; margin-bottom:2px;">Activation Energy (2&deg;)</div>
+                    <div class="energy-bar-container"><div class="energy-bar" style="width: 50%; background:#22c55e;"></div></div>
+                    <br>
+                    <p><b>Path B (Minor):</b> Forms a 1&deg; Carbocation. Less electron donation makes it <b>highly unstable</b> (higher energy).</p>
+                    <div style="font-size:0.8rem; margin-bottom:2px;">Activation Energy (1&deg;)</div>
+                    <div class="energy-bar-container"><div class="energy-bar" style="width: 90%;"></div></div>
+                `;
+            } else {
+                stageLabel.innerText = "Stage 4: Nucleophilic Attack & Products";
+                board.innerHTML = `
+                    <div class="calc-title">Final Products Formed</div>
+                    <p>The nucleophile (${X_name}<sup>-</sup>) rapidly attacks the positive carbon.</p>
+                    <ul>
+                        <li class="highlight-maj">Major Product: 2-${reagent === "HCl" ? "Chloro" : "Bromo"}propane</li>
+                        <li class="highlight-min">Minor Product: 1-${reagent === "HCl" ? "Chloro" : "Bromo"}propane</li>
+                    </ul>
+                    <p style="margin-top:15px; padding-top:10px; border-top:1px solid #475569; font-style:italic;">
+                        "The rich get richer": The H atom adds to the carbon that already has more H atoms.
+                    </p>
+                `;
+            }
+        }
+
+        function manualScrub() {
+            progress = parseFloat(document.getElementById('time-slider').value);
+            if(isPlaying) togglePlay();
+            updateUI(); drawFrame();
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            document.getElementById('play-btn').innerHTML = isPlaying ? "&#10074;&#10074; Pause" : "&#9658; Auto Play";
+            document.getElementById('play-btn').style.background = isPlaying ? "#f59e0b" : "#16a34a";
+            
+            if(isPlaying) {
+                if(progress >= 100) progress = 0;
+                playInterval = setInterval(() => {
+                    progress += 0.5;
+                    document.getElementById('time-slider').value = progress;
+                    updateUI(); drawFrame();
+                    if(progress >= 100) togglePlay();
+                }, 30);
+            } else {
+                clearInterval(playInterval);
+            }
+        }
+
+        function resetTime() {
+            if(isPlaying) togglePlay();
+            progress = 0; document.getElementById('time-slider').value = progress;
+            updateUI(); drawFrame();
+        }
+
+        function drawAtom(x, y, label, color, size=20) {
+            ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI*2);
+            ctx.fillStyle = color; ctx.fill();
+            ctx.lineWidth = 2; ctx.strokeStyle = '#334155'; ctx.stroke();
+            ctx.fillStyle = 'white'; ctx.font = 'bold ' + (size*0.8) + 'px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(label, x, y);
+        }
+
+        function drawBond(x1, y1, x2, y2, isDouble=false, dash=false) {
+            ctx.strokeStyle = '#64748b'; ctx.lineWidth = 6;
+            if(dash) ctx.setLineDash([5, 5]); else ctx.setLineDash([]);
+            
+            if(isDouble) {
+                let angle = Math.atan2(y2-y1, x2-x1);
+                let offX = Math.sin(angle) * 5; let offY = Math.cos(angle) * 5;
+                ctx.beginPath(); ctx.moveTo(x1-offX, y1+offY); ctx.lineTo(x2-offX, y2+offY); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(x1+offX, y1-offY); ctx.lineTo(x2+offX, y2-offY); ctx.stroke();
+            } else {
+                ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+            }
+            ctx.setLineDash([]);
+        }
+
+        function drawCharge(x, y, isPos=true) {
+            ctx.beginPath(); ctx.arc(x, y, 12, 0, Math.PI*2);
+            ctx.fillStyle = isPos ? '#ef4444' : '#3b82f6'; ctx.fill();
+            ctx.fillStyle = 'white'; ctx.font = 'bold 16px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.fillText(isPos ? "+" : "-", x, y);
+        }
+
+        function drawCurvedArrow(startX, startY, endX, endY, ctrlX, ctrlY) {
+            ctx.strokeStyle = '#ea580c'; ctx.lineWidth = 3; ctx.setLineDash([]);
+            ctx.beginPath(); ctx.moveTo(startX, startY);
+            ctx.quadraticCurveTo(ctrlX, ctrlY, endX, endY); ctx.stroke();
+            let angle = Math.atan2(endY - ctrlY, endX - ctrlX);
+            ctx.fillStyle = '#ea580c';
+            ctx.beginPath(); ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - 10*Math.cos(angle-Math.PI/6), endY - 10*Math.sin(angle-Math.PI/6));
+            ctx.lineTo(endX - 10*Math.cos(angle+Math.PI/6), endY - 10*Math.sin(angle+Math.PI/6));
+            ctx.fill();
+        }
+
+        function drawFrame() {
+            ctx.fillStyle = '#f8fafc'; ctx.fillRect(0,0,900,600);
+
+            let c1x = 400, c1y = 300; let c2x = 300, c2y = 300; let c3x = 200, c3y = 300; 
+            let hx = 550, hy = 150; let xx = 620, xy = 150;
+
+            if (progress <= 20) {
+                let moveFactor = progress / 20; 
+                hx = 550 - 100 * moveFactor; hy = 150 + 80 * moveFactor;
+                xx = 620 - 100 * moveFactor; xy = 150 + 80 * moveFactor;
+
+                drawBond(c3x, c3y, c2x, c2y);
+                drawBond(c2x, c2y, c1x, c1y, true); 
+                drawAtom(c3x, c3y, "CH3", "#1e293b", 25);
+                drawAtom(c2x, c2y, "CH", "#1e293b", 22);
+                drawAtom(c1x, c1y, "CH2", "#1e293b", 25);
+
+                drawBond(hx, hy, xx, xy);
+                drawAtom(hx, hy, "H", "#ef4444", 15);
+                drawAtom(xx, xy, X_name, "#22c55e", 25);
+
+                ctx.fillStyle = '#ef4444'; ctx.font='14px Arial'; ctx.fillText("\u03B4+", hx-10, hy-20);
+                ctx.fillStyle = '#3b82f6'; ctx.fillText("\u03B4-", xx+10, xy-30);
+
+                if(progress > 10) {
+                    drawCurvedArrow(350, 290, hx-15, hy+10, 400, 220); 
+                    drawCurvedArrow(hx+15, hy, xx, xy-15, 600, 130); 
+                }
+            } 
+            else if (progress <= 80) {
+                ctx.fillStyle = '#cbd5e1'; ctx.fillRect(450, 50, 2, 500);
+                ctx.fillStyle = '#1e293b'; ctx.font='bold 18px Arial'; 
+                ctx.fillText("PATH A (Major): 2° Carbocation", 225, 60);
+                ctx.fillText("PATH B (Minor): 1° Carbocation", 675, 60);
+
+                // PATH A
+                ctx.save(); ctx.translate(-150, 0);
+                drawBond(c3x, c3y, c2x, c2y); drawBond(c2x, c2y, c1x, c1y); drawBond(c1x, c1y, c1x+40, c1y-40);
+                drawAtom(c3x, c3y, "CH3", "#1e293b", 25); drawAtom(c2x, c2y, "CH", "#1e293b", 22); drawAtom(c1x, c1y, "CH2", "#1e293b", 25); drawAtom(c1x+40, c1y-40, "H", "#ef4444", 15);
+                drawCharge(c2x, c2y-30, true);
+                
+                // Draw Arrow function inline for simplicity
+                let fromx = c3x+20, fromy = c3y+20, tox = c2x-10, toy = c2y+15;
+                ctx.strokeStyle = '#38bdf8'; ctx.fillStyle = '#38bdf8'; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(fromx, fromy); ctx.lineTo(tox, toy); ctx.stroke();
+                let aAngle = Math.atan2(toy-fromy, tox-fromx);
+                ctx.beginPath(); ctx.moveTo(tox, toy); ctx.lineTo(tox-10*Math.cos(aAngle-Math.PI/6), toy-10*Math.sin(aAngle-Math.PI/6)); ctx.lineTo(tox-10*Math.cos(aAngle+Math.PI/6), toy-10*Math.sin(aAngle+Math.PI/6)); ctx.fill();
+                
+                ctx.fillStyle='#38bdf8'; ctx.font='12px Arial'; ctx.fillText("Electron Push", 250, 340);
+
+                let halAX = c2x; let halAY = 150;
+                if(progress > 60) {
+                    let fall = (progress-60)/20; halAY = 150 + 110*fall;
+                    if(fall < 0.9) drawCurvedArrow(halAX+20, halAY, c2x+20, c2y-20, c2x+50, (halAY+c2y)/2);
+                }
+                drawAtom(halAX, halAY, X_name, "#22c55e", 25); drawCharge(halAX+25, halAY-25, false);
+                ctx.restore();
+
+                // PATH B
+                ctx.save(); ctx.translate(300, 0);
+                drawBond(c3x, c3y, c2x, c2y); drawBond(c2x, c2y, c1x, c1y); drawBond(c2x, c2y, c2x, c2y-40); 
+                drawAtom(c3x, c3y, "CH3", "#1e293b", 25); drawAtom(c2x, c2y, "CH", "#1e293b", 22); drawAtom(c1x, c1y, "CH2", "#1e293b", 25); drawAtom(c2x, c2y-40, "H", "#ef4444", 15);
+                drawCharge(c1x+15, c1y-30, true);
+
+                let halBX = c1x+50; let halBY = 150;
+                if(progress > 60) {
+                    let fall = (progress-60)/20; halBY = 150 + 110*fall;
+                    if(fall < 0.9) drawCurvedArrow(halBX-20, halBY, c1x+20, c1y-20, c1x, (halBY+c1y)/2);
+                }
+                drawAtom(halBX, halBY, X_name, "#22c55e", 25); drawCharge(halBX+25, halBY-25, false);
+                ctx.restore();
+            }
+            else {
+                ctx.fillStyle = '#cbd5e1'; ctx.fillRect(450, 50, 2, 500);
+                ctx.fillStyle = '#22c55e'; ctx.font='bold 20px Arial'; ctx.fillText("MAJOR PRODUCT (99%)", 225, 60);
+                ctx.fillStyle = '#ef4444'; ctx.fillText("MINOR PRODUCT (<1%)", 675, 60);
+
+                ctx.save(); ctx.translate(-150, 0);
+                drawBond(c3x, c3y, c2x, c2y); drawBond(c2x, c2y, c1x, c1y); drawBond(c1x, c1y, c1x+30, c1y-30); drawBond(c2x, c2y, c2x, c2y-40); 
+                drawAtom(c3x, c3y, "CH3", "#1e293b", 25); drawAtom(c2x, c2y, "CH", "#1e293b", 22); drawAtom(c1x, c1y, "CH2", "#1e293b", 25); drawAtom(c1x+30, c1y-30, "H", "#ef4444", 15); drawAtom(c2x, c2y-40, X_name, "#22c55e", 25);
+                ctx.fillStyle='#1e293b'; ctx.font='16px Arial'; ctx.fillText("2-"+(reagent==="HCl"?"Chloro":"Bromo")+"propane", 250, 400);
+                ctx.restore();
+
+                ctx.save(); ctx.translate(300, 0);
+                drawBond(c3x, c3y, c2x, c2y); drawBond(c2x, c2y, c1x, c1y); drawBond(c2x, c2y, c2x, c2y-30); drawBond(c1x, c1y, c1x+30, c1y-40); 
+                drawAtom(c3x, c3y, "CH3", "#1e293b", 25); drawAtom(c2x, c2y, "CH", "#1e293b", 22); drawAtom(c1x, c1y, "CH2", "#1e293b", 25); drawAtom(c2x, c2y-30, "H", "#ef4444", 15); drawAtom(c1x+30, c1y-40, X_name, "#22c55e", 25);
+                ctx.fillStyle='#1e293b'; ctx.font='16px Arial'; ctx.fillText("1-"+(reagent==="HCl"?"Chloro":"Bromo")+"propane", 250, 400);
+                ctx.restore();
+            }
+        }
+
+        updateUI(); drawFrame();
+        document.getElementById('reagent-sel').addEventListener('change', () => { resetTime(); });
+    </script>
+</body>
+</html>

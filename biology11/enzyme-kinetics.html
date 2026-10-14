@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Enzyme Kinetics - Ultimate Edition</title>
+    <style>
+        :root { --ml-red: #881337; --ml-purple: #7e22ce; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-red); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.1); }
+        
+        .workspace { flex: 1; max-width: 1250px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 320px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .control-group { margin-bottom: 25px; }
+        .control-group label { display: flex; justify-content: space-between; font-weight: bold; color: #475569; margin-bottom: 8px; font-size: 0.95rem; }
+        .control-group input[type="range"] { width: 100%; margin-top: 5px; cursor: pointer; }
+        .help-text { font-size: 0.8rem; color: #64748b; margin-top: 4px; display: block; }
+        
+        /* 两个 Canvas 的容器 */
+        .visual-container { display: flex; flex-direction: column; gap: 15px; }
+        .canvas-box { background: #1e293b; border-radius: 12px; border: 4px solid #cbd5e1; overflow: hidden; position: relative; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); }
+        canvas { width: 100%; height: 100%; }
+
+        .btn { background: var(--ml-purple); color: white; border: none; padding: 15px; border-radius: 8px; font-size: 1.1rem; cursor: pointer; font-weight: bold; transition: 0.2s; margin-top: auto; }
+        .btn:hover { background: #6b21a8; }
+        
+        .progress-box { display: flex; justify-content: space-between; font-weight: bold; color: #475569; font-size: 0.95rem; background: #f1f5f9; padding: 10px 15px; border-radius: 8px; margin-bottom: 5px;}
+        
+        .explanation-box { background: #faf5ff; border-left: 5px solid var(--ml-purple); padding: 15px; border-radius: 0 8px 8px 0; font-size: 0.9rem; line-height: 1.5; color: #581c87; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit1.html" class="back-link">⬅ Back to Unit 1</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 3: Enzyme Kinetics & Collision Theory</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Biology</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Reaction Controls</h3>
+            
+            <div class="control-group">
+                <label>Temperature: <span id="temp-val" style="color:#ef4444;">37°C</span></label>
+                <input type="range" id="temp-slider" min="0" max="80" value="37" oninput="updateEnv()">
+                <span class="help-text">Optimum: 37°C. >50°C causes denaturation.</span>
+            </div>
+
+            <div class="control-group">
+                <label>pH Level: <span id="ph-val" style="color:var(--ml-purple);">7.0</span></label>
+                <input type="range" id="ph-slider" min="1" max="14" step="0.5" value="7.0" oninput="updateEnv()">
+                <span class="help-text">Optimum: 7.0. Extreme values alter active site shape.</span>
+            </div>
+
+            <div class="progress-box">
+                <span style="color: #f59e0b;">Substrates: <span id="sub-count">50</span></span>
+                <span style="color: #10b981;">Products: <span id="prod-count">0</span></span>
+            </div>
+
+            <div class="explanation-box">
+                <b>Legend:</b><br>
+                🟪 <b>Enzyme</b> (Catalyst)<br>
+                🟧 <b>Substrate</b> (Reactant)<br>
+                🟩 <b>Products</b> (Result)<br>
+                〰️ <b>Denatured</b> (Destroyed)<br><br>
+                <i>Watch the graph below to see how environmental factors affect the overall reaction rate!</i>
+            </div>
+
+            <button class="btn" onclick="resetSim()">Reset & Inject Substrates</button>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box" style="height: 350px;">
+                <canvas id="bioCanvas" width="850" height="350"></canvas>
+            </div>
+            
+            <div class="canvas-box" style="height: 180px; background: white; box-shadow: none;">
+                <canvas id="graphCanvas" width="850" height="180"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Canvas Setup
+        const cvs = document.getElementById('bioCanvas');
+        const ctx = cvs.getContext('2d');
+        const gCvs = document.getElementById('graphCanvas');
+        const gCtx = gCvs.getContext('2d');
+        
+        // Environment Variables
+        let temp = 37;
+        let ph = 7.0;
+        let isDenatured = false;
+        let currentRate = 100; // 0 to 100%
+        let rateHistory = Array(170).fill(100);
+        
+        let totalSubstrates = 50;
+        let enzymes = [];
+        let particles = [];
+
+        // 初始化
+        function initSim() {
+            enzymes = [];
+            particles = [];
+            rateHistory = Array(170).fill(currentRate);
+            
+            // 放入 5 个酶分子
+            for(let i=0; i<5; i++) {
+                enzymes.push({
+                    x: 100 + Math.random()*650, 
+                    y: 50 + Math.random()*250, 
+                    vx: (Math.random()-0.5)*1.5, 
+                    vy: (Math.random()-0.5)*1.5,
+                    radius: 35,
+                    busyTimer: 0 // >0 时表示正在处理
+                });
+            }
+
+            // 放入 50 个底物分子
+            for(let i=0; i<totalSubstrates; i++) {
+                particles.push({
+                    x: Math.random()*800 + 25, 
+                    y: Math.random()*300 + 25, 
+                    vx: (Math.random()-0.5)*5, 
+                    vy: (Math.random()-0.5)*5,
+                    type: 'substrate',
+                    radius: 8
+                });
+            }
+            updateEnv();
+        }
+
+        function updateEnv() {
+            temp = parseFloat(document.getElementById('temp-slider').value);
+            ph = parseFloat(document.getElementById('ph-slider').value);
+            
+            document.getElementById('temp-val').innerText = temp + '°C';
+            document.getElementById('ph-val').innerText = ph;
+
+            // --- 核心数学模型：计算当前酶的理论活性速率 (0-100) ---
+            let tempFactor = 0;
+            if (temp <= 37) tempFactor = temp / 37; 
+            else if (temp > 37 && temp < 52) tempFactor = 1 - ((temp - 37) / 15);
+            else tempFactor = 0; // > 52 变性
+
+            let phFactor = 0;
+            if (ph >= 4 && ph <= 10) phFactor = 1 - (Math.abs(ph - 7) / 3);
+            if (phFactor < 0) phFactor = 0;
+
+            currentRate = tempFactor * phFactor * 100;
+            
+            if (temp > 50 || ph <= 4 || ph >= 10) {
+                isDenatured = true;
+                currentRate = 0;
+            } else {
+                isDenatured = false;
+            }
+        }
+
+        function resetSim() { initSim(); }
+
+        function updateCounts() {
+            let subCount = particles.filter(p => p.type === 'substrate').length;
+            let prodCount = totalSubstrates - subCount;
+            document.getElementById('sub-count').innerText = subCount;
+            document.getElementById('prod-count').innerText = prodCount * 2;
+        }
+
+        // --- 绘制微观碰撞 ---
+        function drawMicroscope() {
+            // 半透明拖影效果
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.4)'; 
+            ctx.fillRect(0, 0, 850, 350);
+
+            let speedMult = Math.max(0.1, temp / 25); 
+
+            // 处理酶
+            enzymes.forEach(e => {
+                e.x += e.vx * speedMult * 0.5;
+                e.y += e.vy * speedMult * 0.5;
+                
+                if(e.x < e.radius || e.x > 850 - e.radius) e.vx *= -1;
+                if(e.y < e.radius || e.y > 350 - e.radius) e.vy *= -1;
+
+                if(e.busyTimer > 0) e.busyTimer -= 1;
+
+                // 绘制酶
+                ctx.beginPath();
+                if (isDenatured) {
+                    ctx.strokeStyle = '#64748b'; ctx.lineWidth = 3;
+                    ctx.moveTo(e.x, e.y);
+                    for(let j=0; j<8; j++) ctx.lineTo(e.x + (Math.random()-0.5)*60, e.y + (Math.random()-0.5)*60);
+                    ctx.stroke();
+                } else {
+                    ctx.fillStyle = e.busyTimer > 0 ? '#c084fc' : '#a855f7'; // 忙碌时高亮
+                    if (e.busyTimer > 0) {
+                        ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2); // 闭合
+                        // 画里面正在被消化的底物
+                        ctx.fillStyle = '#f59e0b';
+                        ctx.fillRect(e.x - 6, e.y - 6, 12, 12);
+                        ctx.fillStyle = '#c084fc'; // 恢复酶颜色
+                    } else {
+                        ctx.arc(e.x, e.y, e.radius, 0.2*Math.PI, 1.8*Math.PI); // 张嘴
+                        ctx.lineTo(e.x, e.y);
+                    }
+                    ctx.fill();
+                    // 酶的“眼睛”
+                    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                    ctx.beginPath(); ctx.arc(e.x - 10, e.y - 15, 5, 0, Math.PI*2); ctx.fill();
+                }
+            });
+
+            let reacted = false;
+
+            // 处理底物/产物
+            particles.forEach(p => {
+                p.x += p.vx * speedMult;
+                p.y += p.vy * speedMult;
+
+                if(p.x < p.radius || p.x > 850 - p.radius) p.vx *= -1;
+                if(p.y < p.radius || p.y > 350 - p.radius) p.vy *= -1;
+
+                // 碰撞检测（仅限健康的酶 和 底物，并且根据当前反应速率决定成功率）
+                if (p.type === 'substrate' && !isDenatured) {
+                    for(let e of enzymes) {
+                        if (e.busyTimer === 0) {
+                            let dist = Math.hypot(p.x - e.x, p.y - e.y);
+                            if (dist < e.radius + p.radius) {
+                                // 碰撞！有一定的概率弹开（温度/pH不对时）
+                                if (Math.random() * 100 < currentRate) {
+                                    p.type = 'product';
+                                    p.vx = (Math.random()-0.5)*8;
+                                    p.vy = (Math.random()-0.5)*8;
+                                    e.busyTimer = 40; // 模拟反应耗时
+                                    reacted = true;
+                                } else {
+                                    // 没成功，反弹
+                                    p.vx *= -1.2; p.vy *= -1.2;
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // 绘制粒子
+                ctx.beginPath();
+                if(p.type === 'substrate') {
+                    ctx.fillStyle = '#f59e0b';
+                    ctx.fillRect(p.x - p.radius, p.y - p.radius, p.radius*2, p.radius*2);
+                } else {
+                    ctx.fillStyle = '#10b981';
+                    ctx.arc(p.x, p.y, p.radius*0.8, 0, Math.PI*2);
+                    ctx.fill();
+                }
+            });
+
+            if(reacted) updateCounts();
+        }
+
+        // --- 绘制宏观活性折线图 ---
+        function drawGraph() {
+            rateHistory.push(currentRate);
+            rateHistory.shift();
+
+            gCtx.clearRect(0, 0, 850, 180);
+            
+            // 坐标系背景
+            gCtx.strokeStyle = '#e2e8f0'; gCtx.lineWidth = 1;
+            gCtx.beginPath(); gCtx.moveTo(40, 90); gCtx.lineTo(850, 90); gCtx.stroke(); // 50% line
+            gCtx.beginPath(); gCtx.moveTo(40, 10); gCtx.lineTo(850, 10); gCtx.stroke(); // 100% line
+            
+            gCtx.fillStyle = '#64748b'; gCtx.font = '12px Arial';
+            gCtx.fillText("100%", 5, 15); 
+            gCtx.fillText("Rate", 5, 95); 
+            gCtx.fillText("0%", 15, 175);
+
+            // 绘制动态折线
+            gCtx.strokeStyle = isDenatured ? '#ef4444' : '#7e22ce'; // 变性时变成红色警告线
+            gCtx.lineWidth = 3;
+            gCtx.beginPath();
+            for(let i=0; i<rateHistory.length; i++) {
+                let x = 40 + (i * 5); // 间距 5px
+                let y = 170 - (rateHistory[i] / 100 * 150); // 映射到画布高度
+                if (i === 0) gCtx.moveTo(x, y);
+                else gCtx.lineTo(x, y);
+            }
+            gCtx.stroke();
+            
+            // 填充下方区域
+            gCtx.lineTo(850, 180); gCtx.lineTo(40, 180);
+            gCtx.fillStyle = isDenatured ? 'rgba(239, 68, 68, 0.1)' : 'rgba(126, 34, 206, 0.1)'; 
+            gCtx.fill();
+
+            // 如果变性，在图表中心打印大字
+            if (isDenatured) {
+                gCtx.fillStyle = 'rgba(239, 68, 68, 0.8)';
+                gCtx.font = 'bold 24px Arial';
+                gCtx.textAlign = 'center';
+                gCtx.fillText("ENZYME DENATURED (0% Activity)", 425, 90);
+                gCtx.textAlign = 'left'; // reset
+            }
+        }
+
+        function animate() {
+            drawMicroscope();
+            drawGraph();
+            requestAnimationFrame(animate);
+        }
+
+        // 启动
+        initSim();
+        animate();
+    </script>
+</body>
+</html>

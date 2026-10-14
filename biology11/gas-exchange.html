@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Comparative Gas Exchange Simulator</title>
+    <style>
+        :root { --ml-red: #881337; --ml-blue: #0284c7; --bg: #f8fafc; --dark: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-blue); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-red);}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; max-width: 1250px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 350px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .animal-btn { display: block; width: 100%; padding: 15px; margin-bottom: 15px; border: 2px solid #cbd5e1; background: white; border-radius: 8px; font-weight: bold; font-size: 1.05rem; cursor: pointer; transition: 0.3s; color: #475569; text-align: left; }
+        .animal-btn:hover { border-color: var(--ml-blue); background: #f0f9ff; }
+        .animal-btn.active { border-color: var(--ml-blue); background: var(--ml-blue); color: white; box-shadow: 0 4px 10px rgba(2, 132, 199, 0.3);}
+
+        .canvas-container { background: #0f172a; border-radius: 12px; border: 4px solid #cbd5e1; overflow: hidden; position: relative; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 0 30px rgba(0,0,0,0.8); height: 500px; }
+        canvas { width: 100%; height: 100%; }
+
+        .info-box { background: #f0f9ff; border-left: 5px solid var(--ml-blue); padding: 20px; border-radius: 0 8px 8px 0; margin-top: auto; font-size: 1rem; line-height: 1.6; color: #075985; min-height: 180px;}
+        
+        .legend { display: flex; gap: 15px; margin-bottom: 15px; font-weight: bold; font-size: 0.9rem;}
+        .leg-item { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; }
+        .efficiency-meter { background: #e2e8f0; border-radius: 8px; padding: 10px; margin-bottom: 20px; text-align: center; font-weight: bold; color: #0f172a;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit4.html" class="back-link">⬅ Back to Unit 4</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 11: Comparative Gas Exchange</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Biology</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Respiratory Systems</h3>
+            
+            <button class="animal-btn active" id="btn-earthworm" onclick="setAnimal('earthworm')">🪱 Earthworm (Skin)</button>
+            <button class="animal-btn" id="btn-fish" onclick="setAnimal('fish')">🐟 Fish (Gills)</button>
+            <button class="animal-btn" id="btn-human" onclick="setAnimal('human')">🫁 Human (Alveoli)</button>
+
+            <div class="legend">
+                <div class="leg-item"><div class="dot" style="background: #38bdf8;"></div> O₂ (Oxygen)</div>
+                <div class="leg-item"><div class="dot" style="background: #a8a29e;"></div> CO₂ (Carbon Dioxide)</div>
+            </div>
+
+            <div class="efficiency-meter" id="eff-meter">
+                Relative Efficiency: <span style="color:#ef4444;">Low (Simple Diffusion)</span>
+            </div>
+
+            <div class="info-box" id="info-box">
+                </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="gasCanvas" width="800" height="500"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('gasCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        let currentAnimal = 'earthworm';
+        let time = 0;
+        let particles = [];
+
+        const data = {
+            earthworm: {
+                eff: '<span style="color:#ef4444;">Low (Simple Diffusion)</span>',
+                desc: "<b>Cutaneous Respiration (Skin)</b><br>Earthworms exchange gases directly through their moist skin. Capillaries sit just below the surface.<br><br><b>Limitation:</b> They must stay in moist environments, and this method only works for animals with a very high Surface Area-to-Volume ratio."
+            },
+            fish: {
+                eff: '<span style="color:#22c55e;">Very High (Counter-Current)</span>',
+                desc: "<b>Gill Filaments & Lamellae</b><br>Fish extract O₂ from water, which has 30x less oxygen than air! They achieve this via <b>Counter-Current Exchange</b>.<br><br>Blood flows in the <i>opposite</i> direction of water, maintaining a concentration gradient across the entire gill, allowing up to 80% O₂ extraction."
+            },
+            human: {
+                eff: '<span style="color:#3b82f6;">High (Massive Surface Area)</span>',
+                desc: "<b>Lungs & Alveoli</b><br>Humans use millions of microscopic air sacs called alveoli, wrapped in capillary beds.<br><br><b>Advantage:</b> This creates a massive internal surface area (size of a tennis court!) to satisfy the high metabolic demands of endothermic (warm-blooded) mammals."
+            }
+        };
+
+        function setAnimal(animal) {
+            currentAnimal = animal;
+            particles = []; // Clear particles on switch
+            
+            // Update UI
+            document.querySelectorAll('.animal-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('btn-' + animal).classList.add('active');
+            
+            document.getElementById('eff-meter').innerHTML = `Relative Efficiency: ${data[animal].eff}`;
+            document.getElementById('info-box').innerHTML = data[animal].desc;
+        }
+
+        // --- Drawing Logic ---
+
+        function drawEarthworm() {
+            // Environment (Top: Air, Bottom: Body)
+            ctx.fillStyle = '#bae6fd'; ctx.fillRect(0, 0, 800, 250); // Air
+            ctx.fillStyle = '#fca5a5'; ctx.fillRect(0, 250, 800, 250); // Tissue
+            
+            // Skin barrier
+            ctx.fillStyle = '#ec4899'; ctx.fillRect(0, 240, 800, 20); // Moist skin
+            
+            // Capillary bed
+            ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 15; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(-50, 300); 
+            for(let i=0; i<=800; i+=100) { ctx.lineTo(i, 300 + Math.sin(i)*20); }
+            ctx.stroke();
+
+            // Spawn Particles
+            if(Math.random() < 0.2) {
+                particles.push({x: Math.random()*800, y: 0, type: 'O2', state: 'entering'}); // O2 from air
+                particles.push({x: Math.random()*800, y: 400, type: 'CO2', state: 'leaving'}); // CO2 from tissue
+            }
+
+            // Animate Particles
+            updateParticlesEarthworm();
+        }
+
+        function updateParticlesEarthworm() {
+            for(let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                if(p.type === 'O2') {
+                    if(p.y < 300) p.y += 2; // Move down to capillary
+                    else p.x += 3; // Move right in blood
+                } else {
+                    if(p.y > 100) p.y -= 2; // Move up out of skin
+                    else p.x -= 2; // Float away
+                }
+                
+                // Draw
+                ctx.fillStyle = p.type === 'O2' ? '#38bdf8' : '#a8a29e';
+                ctx.beginPath(); ctx.arc(p.x, p.y + Math.sin(time*5+p.x)*10, 5, 0, Math.PI*2); ctx.fill();
+                
+                if(p.y < -50 || p.x > 850) particles.splice(i, 1);
+            }
+        }
+
+        function drawFish() {
+            // Background
+            ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, 800, 500);
+
+            // Water flow (Top tube, flows RIGHT)
+            ctx.fillStyle = 'rgba(14, 165, 233, 0.2)'; ctx.fillRect(100, 150, 600, 60);
+            ctx.strokeStyle = '#0ea5e9'; ctx.lineWidth = 2; ctx.strokeRect(100, 150, 600, 60);
+            ctx.fillStyle = '#0ea5e9'; ctx.font = 'bold 16px Arial'; ctx.fillText("Water Flow ➡", 120, 140);
+
+            // Blood flow (Bottom tube, flows LEFT - Counter Current!)
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.2)'; ctx.fillRect(100, 210, 600, 60);
+            ctx.strokeStyle = '#ef4444'; ctx.strokeRect(100, 210, 600, 60);
+            ctx.fillStyle = '#ef4444'; ctx.fillText("⬅ Blood Flow", 580, 290);
+
+            // Lamellae membrane (Middle barrier)
+            ctx.strokeStyle = '#ec4899'; ctx.lineWidth = 6; ctx.setLineDash([10, 5]);
+            ctx.beginPath(); ctx.moveTo(100, 210); ctx.lineTo(700, 210); ctx.stroke(); ctx.setLineDash([]);
+
+            // Spawn Particles
+            if(Math.random() < 0.4) {
+                // High O2 in water on the left
+                particles.push({x: 100, y: 160 + Math.random()*40, type: 'O2', diffused: false}); 
+                // High CO2 in blood on the right
+                particles.push({x: 700, y: 220 + Math.random()*40, type: 'CO2', diffused: false});
+            }
+
+            // Animate Particles (Counter Current Logic)
+            for(let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                if(p.type === 'O2') {
+                    p.x += 3; // Water flows right
+                    // Diffusion: O2 drops down into blood if it hasn't yet (chance increases as it moves right)
+                    if(!p.diffused && p.x > 300 && Math.random() < 0.02) { p.y += 60; p.diffused = true; }
+                    if(p.diffused) p.x -= 5; // Once in blood, it flows LEFT!
+                } else {
+                    p.x -= 3; // Blood flows left
+                    // Diffusion: CO2 moves up into water
+                    if(!p.diffused && p.x < 600 && Math.random() < 0.02) { p.y -= 60; p.diffused = true; }
+                    if(p.diffused) p.x += 5; // Once in water, it flows RIGHT!
+                }
+
+                // Draw
+                ctx.fillStyle = p.type === 'O2' ? '#38bdf8' : '#a8a29e';
+                ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI*2); ctx.fill();
+
+                if(p.x < 0 || p.x > 800) particles.splice(i, 1);
+            }
+        }
+
+        function drawHuman() {
+            // Background
+            ctx.fillStyle = '#1e293b'; ctx.fillRect(0, 0, 800, 500);
+
+            let cx = 400, cy = 200;
+
+            // Alveolus (Air sac)
+            ctx.fillStyle = '#bae6fd'; ctx.beginPath(); ctx.arc(cx, cy, 120, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#fca5a5'; ctx.lineWidth = 10; ctx.stroke();
+            // Bronchiole opening
+            ctx.fillStyle = '#1e293b'; ctx.beginPath(); ctx.rect(cx - 30, cy - 150, 60, 50); ctx.fill();
+            ctx.fillStyle = '#bae6fd'; ctx.beginPath(); ctx.rect(cx - 25, cy - 150, 50, 60); ctx.fill();
+
+            // Capillary wrapped around bottom
+            ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 30; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.arc(cx, cy, 140, 0, Math.PI); ctx.stroke();
+            // Show deoxygenated (blue) turning to oxygenated (red)
+            let grd = ctx.createLinearGradient(200, 0, 600, 0);
+            grd.addColorStop(0, '#3b82f6'); // Blue/Deoxy
+            grd.addColorStop(1, '#ef4444'); // Red/Oxy
+            ctx.strokeStyle = grd; ctx.lineWidth = 26; ctx.beginPath(); ctx.arc(cx, cy, 140, 0, Math.PI); ctx.stroke();
+
+            // Spawn Particles
+            if(Math.random() < 0.3) {
+                particles.push({x: cx + (Math.random()-0.5)*40, y: cy - 120, type: 'O2', state: 'inhale'}); // Inhaled O2
+                // CO2 coming from capillary left side
+                let a = Math.PI; 
+                particles.push({x: cx + Math.cos(a)*140, y: cy + Math.sin(a)*140, angle: a, type: 'CO2', state: 'blood'}); 
+            }
+
+            // Animate Particles
+            for(let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                if(p.type === 'O2') {
+                    if(p.state === 'inhale') {
+                        p.y += 2; p.x += (Math.random()-0.5)*2;
+                        if(p.y > cy + 80) p.state = 'diffuse';
+                    } else if (p.state === 'diffuse') {
+                        // Move to capillary edge
+                        let a = Math.atan2(p.y - cy, p.x - cx);
+                        p.x += Math.cos(a)*2; p.y += Math.sin(a)*2;
+                        if(Math.hypot(p.x - cx, p.y - cy) > 140) { p.state = 'blood'; p.angle = a; }
+                    } else {
+                        // Move along capillary to the right
+                        p.angle -= 0.02;
+                        p.x = cx + Math.cos(p.angle)*140; p.y = cy + Math.sin(p.angle)*140;
+                        if(p.angle < 0) particles.splice(i, 1);
+                    }
+                } else {
+                    // CO2
+                    if(p.state === 'blood') {
+                        p.angle -= 0.02; // Move right along capillary
+                        p.x = cx + Math.cos(p.angle)*140; p.y = cy + Math.sin(p.angle)*140;
+                        if(p.angle < Math.PI/2 && Math.random() < 0.1) p.state = 'diffuse'; // Pop into alveolus
+                    } else if (p.state === 'diffuse') {
+                        let a = Math.atan2(p.y - cy, p.x - cx);
+                        p.x -= Math.cos(a)*2; p.y -= Math.sin(a)*2;
+                        if(Math.hypot(p.x - cx, p.y - cy) < 80) p.state = 'exhale';
+                    } else {
+                        p.y -= 2; // Exhale out top
+                        if(p.y < cy - 150) particles.splice(i, 1);
+                    }
+                }
+
+                // Draw
+                ctx.fillStyle = p.type === 'O2' ? '#38bdf8' : '#a8a29e';
+                ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI*2); ctx.fill();
+            }
+        }
+
+        function animate() {
+            time += 0.05;
+            if(currentAnimal === 'earthworm') drawEarthworm();
+            else if(currentAnimal === 'fish') drawFish();
+            else if(currentAnimal === 'human') drawHuman();
+            requestAnimationFrame(animate);
+        }
+
+        // Init
+        setAnimal('earthworm');
+        animate();
+    </script>
+</body>
+</html>

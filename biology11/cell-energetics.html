@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ATP & Cellular Respiration Simulator</title>
+    <style>
+        :root { --ml-red: #881337; --ml-green: #16a34a; --bg: #f8fafc; --dark: #0f172a; --atp-gold: #eab308; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
+        .nav { background: var(--ml-red); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.1); }
+        
+        .workspace { flex: 1; max-width: 1250px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 350px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: block; font-weight: bold; color: #475569; margin-bottom: 8px; font-size: 0.95rem; }
+        .control-group select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; cursor: pointer; }
+        
+        .btn { background: var(--ml-green); color: white; border: none; padding: 15px; border-radius: 8px; font-size: 1.1rem; cursor: pointer; font-weight: bold; transition: 0.2s; width: 100%; margin-bottom: 15px;}
+        .btn:hover { background: #15803d; }
+        .btn:disabled { background: #94a3b8; cursor: not-allowed; }
+
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .stat-box { background: #1e293b; color: white; padding: 10px; border-radius: 8px; text-align: center; }
+        .stat-val { font-size: 1.5rem; font-weight: bold; font-family: monospace; display: block; margin-top: 5px; }
+        .atp-val { color: var(--atp-gold); font-size: 2rem; text-shadow: 0 0 10px rgba(234, 179, 8, 0.5); }
+
+        .canvas-container { background: #0f172a; border-radius: 12px; border: 4px solid #cbd5e1; overflow: hidden; position: relative; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); height: 500px; }
+        canvas { width: 100%; height: 100%; }
+
+        .explanation-box { background: #f0fdf4; border-left: 5px solid var(--ml-green); padding: 15px; border-radius: 0 8px 8px 0; margin-top: auto; font-size: 0.95rem; line-height: 1.5; color: #166534; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit2.html" class="back-link">⬅ Back to Unit 2</a>
+        <h2 style="margin:0; font-size: 1.2rem;">Lab 6: ATP & Cellular Respiration</h2>
+        <span style="font-size: 0.9rem;">Maple Leaf Biology</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Metabolic Controls</h3>
+            
+            <div class="control-group">
+                <label>Oxygen Availability:</label>
+                <select id="o2-status" onchange="resetSim()">
+                    <option value="aerobic">Aerobic (O₂ Present - Normal)</option>
+                    <option value="anaerobic">Anaerobic (No O₂ - Fermentation)</option>
+                </select>
+            </div>
+
+            <button class="btn" id="btn-start" onclick="startRespiration()">Inject Glucose & Start</button>
+
+            <h3>Energy Ledger (Yield)</h3>
+            <div class="dashboard">
+                <div class="stat-box" style="grid-column: span 2; background: #334155;">
+                    Net ATP Produced
+                    <span class="stat-val atp-val" id="atp-count">0</span>
+                </div>
+                <div class="stat-box">
+                    NADH / FADH₂
+                    <span class="stat-val" id="carrier-count" style="color: #38bdf8;">0</span>
+                </div>
+                <div class="stat-box">
+                    CO₂ Released
+                    <span class="stat-val" id="co2-count" style="color: #94a3b8;">0</span>
+                </div>
+            </div>
+
+            <div class="explanation-box" id="info-box">
+                <b>Ready to metabolize!</b><br><br>
+                Select oxygen availability and click "Start" to watch the breakdown of one Glucose molecule (C₆H₁₂O₆). Pay attention to where the reactions happen: Cytoplasm vs. Mitochondria.
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="bioCanvas" width="850" height="500"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('bioCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        let o2Status = 'aerobic';
+        let stage = 0; // 0: idle, 1: glycolysis, 2: krebs, 3: ETC, 4: fermentation, 5: done
+        let frameCount = 0;
+
+        // Ledger
+        let atp = 0;
+        let carriers = 0;
+        let co2 = 0;
+
+        // Particles for animation
+        let glucoseY = -20;
+        let pyruvates = [];
+        let electrons = [];
+        let atpSparks = [];
+
+        function resetSim() {
+            o2Status = document.getElementById('o2-status').value;
+            stage = 0;
+            frameCount = 0;
+            atp = 0; carriers = 0; co2 = 0;
+            glucoseY = -20;
+            pyruvates = []; electrons = []; atpSparks = [];
+            
+            document.getElementById('btn-start').disabled = false;
+            updateLedger();
+            
+            document.getElementById('info-box').innerHTML = `<b>Ready to metabolize!</b><br><br>Select oxygen availability and click "Start" to watch the breakdown of one Glucose molecule (C₆H₁₂O₆).`;
+            drawBackground();
+        }
+
+        function updateLedger() {
+            document.getElementById('atp-count').innerText = atp;
+            document.getElementById('carrier-count').innerText = carriers;
+            document.getElementById('co2-count').innerText = co2;
+        }
+
+        function createSpark(x, y, color) {
+            atpSparks.push({x: x, y: y, life: 30, color: color});
+        }
+
+        function startRespiration() {
+            document.getElementById('btn-start').disabled = true;
+            stage = 1;
+            glucoseY = 0;
+            document.getElementById('info-box').innerHTML = `<b>Stage 1: Glycolysis (Cytoplasm)</b><br>Glucose (6-carbon) is split into two Pyruvate (3-carbon) molecules. This does not require oxygen.<br><br><b>Yield:</b> +2 ATP, +2 NADH.`;
+        }
+
+        function drawBackground() {
+            ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, 850, 500);
+
+            // Cytoplasm area
+            ctx.fillStyle = 'rgba(255,255,255,0.05)';
+            ctx.fillRect(0, 0, 300, 500);
+            ctx.fillStyle = '#64748b'; ctx.font = '16px Arial';
+            ctx.fillText("CYTOPLASM", 100, 30);
+
+            // Mitochondrion
+            let mx = 550, my = 250;
+            ctx.fillStyle = '#ea580c'; // outer membrane
+            ctx.beginPath(); ctx.ellipse(mx, my, 250, 180, 0, 0, Math.PI*2); ctx.fill();
+            
+            ctx.fillStyle = '#fdba74'; // inner matrix
+            ctx.beginPath();
+            // Draw cristae (wavy inner membrane)
+            for(let a=0; a<Math.PI*2; a+=0.1) {
+                let r = 220 - Math.abs(Math.sin(a*8))*40;
+                ctx.lineTo(mx + Math.cos(a)*r, my + Math.sin(a)*r);
+            }
+            ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = '#c2410c'; ctx.stroke();
+
+            ctx.fillStyle = '#9a3412'; ctx.font = '16px Arial';
+            ctx.fillText("MITOCHONDRIA", mx - 60, my - 120);
+            ctx.fillText("Matrix (Krebs Cycle)", mx - 70, my + 40);
+            ctx.fillText("Inner Membrane (ETC)", mx + 60, my + 130);
+        }
+
+        function animate() {
+            drawBackground();
+            frameCount++;
+
+            // Draw ATP Sparks
+            for(let i = atpSparks.length - 1; i >= 0; i--) {
+                let s = atpSparks[i];
+                ctx.fillStyle = s.color;
+                ctx.globalAlpha = s.life / 30;
+                ctx.beginPath(); ctx.arc(s.x, s.y, 15 + (30-s.life), 0, Math.PI*2); ctx.fill();
+                ctx.globalAlpha = 1.0;
+                s.life--;
+                if(s.life <= 0) atpSparks.splice(i, 1);
+            }
+
+            if (stage === 1) {
+                // Glycolysis Animation
+                glucoseY += 2;
+                ctx.fillStyle = '#22c55e'; // Glucose
+                
+                if (glucoseY < 200) {
+                    ctx.fillRect(130, glucoseY, 40, 40); // 6C
+                    ctx.fillStyle = 'white'; ctx.font = '12px Arial'; ctx.fillText("Glu", 140, glucoseY+25);
+                } else {
+                    // Split into two pyruvates
+                    ctx.fillRect(110, glucoseY, 30, 30); // 3C
+                    ctx.fillRect(160, glucoseY, 30, 30); // 3C
+                    if (glucoseY === 202) { 
+                        atp += 2; carriers += 2; updateLedger(); 
+                        createSpark(150, 200, '#eab308'); // ATP spark
+                    }
+                }
+
+                if (glucoseY > 350) {
+                    stage = (o2Status === 'aerobic') ? 2 : 4; // Check oxygen
+                    pyruvates = [{x: 110, y: 350, tx: 450, ty: 250}, {x: 160, y: 350, tx: 550, ty: 150}];
+                    
+                    if(stage === 2) {
+                        document.getElementById('info-box').innerHTML = `<b>Stage 2: Krebs Cycle (Matrix)</b><br>Pyruvate enters the Mitochondria. It is fully oxidized into CO₂.<br><br><b>Yield:</b> +2 ATP, +Lots of NADH/FADH₂ (Electron carriers).`;
+                    } else {
+                        document.getElementById('info-box').innerHTML = `<b>Anaerobic Fermentation</b><br>NO OXYGEN! Pyruvate cannot enter the mitochondria. It is converted to Lactic Acid or Ethanol in the cytoplasm.<br><br><b>Total Yield:</b> Only 2 ATP!`;
+                    }
+                }
+            } 
+            else if (stage === 2) {
+                // Pyruvate entering Mitochondria & Krebs Cycle
+                let arrived = 0;
+                ctx.fillStyle = '#22c55e';
+                pyruvates.forEach(p => {
+                    p.x += (p.tx - p.x) * 0.05;
+                    p.y += (p.ty - p.y) * 0.05;
+                    ctx.fillRect(p.x, p.y, 25, 25);
+                    
+                    if (Math.abs(p.x - p.tx) < 2) arrived++;
+                });
+
+                if (arrived === 2 && frameCount % 60 === 0 && co2 < 6) {
+                    // Running Krebs Cycle
+                    co2 += 2; carriers += 3; updateLedger();
+                    createSpark(500, 200, '#94a3b8'); // CO2 spark
+                    createSpark(500, 200, '#38bdf8'); // Carrier spark
+                    if (co2 === 6) { atp += 2; updateLedger(); createSpark(500, 200, '#eab308'); } // Krebs ATP
+                }
+
+                if (co2 >= 6 && frameCount % 100 === 0) {
+                    stage = 3;
+                    for(let i=0; i<15; i++) electrons.push({x: 500, y: 200, angle: Math.random()*Math.PI*2});
+                    document.getElementById('info-box').innerHTML = `<b>Stage 3: Electron Transport Chain</b><br>NADH/FADH₂ drop off electrons at the inner membrane. Oxygen is the final electron acceptor, making H₂O. The energy pumps protons to mint massive amounts of ATP!<br><br><b>Yield:</b> ~32-34 ATP.`;
+                }
+            }
+            else if (stage === 3) {
+                // Electron Transport Chain
+                ctx.fillStyle = '#38bdf8'; // Electrons
+                electrons.forEach(e => {
+                    let targetX = 550 + Math.cos(e.angle)*200; // Inner membrane edge
+                    let targetY = 250 + Math.sin(e.angle)*140;
+                    e.x += (targetX - e.x) * 0.05;
+                    e.y += (targetY - e.y) * 0.05;
+                    ctx.beginPath(); ctx.arc(e.x, e.y, 4, 0, Math.PI*2); ctx.fill();
+                });
+
+                if (frameCount % 10 === 0 && atp < 36) {
+                    atp += 1; updateLedger();
+                    createSpark(550 + Math.cos(Math.random()*6)*200, 250 + Math.sin(Math.random()*6)*140, '#eab308');
+                }
+
+                if (atp >= 36) {
+                    stage = 5;
+                    document.getElementById('info-box').innerHTML = `<b>Respiration Complete! (Aerobic)</b><br><br>One Glucose molecule yielded <b>36 ATP</b> because Oxygen was present to run the ETC!`;
+                }
+            }
+            else if (stage === 4) {
+                // Fermentation (Anaerobic)
+                ctx.fillStyle = '#fef08a'; // Lactic acid
+                pyruvates.forEach(p => {
+                    p.y += 1; // Sink in cytoplasm
+                    ctx.beginPath(); ctx.arc(p.x+15, p.y+15, 15, 0, Math.PI*2); ctx.fill();
+                });
+                
+                if(frameCount % 150 === 0) {
+                    stage = 5;
+                    document.getElementById('info-box').innerHTML = `<b>Respiration Complete! (Anaerobic)</b><br><br>Without oxygen, the cell had to ferment. The <b>Net Yield is only 2 ATP</b> from Glycolysis. Very inefficient!`;
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Init
+        drawBackground();
+        animate();
+    </script>
+</body>
+</html>

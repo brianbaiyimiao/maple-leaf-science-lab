@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 2.2: Potential Energy Roller Coaster</title>
+    <style>
+        :root { --ml-red: #b91c1c; --ml-gold: #fbbf24; --bg: #0f172a; --panel: #1e293b; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: white; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--ml-red); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold); }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.3s;}
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; display: grid; grid-template-columns: 400px 1fr; gap: 20px; padding: 20px; box-sizing: border-box; }
+        .panel { background: var(--panel); padding: 25px; border-radius: 15px; border: 1px solid #334155; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.5);}
+        
+        h3 { margin: 0; color: var(--ml-gold); border-bottom: 1px solid #334155; padding-bottom: 10px; }
+        .control-group label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 5px; color: #94a3b8; font-weight: bold;}
+        input[type="range"] { width: 100%; accent-color: var(--ml-gold); cursor: pointer; margin-bottom: 10px;}
+        
+        .btn-fire { background: #3b82f6; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 1.1rem; cursor: pointer; transition: 0.2s; text-transform: uppercase; box-shadow: 0 0 15px rgba(59,130,246,0.4);}
+        .btn-fire:hover { background: #2563eb; transform: scale(1.02);}
+        
+        .toggle-cat { background: #1e293b; color: #cbd5e1; border: 2px solid #475569; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s;}
+        .toggle-cat.active { background: #16a34a; color: white; border-color: #22c55e; box-shadow: 0 0 15px rgba(34,197,94,0.4);}
+
+        .data-card { background: #020617; padding: 20px; border-radius: 10px; border: 2px solid #334155; font-family: monospace; font-size: 1.1rem; line-height: 1.6;}
+        .data-card span.pos { color: #ef4444; }
+        .data-card span.neg { color: #22c55e; }
+
+        .canvas-box { background: #000; border-radius: 15px; border: 4px solid #334155; position: relative; overflow: hidden; box-shadow: inset 0 0 80px rgba(0,0,0,0.8); }
+        canvas { width: 100%; height: 100%; display: block; }
+        .status-msg { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; font-weight: bold; padding: 10px 20px; border-radius: 8px; display: none; text-transform: uppercase;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit2.html" class="back-link">⬅ Back to Unit 2 Labs</a>
+        <h2 style="margin:0;">Lab 2.2: Potential Energy Roller Coaster</h2>
+        <span style="font-size: 0.9rem; opacity: 0.8;">Maple Leaf Chemistry 12</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Construct the Energy Profile</h3>
+            
+            <div class="control-group">
+                <label>Reactant Energy (H<sub>r</sub>): <span id="hr-val">200 kJ</span></label>
+                <input type="range" id="hr-slider" min="50" max="400" value="200" oninput="updateProfile()">
+            </div>
+            
+            <div class="control-group">
+                <label>Product Energy (H<sub>p</sub>): <span id="hp-val">100 kJ</span></label>
+                <input type="range" id="hp-slider" min="50" max="400" value="100" oninput="updateProfile()">
+            </div>
+
+            <div class="control-group">
+                <label>Activation Hill (Ea): <span id="ea-val">200 kJ</span></label>
+                <input type="range" id="ea-slider" min="50" max="400" value="200" oninput="updateProfile()">
+            </div>
+
+            <button class="toggle-cat" id="cat-btn" onclick="toggleCatalyst()">🧪 Add Catalyst (Lowers Ea)</button>
+
+            <h3 style="margin-top:10px;">Test the Reaction</h3>
+            <div class="control-group">
+                <label>Particle Kinetic Energy: <span id="ke-val" style="color:#38bdf8;">150 kJ</span></label>
+                <input type="range" id="ke-slider" min="10" max="400" value="150" oninput="updateProfile()">
+            </div>
+            <button class="btn-fire" onclick="fireParticle()">🚀 Fire Particle</button>
+
+            <div class="data-card" id="data-board">
+                </div>
+        </div>
+
+        <div class="canvas-box">
+            <div id="status-msg" class="status-msg"></div>
+            <canvas id="peCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const cvs = document.getElementById('peCanvas');
+        const ctx = cvs.getContext('2d');
+        
+        let hr, hp, eaPeak, catPeak, ke;
+        let hasCatalyst = false;
+        
+        // 粒子过山车物理变量
+        let particle = null;
+        let p_x = 0; 
+        let p_vx = 0;
+        let isAnimating = false;
+
+        function resize() {
+            cvs.width = cvs.offsetWidth; cvs.height = cvs.offsetHeight;
+            drawGraph();
+        }
+        window.addEventListener('resize', resize);
+
+        function toggleCatalyst() {
+            hasCatalyst = !hasCatalyst;
+            const btn = document.getElementById('cat-btn');
+            if(hasCatalyst) {
+                btn.classList.add('active');
+                btn.innerText = "✅ Catalyst Active";
+            } else {
+                btn.classList.remove('active');
+                btn.innerText = "🧪 Add Catalyst";
+            }
+            updateProfile();
+        }
+
+        function updateProfile() {
+            hr = parseInt(document.getElementById('hr-slider').value);
+            hp = parseInt(document.getElementById('hp-slider').value);
+            let rawEa = parseInt(document.getElementById('ea-slider').value);
+            ke = parseInt(document.getElementById('ke-slider').value);
+            
+            document.getElementById('hr-val').innerText = hr + " kJ";
+            document.getElementById('hp-val').innerText = hp + " kJ";
+            document.getElementById('ea-val').innerText = rawEa + " kJ";
+            document.getElementById('ke-val').innerText = ke + " kJ";
+
+            eaPeak = hr + rawEa;
+            catPeak = hr + (rawEa * 0.4); // 催化剂降低60%的活化能
+
+            let deltaH = hp - hr;
+            let currentEa = hasCatalyst ? (catPeak - hr) : rawEa;
+            
+            let dhClass = deltaH > 0 ? "pos" : "neg";
+            let dhSign = deltaH > 0 ? "+" : "";
+            let rxnType = deltaH > 0 ? "Endothermic (Absorbs Heat)" : "Exothermic (Releases Heat)";
+
+            document.getElementById('data-board').innerHTML = `
+                &Delta;H = <span class="${dhClass}">${dhSign}${deltaH} kJ/mol</span><br>
+                Type: <span style="color:#fbbf24; font-size:0.9rem;">${rxnType}</span><br><br>
+                Required Ea = ${currentEa.toFixed(0)} kJ<br>
+                Supplied KE = <span style="color:#38bdf8;">${ke} kJ</span><br>
+                ${ke >= currentEa ? '<span style="color:#22c55e;">&rarr; Reaction will OCCUR</span>' : '<span style="color:#ef4444;">&rarr; Reaction will FAIL</span>'}
+            `;
+            
+            if(!isAnimating) drawGraph();
+        }
+
+        // 数学函数：通过 X 坐标计算对应的 Y 能量值 (构建平滑山峰)
+        function getEnergyAtX(x) {
+            let w = cvs.width;
+            let center = w / 2;
+            let peakTarget = hasCatalyst ? catPeak : eaPeak;
+            
+            if(x < w*0.2) return hr;
+            if(x > w*0.8) return hp;
+
+            // 用高斯函数和 sigmoid 混合生成平滑的化学势能面
+            let normX = (x - center) / (w * 0.2); 
+            let barrier = (peakTarget - Math.max(hr, hp)) * Math.exp(-0.5 * normX * normX);
+            
+            // 基础台阶平滑过渡
+            let step = hr + (hp - hr) / (1 + Math.exp(-2.5 * normX));
+            
+            return Math.max(hr, hp) === peakTarget ? step : step + barrier;
+        }
+
+        function fireParticle() {
+            if(isAnimating) return;
+            p_x = cvs.width * 0.1;
+            // 赋予初始动能，转换为速度
+            p_vx = Math.sqrt(ke) * 0.4; 
+            isAnimating = true;
+            document.getElementById('status-msg').style.display = 'none';
+            requestAnimationFrame(physicsLoop);
+        }
+
+        function physicsLoop() {
+            let currentPE = getEnergyAtX(p_x);
+            let nextPE = getEnergyAtX(p_x + p_vx);
+            
+            // 能量守恒: KE_new = KE_old - Delta_PE
+            let dPE = nextPE - currentPE;
+            let currentKE = 0.5 * (p_vx * p_vx) / 0.16; // 还原动能
+
+            if(currentKE > dPE) {
+                // 有足够能量爬坡/下坡
+                let newKE = currentKE - dPE;
+                p_vx = Math.sqrt(newKE) * 0.4 * Math.sign(p_vx);
+                p_x += p_vx;
+            } else {
+                // 能量不足，滑落反弹
+                p_vx *= -0.8; 
+                p_x += p_vx;
+            }
+
+            drawGraph();
+            
+            // 绘制滚动粒子
+            let py = cvs.height - 50 - (currentPE / 800) * (cvs.height - 100);
+            ctx.fillStyle = '#38bdf8';
+            ctx.shadowBlur = 20; ctx.shadowColor = '#38bdf8';
+            ctx.beginPath(); ctx.arc(p_x, py - 15, 15, 0, Math.PI*2); ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // 胜利条件
+            if(p_x > cvs.width * 0.8) {
+                isAnimating = false;
+                showMsg("Reaction Successful!", "#22c55e");
+                return;
+            }
+            // 失败条件 (退回起点且速度极慢)
+            if(p_x < cvs.width * 0.2 && Math.abs(p_vx) < 0.5 && currentKE < 5) {
+                isAnimating = false;
+                showMsg("Reaction Failed (Low KE)", "#ef4444");
+                return;
+            }
+
+            requestAnimationFrame(physicsLoop);
+        }
+
+        function showMsg(txt, color) {
+            let msg = document.getElementById('status-msg');
+            msg.innerText = txt;
+            msg.style.color = color;
+            msg.style.border = `2px solid ${color}`;
+            msg.style.background = `rgba(0,0,0,0.8)`;
+            msg.style.display = 'block';
+        }
+
+        function drawGraph() {
+            ctx.clearRect(0,0,cvs.width,cvs.height);
+            let w = cvs.width; let h = cvs.height;
+            let baseY = h - 50; 
+            
+            // Y坐标转换器 (Max Energy = 800)
+            let toY = (e) => baseY - (e / 800) * (h - 100);
+
+            // 绘制网格
+            ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
+            for(let i=100; i<=800; i+=100) {
+                ctx.beginPath(); ctx.moveTo(50, toY(i)); ctx.lineTo(w, toY(i)); ctx.stroke();
+                ctx.fillStyle = '#475569'; ctx.font = '12px Arial'; ctx.fillText(i, 15, toY(i)+4);
+            }
+
+            // 绘制当前设定的势能面
+            ctx.strokeStyle = hasCatalyst ? '#22c55e' : '#ef4444'; 
+            ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.beginPath();
+            for(let x=50; x<w; x+=5) {
+                let e = getEnergyAtX(x);
+                if(x===50) ctx.moveTo(x, toY(e)); else ctx.lineTo(x, toY(e));
+            }
+            ctx.stroke();
+
+            // 如果开启催化剂，画出原本的虚线背景
+            if(hasCatalyst) {
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.3)'; ctx.lineWidth = 4; ctx.setLineDash([10,10]);
+                ctx.beginPath();
+                hasCatalyst = false; // 临时关闭以获取原函数
+                for(let x=50; x<w; x+=5) {
+                    let e = getEnergyAtX(x);
+                    if(x===50) ctx.moveTo(x, toY(e)); else ctx.lineTo(x, toY(e));
+                }
+                ctx.stroke(); ctx.setLineDash([]);
+                hasCatalyst = true; // 恢复
+            }
+
+            // 坐标轴
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(50, 20); ctx.lineTo(50, baseY); ctx.lineTo(w-20, baseY); ctx.stroke();
+
+            // 文字标注
+            ctx.fillStyle = '#f8fafc'; ctx.font = 'bold 16px Arial';
+            ctx.fillText("Reactants", w*0.1, toY(hr) - 20);
+            ctx.fillText("Products", w*0.85, toY(hp) - 20);
+        }
+
+        setTimeout(() => { resize(); updateProfile(); }, 100);
+    </script>
+</body>
+</html>

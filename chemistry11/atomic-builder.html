@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Atomic Builder - Maple Leaf Lab</title>
+    <style>
+        :root { --chem-green: #059669; --dark: #0f172a; --electron-blue: #3b82f6; --proton-red: #ef4444; --neutron-gray: #94a3b8; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f8fafc; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        /* 导航栏 */
+        .nav { background: var(--dark); color: white; padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .back-btn { color: white; text-decoration: none; border: 1px solid #444; padding: 5px 12px; border-radius: 4px; font-size: 13px; }
+
+        .workspace { display: grid; grid-template-columns: 320px 1fr 320px; gap: 15px; padding: 15px; flex: 1; overflow: hidden; }
+        .card { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; display: flex; flex-direction: column; }
+        h3 { margin: 0 0 15px 0; border-left: 5px solid var(--chem-green); padding-left: 12px; font-size: 16px; }
+
+        /* 粒子控制 */
+        .particle-control { margin-bottom: 20px; background: #f1f5f9; padding: 12px; border-radius: 8px; }
+        .label-row { display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; margin-bottom: 8px; color: #64748b; }
+        .btn-group { display: flex; align-items: center; justify-content: space-between; }
+        .btn-tool { width: 32px; height: 32px; border-radius: 50%; border: none; font-weight: bold; cursor: pointer; font-size: 18px; color: white; }
+        .btn-plus { background: var(--chem-green); }
+        .btn-minus { background: #ef4444; }
+        .count-display { font-size: 20px; font-family: monospace; font-weight: bold; }
+
+        /* 模拟区 */
+        .sim-box { position: relative; background: #fff; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        canvas { width: 100%; height: 100%; }
+
+        /* 数据分析 */
+        .analysis-box { text-align: center; }
+        .symbol-box { font-size: 64px; font-weight: bold; color: var(--chem-green); margin: 10px 0; }
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+        .data-item { background: var(--dark); color: #10b981; padding: 10px; border-radius: 6px; font-size: 12px; font-family: monospace; }
+        
+        .task-card { background: #fffbeb; border: 1px solid #fde68a; padding: 12px; border-radius: 8px; font-size: 12px; color: #92400e; margin-top: auto; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit1.html" class="back-btn">⬅ Back to Unit 1</a>
+        <h2 style="margin:0; font-size: 18px;">Lab 1: Atomic Structure Builder</h2>
+        <span style="font-size: 12px; opacity: 0.8;">Chemistry 11 Interactive</span>
+    </div>
+
+    <div class="workspace">
+        <div class="card">
+            <h3>Particle Management</h3>
+            
+            <div class="particle-control">
+                <div class="label-row"><span>Protons (p⁺)</span><span style="color:var(--proton-red)">Nucleus</span></div>
+                <div class="btn-group">
+                    <button class="btn-tool btn-minus" onclick="changeP(-1)">-</button>
+                    <span class="count-display" id="p-num">0</span>
+                    <button class="btn-tool btn-plus" onclick="changeP(1)">+</button>
+                </div>
+            </div>
+
+            <div class="particle-control">
+                <div class="label-row"><span>Neutrons (n⁰)</span><span style="color:var(--neutron-gray)">Isotopes</span></div>
+                <div class="btn-group">
+                    <button class="btn-tool btn-minus" onclick="changeN(-1)">-</button>
+                    <span class="count-display" id="n-num">0</span>
+                    <button class="btn-tool btn-plus" onclick="changeN(1)">+</button>
+                </div>
+            </div>
+
+            <div class="particle-control">
+                <div class="label-row"><span>Electrons (e⁻)</span><span style="color:var(--electron-blue)">Orbitals</span></div>
+                <div class="btn-group">
+                    <button class="btn-tool btn-minus" onclick="changeE(-1)">-</button>
+                    <span class="count-display" id="e-num">0</span>
+                    <button class="btn-tool btn-plus" onclick="changeE(1)">+</button>
+                </div>
+            </div>
+
+            <div class="task-card">
+                <b>Assignment:</b><br>
+                1. Build a Neutral <b>Fluorine-19</b> atom.<br>
+                2. Remove 1 electron. What kind of Ion is formed?
+            </div>
+        </div>
+
+        <div class="card sim-box">
+            <canvas id="atomCanvas"></canvas>
+            <div id="stability-tag" style="position:absolute; bottom:20px; right:20px; padding:5px 12px; border-radius:20px; font-size:12px; font-weight:bold; background:#e2e8f0;">Stable</div>
+        </div>
+
+        <div class="card analysis-box">
+            <h3>Identity & Properties</h3>
+            <div class="symbol-box" id="el-sym">?</div>
+            <div id="el-name" style="font-size:18px; font-weight:bold; color:var(--dark);">No Element</div>
+            
+            <div class="data-grid">
+                <div class="data-item">Mass:<br><span id="mass-val">0</span></div>
+                <div class="data-item">Charge:<br><span id="charge-val">0</span></div>
+            </div>
+
+            <div style="margin-top:20px; text-align:left; font-size:12px; color:#64748b; line-height:1.6;">
+                <b>Key Concepts:</b><br>
+                • Atomic # = Protons<br>
+                • Mass # = p + n<br>
+                • Ions: e⁻ ≠ p⁺
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('atomCanvas');
+        const ctx = canvas.getContext('2d');
+        let p=0, n=0, e=0, angle=0;
+
+        const elements = ["","H","He","Li","Be","B","C","N","O","F","Ne","Na","Mg","Al","Si","P","S","Cl","Ar"];
+        const names = ["","Hydrogen","Helium","Lithium","Beryllium","Boron","Carbon","Nitrogen","Oxygen","Fluorine","Neon","Sodium","Magnesium","Aluminium","Silicon","Phosphorus","Sulfur","Chlorine","Argon"];
+
+        function resize() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight - 40;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function changeP(v){ p=Math.max(0,Math.min(18,p+v)); update(); }
+        function changeN(v){ n=Math.max(0,Math.min(22,n+v)); update(); }
+        function changeE(v){ e=Math.max(0,Math.min(18,e+v)); update(); }
+
+        function update(){
+            document.getElementById('p-num').innerText = p;
+            document.getElementById('n-num').innerText = n;
+            document.getElementById('e-num').innerText = e;
+            document.getElementById('el-sym').innerText = elements[p] || "??";
+            document.getElementById('el-name').innerText = names[p] || "Unknown Element";
+            
+            const mass = p + n;
+            const charge = p - e;
+            document.getElementById('mass-val').innerText = mass;
+            document.getElementById('charge-val').innerText = charge > 0 ? "+"+charge : charge;
+
+            // 稳定性逻辑 (简化版)
+            const tag = document.getElementById('stability-tag');
+            if(p===0) { tag.innerText="Empty"; tag.style.background="#e2e8f0"; }
+            else if(Math.abs(p-n) <= 2 || (p>10 && n>p)) { tag.innerText="Stable"; tag.style.background="#dcfce7"; tag.style.color="#166534"; }
+            else { tag.innerText="Unstable"; tag.style.background="#fee2e2"; tag.style.color="#991b1b"; }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const cx = canvas.width/2, cy = canvas.height/2;
+
+            // 1. 绘制轨道 (K, L, M 层)
+            const shells = [70, 120, 170];
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = "#cbd5e1";
+            if(e > 0) { ctx.beginPath(); ctx.arc(cx,cy,70,0,Math.PI*2); ctx.stroke(); }
+            if(e > 2) { ctx.beginPath(); ctx.arc(cx,cy,120,0,Math.PI*2); ctx.stroke(); }
+            if(e > 10) { ctx.beginPath(); ctx.arc(cx,cy,170,0,Math.PI*2); ctx.stroke(); }
+            ctx.setLineDash([]);
+
+            // 2. 绘制电子 (e-)
+            for(let i=0; i<e; i++) {
+                let shellIdx = (i < 2) ? 0 : (i < 10 ? 1 : 2);
+                let r = shells[shellIdx];
+                let speed = 0.02 * (3 - shellIdx);
+                let offset = i * (Math.PI * 2 / (shellIdx===0?2 : (shellIdx===1?8:8)));
+                const ex = cx + r * Math.cos(angle * speed + offset);
+                const ey = cy + r * Math.sin(angle * speed + offset);
+                
+                ctx.beginPath(); ctx.arc(ex,ey,6,0,Math.PI*2);
+                ctx.fillStyle = "#3b82f6"; ctx.fill();
+                ctx.fillStyle = "white"; ctx.font = "bold 8px Arial"; ctx.fillText("-", ex-2, ey+3);
+            }
+
+            // 3. 绘制原子核 (p+ and n0)
+            const particles = p + n;
+            for(let i=0; i<particles; i++) {
+                const angleOff = i * 137.5 * (Math.PI/180);
+                const dist = Math.sqrt(i) * 6;
+                const nx = cx + dist * Math.cos(angleOff);
+                const ny = cy + dist * Math.sin(angleOff);
+                
+                ctx.beginPath(); ctx.arc(nx,ny,7,0,Math.PI*2);
+                ctx.fillStyle = (i < p) ? "#ef4444" : "#94a3b8";
+                ctx.fill();
+                ctx.strokeStyle = "rgba(0,0,0,0.1)"; ctx.stroke();
+            }
+
+            angle++;
+            requestAnimationFrame(draw);
+        }
+
+        update();
+        draw();
+    </script>
+</body>
+</html>

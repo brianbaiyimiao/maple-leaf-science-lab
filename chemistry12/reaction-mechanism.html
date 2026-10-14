@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 2.3: Multi-Step Mechanisms</title>
+    <style>
+        :root { --ml-red: #b91c1c; --ml-gold: #fbbf24; --bg: #0f172a; --panel: #1e293b;}
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: white; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .nav { background: var(--ml-red); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold); }
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.3s;}
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+        
+        .workspace { flex: 1; display: grid; grid-template-columns: 420px 1fr; gap: 20px; padding: 20px; box-sizing: border-box; }
+        .panel { background: var(--panel); padding: 25px; border-radius: 15px; border: 1px solid #334155; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.5);}
+        
+        h3 { margin: 0 0 15px 0; color: var(--ml-gold); border-bottom: 1px dashed #475569; padding-bottom: 10px; }
+        
+        .eq-box { background: #020617; border: 2px solid #334155; border-radius: 10px; padding: 15px; font-family: monospace; font-size: 1.1rem; margin-bottom: 20px;}
+        .eq-line { display: flex; justify-content: space-between; margin-bottom: 10px; padding: 5px; border-radius: 5px;}
+        .eq-line.active { background: rgba(251, 191, 36, 0.2); border-left: 4px solid var(--ml-gold); }
+        .eq-slow { color: #ef4444; font-weight: bold; font-size: 0.9rem;}
+        .eq-fast { color: #22c55e; font-weight: bold; font-size: 0.9rem;}
+        .eq-overall { border-top: 2px solid #475569; padding-top: 10px; font-weight: bold; color: #38bdf8;}
+
+        .btn-play { background: #16a34a; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 1.1rem; cursor: pointer; transition: 0.2s; text-transform: uppercase; width: 100%; box-shadow: 0 0 15px rgba(22,163,74,0.4);}
+        .btn-play:hover { background: #15803d; }
+
+        .visual-container { display: grid; grid-template-rows: 1fr 1fr; gap: 20px; min-height: 0;}
+        .canvas-box { background: #000; border-radius: 15px; border: 4px solid #334155; position: relative; overflow: hidden; }
+        canvas { width: 100%; height: 100%; display: block; }
+        .tag { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.8); padding: 5px 12px; border-radius: 6px; font-weight: bold; color: var(--ml-gold); font-size: 0.9rem; border: 1px solid #475569;}
+        
+        .info-panel { margin-top: auto; font-size: 0.9rem; color: #94a3b8; line-height: 1.6; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit2.html" class="back-link">⬅ Back to Unit 2 Labs</a>
+        <h2 style="margin:0;">Lab 2.3: Multi-Step Mechanisms & Intermediates</h2>
+        <span style="font-size: 0.9rem; opacity: 0.8;">Maple Leaf Chemistry 12</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>Reaction Mechanism Playback</h3>
+            
+            <div class="eq-box">
+                <div class="eq-line" id="step1-text">
+                    <span>1: NO₂ + NO₂ &rarr; NO₃ + NO</span>
+                    <span class="eq-slow">SLOW (RDS)</span>
+                </div>
+                <div class="eq-line" id="step2-text">
+                    <span>2: NO₃ + CO &rarr; NO₂ + CO₂</span>
+                    <span class="eq-fast">FAST</span>
+                </div>
+                <div class="eq-overall">
+                    <span>Net: NO₂ + CO &rarr; NO + CO₂</span>
+                </div>
+            </div>
+
+            <button class="btn-play" onclick="startReaction()">▶ Start Reaction</button>
+
+            <div class="info-panel">
+                <span style="color:#fbbf24; font-weight:bold;">Analysis:</span><br>
+                1. <b>Intermediate:</b> NO₃. It is produced in Step 1 and consumed in Step 2. It sits in the "valley" between the two peaks.<br><br>
+                2. <b>Rate-Determining Step (RDS):</b> Step 1. It has a significantly higher Activation Energy (Ea₁) hill, controlling the overall speed of the reaction.
+            </div>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-box">
+                <div class="tag">MICROSCOPIC VIEW (Molecular Collision)</div>
+                <canvas id="molCanvas"></canvas>
+            </div>
+            <div class="canvas-box" style="background:#020617;">
+                <div class="tag">MACROSCOPIC VIEW (Energy Profile)</div>
+                <canvas id="graphCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const mCvs = document.getElementById('molCanvas');
+        const mCtx = mCvs.getContext('2d');
+        const gCvs = document.getElementById('graphCanvas');
+        const gCtx = gCvs.getContext('2d');
+
+        let time = 0;
+        let isPlaying = false;
+
+        function resize() {
+            mCvs.width = mCvs.offsetWidth; mCvs.height = mCvs.offsetHeight;
+            gCvs.width = gCvs.offsetWidth; gCvs.height = gCvs.offsetHeight;
+            if(!isPlaying) { drawMolecules(0); drawGraph(0); }
+        }
+        window.addEventListener('resize', resize);
+
+        function startReaction() {
+            if(isPlaying) return;
+            time = 0;
+            isPlaying = true;
+            document.getElementById('step1-text').classList.add('active');
+            document.getElementById('step2-text').classList.remove('active');
+            requestAnimationFrame(animate);
+        }
+
+        // 绘制分子模型
+        function drawAtom(ctx, x, y, r, color, label) {
+            ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2);
+            let grad = ctx.createRadialGradient(x-r*0.3, y-r*0.3, r*0.2, x, y, r);
+            grad.addColorStop(0, '#ffffff'); grad.addColorStop(1, color);
+            ctx.fillStyle = grad; ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.font = 'bold 12px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.fillText(label, x, y);
+        }
+
+        function drawNO2(x, y, angle) {
+            mCtx.save(); mCtx.translate(x, y); mCtx.rotate(angle);
+            // Bonds
+            mCtx.strokeStyle='rgba(255,255,255,0.5)'; mCtx.lineWidth=4;
+            mCtx.beginPath(); mCtx.moveTo(0,0); mCtx.lineTo(-25, -20); mCtx.stroke();
+            mCtx.beginPath(); mCtx.moveTo(0,0); mCtx.lineTo(25, -20); mCtx.stroke();
+            // Atoms
+            drawAtom(mCtx, -25, -20, 15, '#ef4444', 'O');
+            drawAtom(mCtx, 25, -20, 15, '#ef4444', 'O');
+            drawAtom(mCtx, 0, 0, 18, '#3b82f6', 'N');
+            mCtx.restore();
+        }
+
+        function drawNO3(x, y) {
+            mCtx.save(); mCtx.translate(x, y);
+            mCtx.strokeStyle='rgba(255,255,255,0.5)'; mCtx.lineWidth=4;
+            mCtx.beginPath(); mCtx.moveTo(0,0); mCtx.lineTo(0, -30); mCtx.stroke();
+            mCtx.beginPath(); mCtx.moveTo(0,0); mCtx.lineTo(-25, 20); mCtx.stroke();
+            mCtx.beginPath(); mCtx.moveTo(0,0); mCtx.lineTo(25, 20); mCtx.stroke();
+            
+            drawAtom(mCtx, 0, -30, 15, '#ef4444', 'O');
+            drawAtom(mCtx, -25, 20, 15, '#ef4444', 'O');
+            drawAtom(mCtx, 25, 20, 15, '#ef4444', 'O');
+            drawAtom(mCtx, 0, 0, 18, '#3b82f6', 'N');
+            mCtx.restore();
+        }
+
+        function drawNO(x, y) {
+            mCtx.save(); mCtx.translate(x, y);
+            mCtx.strokeStyle='rgba(255,255,255,0.5)'; mCtx.lineWidth=6;
+            mCtx.beginPath(); mCtx.moveTo(-15,0); mCtx.lineTo(15, 0); mCtx.stroke();
+            drawAtom(mCtx, -15, 0, 18, '#3b82f6', 'N');
+            drawAtom(mCtx, 15, 0, 15, '#ef4444', 'O');
+            mCtx.restore();
+        }
+
+        function drawCO(x, y) {
+            mCtx.save(); mCtx.translate(x, y);
+            mCtx.strokeStyle='rgba(255,255,255,0.5)'; mCtx.lineWidth=6;
+            mCtx.beginPath(); mCtx.moveTo(-15,0); mCtx.lineTo(15, 0); mCtx.stroke();
+            drawAtom(mCtx, -15, 0, 18, '#64748b', 'C');
+            drawAtom(mCtx, 15, 0, 15, '#ef4444', 'O');
+            mCtx.restore();
+        }
+
+        function drawCO2(x, y) {
+            mCtx.save(); mCtx.translate(x, y);
+            mCtx.strokeStyle='rgba(255,255,255,0.5)'; mCtx.lineWidth=4;
+            mCtx.beginPath(); mCtx.moveTo(-30,0); mCtx.lineTo(30, 0); mCtx.stroke();
+            drawAtom(mCtx, -30, 0, 15, '#ef4444', 'O');
+            drawAtom(mCtx, 30, 0, 15, '#ef4444', 'O');
+            drawAtom(mCtx, 0, 0, 18, '#64748b', 'C');
+            mCtx.restore();
+        }
+
+        function drawMolecules(t) {
+            mCtx.clearRect(0,0,mCvs.width, mCvs.height);
+            let cx = mCvs.width/2; let cy = mCvs.height/2;
+
+            if(t < 300) {
+                // Step 1: NO2 + NO2 -> NO3 + NO (Slow)
+                let p = t / 300; // 0 to 1
+                let x1 = cx - 200 + p*200;
+                let x2 = cx + 200 - p*200;
+                
+                if(p < 0.8) {
+                    drawNO2(x1, cy, Math.PI/2);
+                    drawNO2(x2, cy, -Math.PI/2);
+                } else if(p < 0.9) {
+                    // Transition State
+                    mCtx.fillStyle = 'rgba(251, 191, 36, 0.3)';
+                    mCtx.beginPath(); mCtx.arc(cx, cy, 60, 0, Math.PI*2); mCtx.fill();
+                    drawNO2(cx-20, cy, Math.PI/2); drawNO2(cx+20, cy, -Math.PI/2);
+                } else {
+                    // Products of Step 1: NO3 + NO
+                    let outP = (p - 0.9)*10;
+                    drawNO3(cx - outP*100, cy);
+                    drawNO(cx + outP*100, cy);
+                }
+                
+                // Keep CO waiting
+                drawCO(cx, cy + 100);
+            } 
+            else if(t < 500) {
+                // Wait at intermediate valley
+                drawNO3(cx - 100, cy);
+                drawNO(cx + 100, cy);
+                drawCO(cx, cy + 100);
+                document.getElementById('step1-text').classList.remove('active');
+            }
+            else if(t < 700) {
+                // Step 2: NO3 + CO -> NO2 + CO2 (Fast)
+                document.getElementById('step2-text').classList.add('active');
+                let p = (t - 500) / 200;
+                
+                let no3X = cx - 100 + p*100; let no3Y = cy;
+                let coX = cx; let coY = cy + 100 - p*100;
+                
+                drawNO(cx + 100, cy); // NO stays put
+
+                if(p < 0.8) {
+                    drawNO3(no3X, no3Y);
+                    drawCO(coX, coY);
+                } else if(p < 0.9) {
+                    mCtx.fillStyle = 'rgba(251, 191, 36, 0.3)';
+                    mCtx.beginPath(); mCtx.arc(cx, cy, 70, 0, Math.PI*2); mCtx.fill();
+                    drawNO3(cx, cy-10); drawCO(cx, cy+20);
+                } else {
+                    let outP = (p - 0.9)*10;
+                    drawNO2(cx - outP*100, cy - outP*50, 0);
+                    drawCO2(cx, cy + outP*80);
+                }
+            } else {
+                // Final state
+                drawNO(cx + 100, cy);
+                drawNO2(cx - 100, cy - 50, 0);
+                drawCO2(cx, cy + 80);
+            }
+        }
+
+        // 双峰能量图数学函数
+        function getEnergy(prog) {
+            // prog: 0 to 1000
+            let H_r = 150;
+            let Peak1 = 400; // Slow step (High Ea)
+            let Inter = 200; // NO3 Intermediate
+            let Peak2 = 250; // Fast step (Low Ea)
+            let H_p = 50;
+
+            // Gaussian hills
+            let b1 = (Peak1 - Math.max(H_r, Inter)) * Math.exp(-0.5 * Math.pow((prog-300)/80, 2));
+            let s1 = H_r + (Inter - H_r) / (1 + Math.exp(-0.05 * (prog-300)));
+            let hill1 = Math.max(H_r, Inter) === Peak1 ? s1 : s1 + b1;
+
+            let b2 = (Peak2 - Math.max(Inter, H_p)) * Math.exp(-0.5 * Math.pow((prog-600)/50, 2));
+            let s2 = Inter + (H_p - Inter) / (1 + Math.exp(-0.05 * (prog-600)));
+            let hill2 = Math.max(Inter, H_p) === Peak2 ? s2 : s2 + b2;
+
+            if(prog < 450) return hill1;
+            else if(prog < 500) return Inter;
+            else return hill2;
+        }
+
+        function drawGraph(t) {
+            gCtx.clearRect(0,0,gCvs.width, gCvs.height);
+            let w = gCvs.width; let h = gCvs.height;
+            let baseY = h - 40; 
+            
+            let toY = (e) => baseY - (e / 500) * (h - 80);
+
+            // Axes
+            gCtx.strokeStyle = '#334155'; gCtx.lineWidth = 2;
+            gCtx.beginPath(); gCtx.moveTo(50, 20); gCtx.lineTo(50, baseY); gCtx.lineTo(w-20, baseY); gCtx.stroke();
+
+            // Draw full static curve (Dark Blue)
+            gCtx.strokeStyle = '#1e3a8a'; gCtx.lineWidth = 5; gCtx.lineCap = 'round';
+            gCtx.beginPath();
+            for(let x=0; x<=1000; x+=5) {
+                let px = 50 + (x/1000)*(w-70);
+                if(x===0) gCtx.moveTo(px, toY(getEnergy(x)));
+                else gCtx.lineTo(px, toY(getEnergy(x)));
+            }
+            gCtx.stroke();
+
+            // Draw progress tracker (Yellow Glow)
+            let prog = Math.min(t, 1000);
+            let px = 50 + (prog/1000)*(w-70);
+            let py = toY(getEnergy(prog));
+
+            // Track line
+            gCtx.strokeStyle = '#fbbf24'; gCtx.lineWidth = 6;
+            gCtx.beginPath();
+            for(let x=0; x<=prog; x+=5) {
+                let currX = 50 + (x/1000)*(w-70);
+                if(x===0) gCtx.moveTo(currX, toY(getEnergy(x)));
+                else gCtx.lineTo(currX, toY(getEnergy(x)));
+            }
+            gCtx.stroke();
+
+            // Track dot
+            gCtx.fillStyle = '#ffffff';
+            gCtx.shadowBlur = 15; gCtx.shadowColor = '#ffffff';
+            gCtx.beginPath(); gCtx.arc(px, py, 8, 0, Math.PI*2); gCtx.fill();
+            gCtx.shadowBlur = 0;
+
+            // Labels
+            gCtx.fillStyle = '#94a3b8'; gCtx.font = '14px Arial';
+            gCtx.fillText("Peak 1 (TS₁)", 50 + (300/1000)*(w-70) - 30, toY(400) - 15);
+            gCtx.fillText("Peak 2 (TS₂)", 50 + (600/1000)*(w-70) - 30, toY(250) - 15);
+            gCtx.fillText("Valley (Intermediate NO₃)", 50 + (450/1000)*(w-70) - 50, toY(200) + 25);
+        }
+
+        function animate() {
+            if(!isPlaying) return;
+            time += 2;
+            drawMolecules(time);
+            drawGraph(time);
+
+            if(time < 1000) {
+                requestAnimationFrame(animate);
+            } else {
+                isPlaying = false;
+                document.getElementById('step2-text').classList.remove('active');
+            }
+        }
+
+        setTimeout(() => { resize(); }, 100);
+    </script>
+</body>
+</html>

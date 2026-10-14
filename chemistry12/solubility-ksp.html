@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 3.2: Solubility & Ksp Analytical Lab</title>
+    <style>
+        :root { --ml-red: #b91c1c; --ml-gold: #fbbf24; --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        
+        /* 导航栏 */
+        .nav { background: var(--ml-red); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ml-gold); z-index: 100;}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.3s;}
+        .back-link:hover { background: rgba(255,255,255,0.2); }
+
+        .workspace { flex: 1; display: grid; grid-template-columns: 450px 1fr; gap: 20px; padding: 20px; box-sizing: border-box; overflow: hidden;}
+        
+        /* 左侧控制与数学面板 */
+        .panel-left { display: flex; flex-direction: column; gap: 15px; overflow-y: auto; padding-right: 10px;}
+        .card { background: var(--panel); border-radius: 12px; padding: 20px; border: 1px solid #334155; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        h3 { margin: 0 0 15px 0; color: var(--ml-gold); font-size: 1.1rem; border-bottom: 1px solid #334155; padding-bottom: 8px; }
+
+        .control-group { margin-bottom: 15px; }
+        .control-group label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 8px; color: #94a3b8; font-weight: bold;}
+        select, input[type="range"] { width: 100%; cursor: pointer; }
+        select { background: #0f172a; color: white; border: 2px solid #475569; padding: 8px; border-radius: 6px; outline: none; }
+
+        /* 数学推导区 */
+        .math-steps { font-family: 'Courier New', monospace; font-size: 0.9rem; line-height: 1.6; color: #38bdf8; }
+        .math-res { color: #fbbf24; font-weight: bold; font-size: 1.1rem; margin-top: 5px;}
+
+        /* 右侧可视化区 */
+        .visual-container { display: grid; grid-template-rows: 1fr 200px; gap: 20px; min-height: 0; }
+        .canvas-row { display: grid; grid-template-columns: 1fr 300px; gap: 20px; }
+        .canvas-box { background: #000; border-radius: 15px; border: 2px solid #334155; position: relative; overflow: hidden; }
+        canvas { width: 100%; height: 100%; display: block; }
+        .tag { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 5px 12px; border-radius: 5px; font-size: 0.8rem; color: var(--ml-gold); font-weight: bold; border: 1px solid #334155; }
+
+        /* 实验报告表单 */
+        .report-area { background: var(--panel); border-radius: 12px; border: 1px solid #334155; padding: 15px; overflow-y: auto;}
+        .report-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: center;}
+        .report-table th, .report-table td { border: 1px solid #334155; padding: 6px; }
+        .report-table th { background: #0f172a; color: var(--ml-gold); }
+
+        .btn-log { background: #16a34a; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; transition: 0.2s;}
+        .btn-log:hover { background: #15803d; transform: translateY(-2px);}
+
+        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 0.8rem; margin-top: 10px;}
+        .status-unsat { background: #064e3b; color: #6ee7b7; border: 1px solid #059669; }
+        .status-sat { background: #7f1d1d; color: #fca5a5; border: 1px solid #b91c1c; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit3.html" class="back-link">⬅ Back to Unit 3 Labs</a>
+        <h2 style="margin:0;">Lab 3.2: Solubility Equilibrium & Ksp Analytics</h2>
+        <span style="font-size: 0.9rem; opacity: 0.8;">Maple Leaf Advanced Chemistry</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel-left">
+            <div class="card">
+                <h3>1. Configuration</h3>
+                <div class="control-group">
+                    <label>Substance (Salt):</label>
+                    <select id="salt-sel" onchange="calculate()">
+                        <option value="AgCl">Silver Chloride (AgCl) - Ksp: 1.8e-10</option>
+                        <option value="PbI2">Lead(II) Iodide (PbI₂) - Ksp: 9.8e-9</option>
+                        <option value="CaF2">Calcium Fluoride (CaF₂) - Ksp: 3.9e-11</option>
+                        <option value="BaSO4">Barium Sulfate (BaSO₄) - Ksp: 1.1e-10</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Water Volume (V): <span id="v-read" style="color:white;">1.0 L</span></label>
+                    <input type="range" id="v-slider" min="0.1" max="5.0" step="0.1" value="1.0" oninput="calculate()">
+                </div>
+                <div class="control-group">
+                    <label>Added Mass (m): <span id="m-read" style="color:white;">0.0050 g</span></label>
+                    <input type="range" id="m-slider" min="0.0001" max="0.1" step="0.0001" value="0.0050" oninput="calculate()">
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>2. Mathematical Derivation</h3>
+                <div class="math-steps" id="math-display">
+                    </div>
+                <div id="status-badge"></div>
+                <button class="btn-log" onclick="logData()">📝 Record Observation Data</button>
+            </div>
+
+            <div class="report-area">
+                <h3>3. Experimental Data Log</h3>
+                <table class="report-table" id="data-log">
+                    <thead>
+                        <tr>
+                            <th>Salt</th>
+                            <th>V (L)</th>
+                            <th>Added(g)</th>
+                            <th>Max(g)</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="visual-container">
+            <div class="canvas-row">
+                <div class="canvas-box">
+                    <div class="tag">DYNAMIC EQUILIBRIUM VIEW</div>
+                    <canvas id="beakerCanvas"></canvas>
+                </div>
+                <div class="canvas-box">
+                    <div class="tag">MASS COMPARISON (g)</div>
+                    <canvas id="chartCanvas"></canvas>
+                </div>
+            </div>
+            
+            <div class="card" style="margin:0; background: #020617; border-color: #38bdf8;">
+                <h3 style="color:#38bdf8;">Scientific Inference</h3>
+                <p style="font-size: 0.9rem; color: #94a3b8; line-height: 1.5; margin:0;">
+                    当系统达到<b>饱和（Saturated）</b>状态时，微观上晶格的拆解速度与离子的结合速度相等。即使肉眼可见的沉淀质量不再改变，离子仍在不断进行“动态交换”。增加水量会直接提高系统能容纳的最大溶质质量 $m_{max}$。
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const bCvs = document.getElementById('beakerCanvas');
+        const bCtx = bCvs.getContext('2d');
+        const cCvs = document.getElementById('chartCanvas');
+        const cCtx = cCvs.getContext('2d');
+
+        const salts = {
+            "AgCl": { ksp: 1.8e-10, mm: 143.32, type: "AB", label: "AgCl", color: "#38bdf8" },
+            "PbI2": { ksp: 9.8e-9, mm: 461.01, type: "AB2", label: "PbI₂", color: "#fbbf24" },
+            "CaF2": { ksp: 3.9e-11, mm: 78.07, type: "AB2", label: "CaF₂", color: "#22c55e" },
+            "BaSO4": { ksp: 1.1e-10, mm: 233.38, type: "AB", label: "BaSO₄", color: "#8b5cf6" }
+        };
+
+        let currentData = {};
+
+        function calculate() {
+            const saltKey = document.getElementById('salt-sel').value;
+            const salt = salts[saltKey];
+            const volume = parseFloat(document.getElementById('v-slider').value);
+            const addedMass = parseFloat(document.getElementById('m-slider').value);
+
+            document.getElementById('v-read').innerText = volume.toFixed(1) + " L";
+            document.getElementById('m-read').innerText = addedMass.toFixed(4) + " g";
+
+            // 1. 计算摩尔溶解度 s
+            let s; 
+            let formulaHtml;
+            if(salt.type === "AB") {
+                s = Math.sqrt(salt.ksp);
+                formulaHtml = `s = √Ksp = √(${salt.ksp.toExponential(2)})`;
+            } else {
+                s = Math.pow(salt.ksp / 4, 1/3);
+                formulaHtml = `s = ∛(Ksp/4) = ∛(${salt.ksp.toExponential(2)}/4)`;
+            }
+
+            // 2. 计算最大可溶量
+            const maxMoles = s * volume;
+            const maxMass = maxMoles * salt.mm;
+            const isSaturated = addedMass > maxMass;
+            const pptMass = isSaturated ? (addedMass - maxMass) : 0;
+
+            currentData = { saltKey, volume, addedMass, maxMass, isSaturated, pptMass, saltColor: salt.color };
+
+            // 3. 更新数学面板
+            document.getElementById('math-display').innerHTML = `
+                <div>Step 1: Molar Solubility (s)</div>
+                <div style="color:white;">${formulaHtml}</div>
+                <div class="math-res">s = ${s.toExponential(4)} mol/L</div>
+                <br>
+                <div>Step 2: Max Dissolvable Mass</div>
+                <div style="color:white;">m_max = s × V × MolarMass</div>
+                <div style="color:white;">m_max = ${s.toExponential(2)} × ${volume} × ${salt.mm}</div>
+                <div class="math-res">m_max = ${maxMass.toFixed(5)} g</div>
+            `;
+
+            const badge = document.getElementById('status-badge');
+            badge.innerHTML = isSaturated ? '<span class="status-badge status-sat">SATURATED (已饱和)</span>' : '<span class="status-badge status-unsat">UNSATURATED (未饱和)</span>';
+
+            drawAll();
+        }
+
+        function drawAll() {
+            drawBeaker();
+            drawChart();
+        }
+
+        function drawBeaker() {
+            bCtx.clearRect(0,0,bCvs.width, bCvs.height);
+            let w = bCvs.width; let h = bCvs.height;
+            
+            // 水位 (0.1 - 5.0 映射到高度)
+            let waterLevel = h - 50 - (currentData.volume / 5.0) * (h - 150);
+            
+            // 绘制烧杯
+            bCtx.strokeStyle = 'rgba(255,255,255,0.4)'; bCtx.lineWidth = 6;
+            bCtx.beginPath(); bCtx.moveTo(50, 50); bCtx.lineTo(50, h-30); bCtx.lineTo(w-50, h-30); bCtx.lineTo(w-50, 50); bCtx.stroke();
+
+            // 绘制水
+            bCtx.fillStyle = 'rgba(56, 189, 248, 0.2)';
+            bCtx.fillRect(53, waterLevel, w-106, h-33-waterLevel);
+            bCtx.strokeStyle = '#38bdf8'; bCtx.lineWidth = 2;
+            bCtx.beginPath(); bCtx.moveTo(53, waterLevel); bCtx.lineTo(w-53, waterLevel); bCtx.stroke();
+
+            // 绘制沉淀 (如果有)
+            if(currentData.isSaturated) {
+                let pptHeight = Math.min(60, (currentData.pptMass / 0.05) * 100);
+                bCtx.fillStyle = '#94a3b8';
+                bCtx.fillRect(60, h-33-pptHeight, w-120, pptHeight);
+                // 绘制动态交换的小点 (模拟动态平衡)
+                for(let i=0; i<15; i++) {
+                    let x = 60 + Math.random()*(w-120);
+                    let y = h - 33 - pptHeight + (Math.sin(Date.now()*0.005 + i)*10);
+                    bCtx.fillStyle = currentData.saltColor;
+                    bCtx.beginPath(); bCtx.arc(x, y, 4, 0, Math.PI*2); bCtx.fill();
+                }
+            } else {
+                // 未饱和时只绘制水中的游离粒子
+                let count = (currentData.addedMass / currentData.maxMass) * 40;
+                for(let i=0; i<count; i++) {
+                    let x = 70 + Math.random()*(w-140);
+                    let y = waterLevel + 20 + Math.random()*(h-33-waterLevel-40);
+                    bCtx.fillStyle = currentData.saltColor;
+                    bCtx.beginPath(); bCtx.arc(x, y, 4, 0, Math.PI*2); bCtx.fill();
+                }
+            }
+        }
+
+        function drawChart() {
+            cCtx.clearRect(0,0,cCvs.width, cCvs.height);
+            let w = cCvs.width; let h = cCvs.height;
+            let baseY = h - 40;
+            let maxVal = Math.max(currentData.addedMass, currentData.maxMass) * 1.2;
+            let toY = (val) => baseY - (val / maxVal) * (h - 80);
+
+            // 坐标轴
+            cCtx.strokeStyle = '#475569'; cCtx.lineWidth = 2;
+            cCtx.beginPath(); cCtx.moveTo(40, 20); cCtx.lineTo(40, baseY); cCtx.lineTo(w-20, baseY); cCtx.stroke();
+
+            // 绘制柱子1: Added Mass
+            let barW = 60;
+            cCtx.fillStyle = '#3b82f6';
+            cCtx.fillRect(80, toY(currentData.addedMass), barW, baseY - toY(currentData.addedMass));
+            cCtx.fillStyle = 'white'; cCtx.font = '12px Arial'; cCtx.textAlign='center';
+            cCtx.fillText("Added", 110, baseY + 20);
+            cCtx.fillText(currentData.addedMass.toFixed(4), 110, toY(currentData.addedMass) - 10);
+
+            // 绘制柱子2: Max Dissolvable
+            cCtx.fillStyle = '#16a34a';
+            cCtx.fillRect(180, toY(currentData.maxMass), barW, baseY - toY(currentData.maxMass));
+            cCtx.fillStyle = 'white';
+            cCtx.fillText("Limit", 210, baseY + 20);
+            cCtx.fillText(currentData.maxMass.toFixed(4), 210, toY(currentData.maxMass) - 10);
+
+            // 标注沉淀部分 (如果饱和)
+            if(currentData.isSaturated) {
+                cCtx.fillStyle = 'rgba(239, 68, 68, 0.6)';
+                cCtx.fillRect(80, toY(currentData.addedMass), barW, toY(currentData.maxMass) - toY(currentData.addedMass));
+                cCtx.fillStyle = '#fca5a5';
+                cCtx.fillText("Precipitate!", 110, toY(currentData.addedMass) - 25);
+            }
+        }
+
+        function logData() {
+            const table = document.getElementById('data-log').getElementsByTagName('tbody')[0];
+            const row = table.insertRow(0);
+            row.insertCell(0).innerText = currentData.saltKey;
+            row.insertCell(1).innerText = currentData.volume.toFixed(1);
+            row.insertCell(2).innerText = currentData.addedMass.toFixed(4);
+            row.insertCell(3).innerText = currentData.maxMass.toFixed(4);
+            row.insertCell(4).innerHTML = currentData.isSaturated ? '<span style="color:#fca5a5">饱和</span>' : '<span style="color:#6ee7b7">未饱和</span>';
+        }
+
+        function resize() {
+            bCvs.width = bCvs.offsetWidth; bCvs.height = bCvs.offsetHeight;
+            cCvs.width = cCvs.offsetWidth; cCvs.height = cCvs.offsetHeight;
+            calculate();
+        }
+
+        window.addEventListener('resize', resize);
+        setTimeout(resize, 100);
+
+        // 持续刷新动画
+        function loop() {
+            drawBeaker();
+            requestAnimationFrame(loop);
+        }
+        loop();
+    </script>
+</body>
+</html>

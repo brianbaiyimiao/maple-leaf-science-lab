@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dilution Master Ultra - Maple Leaf</title>
+    <style>
+        :root { --main: #7c3aed; --dark: #0f172a; --panel-bg: #f8fafc; --water: #3b82f6; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: #e2e8f0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        
+        .nav { background: var(--dark); color: white; padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; z-index: 100; }
+        .back-link { color: white; text-decoration: none; border: 1px solid #475569; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: bold; }
+
+        .workspace { display: grid; grid-template-columns: 420px 1fr; gap: 15px; padding: 15px; flex: 1; overflow: hidden; }
+        
+        /* 左侧面板：控制区 */
+        .panel-left { background: white; border-radius: 20px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #cbd5e1; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        
+        .section-reagents { height: 35%; display: flex; flex-direction: column; border-bottom: 2px solid #f1f5f9; }
+        .section-header { padding: 12px 20px 5px; font-size: 13px; font-weight: bold; color: var(--dark); text-transform: uppercase; letter-spacing: 1px; }
+        .solute-list { flex: 1; overflow-y: auto; padding: 0 15px 15px; }
+        .solute-item { padding: 8px 12px; border: 1px solid #f1f5f9; border-radius: 8px; margin-bottom: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 12px; transition: 0.2s; }
+        .solute-item:hover { background: #f5f3ff; }
+        .solute-item.active { background: var(--main); color: white; border-color: var(--main); }
+
+        .section-controls { padding: 15px 20px; background: white; flex: 1; overflow-y: auto; }
+        .control-group { background: var(--panel-bg); padding: 12px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #eee; }
+        label { display: block; font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 6px; }
+        input[type="range"] { width: 100%; cursor: pointer; accent-color: var(--main); }
+        .val-disp { float: right; color: var(--main); font-weight: bold; font-family: monospace; }
+
+        .section-result { padding: 15px 20px; background: #fdf2f2; border-top: 1px solid #fee2e2; }
+        .console { background: var(--dark); color: #a78bfa; padding: 15px; border-radius: 15px; text-align: center; }
+        .m2-display { font-size: 1.8rem; font-weight: bold; color: white; margin: 5px 0; }
+
+        /* 右侧面板：视觉区 */
+        .panel-right { background: white; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle, #ffffff, #f1f5f9); border: 1px solid #cbd5e1; }
+        
+        /* 改进的容量瓶视觉 */
+        .flask-wrapper { position: relative; width: 220px; height: 450px; display: flex; flex-direction: column; align-items: center; }
+        .flask-neck { width: 50px; height: 220px; border: 6px solid #94a3b8; border-bottom: none; background: rgba(255,255,255,0.3); position: relative; z-index: 2; border-radius: 5px 5px 0 0; }
+        .flask-body { width: 200px; height: 200px; border: 6px solid #94a3b8; border-radius: 50%; margin-top: -80px; background: rgba(255,255,255,0.3); position: relative; overflow: hidden; z-index: 1; }
+        
+        .liquid-layer { position: absolute; bottom: 0; width: 100%; transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+        .graduation-line { position: absolute; top: 80px; width: 100%; border-top: 2px dashed #ef4444; opacity: 0.4; z-index: 3; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="unit4.html" class="back-link">⬅ Back to Unit 4</a>
+        <h2 style="margin:0; font-size: 18px;">Lab 9: Dilution Master (M₁V₁ = M₂V₂)</h2>
+        <span style="font-size: 12px; opacity: 0.8;">Professional Grade Simulator</span>
+    </div>
+
+    <div class="workspace">
+        <div class="panel-left">
+            <div class="section-reagents">
+                <div class="section-header">1. Stock Substance</div>
+                <div class="solute-list" id="s-list"></div>
+            </div>
+
+            <div class="section-controls">
+                <div class="section-header" style="padding: 0 0 10px 0;">2. Parameters</div>
+                
+                <div class="control-group">
+                    <label>Initial Molarity (M₁): <span id="m1-txt" class="val-disp">2.00</span> M</label>
+                    <input type="range" id="m1-range" min="0.01" max="20.0" step="0.01" value="2.0" oninput="update()">
+                </div>
+
+                <div class="control-group">
+                    <label>Stock Volume (V₁): <span id="v1-txt" class="val-disp">100</span> mL</label>
+                    <input type="range" id="v1-range" min="1" max="1000" step="1" value="100" oninput="update()">
+                </div>
+
+                <div class="control-group" style="border-left: 5px solid var(--water);">
+                    <label>Water Added (V_w): <span id="vw-txt" class="val-disp">0</span> mL</label>
+                    <input type="range" id="vw-range" min="0" max="5000" step="10" value="0" oninput="update()">
+                </div>
+            </div>
+
+            <div class="section-result">
+                <div class="console">
+                    <div style="font-size: 10px; font-weight:bold; letter-spacing:1px;">FINAL CONCENTRATION (M₂)</div>
+                    <div class="m2-display" id="m2-res">2.000 M</div>
+                    <div style="font-size: 10px; color:#94a3b8;" id="v2-summary">Total V₂: 100 mL</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-right">
+            <div class="flask-wrapper">
+                <div class="flask-neck">
+                    <div class="graduation-line"></div>
+                    <div id="fill-neck" class="liquid-layer"></div>
+                </div>
+                <div class="flask-body">
+                    <div id="fill-body" class="liquid-layer"></div>
+                </div>
+            </div>
+            <div style="margin-top: 30px; text-align: center;">
+                <b id="active-name" style="font-size: 20px; color: var(--dark);">KMnO₄</b><br>
+                <span style="font-size: 13px; color: #64748b;">Volumetric Dilution Visualizer</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const REAGENTS = [
+            { name: "KMnO₄", color: "#7e22ce" }, { name: "CuSO₄", color: "#2563eb" },
+            { name: "K₂Cr₂O₇", color: "#ea580c" }, { name: "NiCl₂", color: "#16a34a" },
+            { name: "FeCl₃", color: "#b45309" }, { name: "CoCl₂", color: "#db2777" },
+            { name: "K₂CrO₄", color: "#eab308" }, { name: "CuCl₂", color: "#0f766e" },
+            { name: "K₃[Fe(CN)₆]", color: "#dc2626" }, { name: "CrCl₃", color: "#14532d" },
+            { name: "NaCl", color: "#cbd5e1" }, { name: "HCl", color: "#f1f5f9" },
+            { name: "NaOH", color: "#f8fafc" }, { name: "AgNO₃", color: "#fff" },
+            { name: "KI", color: "#fff" }, { name: "Pb(NO₃)₂", color: "#fff" },
+            { name: "BaCl₂", color: "#fff" }, { name: "Cu(NO₃)₂", color: "#1d4ed8" },
+            { name: "FeSO₄", color: "#bbf7d0" }, { name: "MnCl₂", color: "#fecdd3" }
+        ];
+
+        let selectedIdx = 0;
+
+        function init() {
+            const list = document.getElementById('s-list');
+            REAGENTS.forEach((r, i) => {
+                const div = document.createElement('div');
+                div.className = `solute-item ${i === 0 ? 'active' : ''}`;
+                div.innerHTML = `<span><b>${r.name}</b></span> <div style="width:12px; height:12px; border-radius:50%; background:${r.color}; border:1px solid #ccc;"></div>`;
+                div.onclick = () => {
+                    selectedIdx = i;
+                    document.querySelectorAll('.solute-item').forEach(el => el.classList.remove('active'));
+                    div.classList.add('active');
+                    update();
+                };
+                list.appendChild(div);
+            });
+            update();
+        }
+
+        function update() {
+            const m1 = parseFloat(document.getElementById('m1-range').value);
+            const v1 = parseFloat(document.getElementById('v1-range').value);
+            const vw = parseFloat(document.getElementById('vw-range').value);
+            const r = REAGENTS[selectedIdx];
+
+            const v2 = v1 + vw;
+            const m2 = (m1 * v1) / v2;
+
+            // UI Text
+            document.getElementById('m1-txt').innerText = m1.toFixed(2);
+            document.getElementById('v1-txt').innerText = v1;
+            document.getElementById('vw-txt').innerText = vw;
+            document.getElementById('m2-res').innerText = m2.toFixed(3) + " M";
+            document.getElementById('v2-summary').innerText = `Total V₂: ${v2} mL`;
+            document.getElementById('active-name').innerText = r.name;
+
+            // Visuals
+            const body = document.getElementById('fill-body');
+            const neck = document.getElementById('fill-neck');
+            
+            // 比例映射：body 代表前 1000mL，neck 代表 1000mL-6000mL
+            let bodyLevel = Math.min((v2 / 1000) * 100, 100);
+            let neckLevel = v2 > 1000 ? Math.min(((v2 - 1000) / 5000) * 100, 100) : 0;
+
+            // 浓度越高，透明度越低
+            const opacity = Math.min(0.1 + (m2 * 0.12), 0.95);
+
+            body.style.height = bodyLevel + "%";
+            body.style.backgroundColor = r.color;
+            body.style.opacity = opacity;
+
+            neck.style.height = neckLevel + "%";
+            neck.style.backgroundColor = r.color;
+            neck.style.opacity = opacity;
+        }
+
+        init();
+    </script>
+</body>
+</html>
