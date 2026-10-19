@@ -2,100 +2,161 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Membrane Transport Simulator</title>
+    <title>Biology 11: Membrane Transport Master</title>
     <style>
         :root { --ml-red: #881337; --ml-blue: #0284c7; --bg: #f8fafc; --dark: #0f172a; }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; }
-        .nav { background: var(--ml-red); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; }
-        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
-        .back-link:hover { background: rgba(255,255,255,0.1); }
+        .nav { background: var(--ml-red); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #fbbf24;}
+        .back-link { color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.5); padding: 6px 15px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .back-link:hover { background: rgba(255,255,255,0.2); transform: translateX(-3px);}
         
-        .workspace { flex: 1; max-width: 1250px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 350px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
-        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
-        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        .workspace { flex: 1; max-width: 1350px; margin: 20px auto; width: 100%; display: grid; grid-template-columns: 400px 1fr; gap: 20px; padding: 0 20px; box-sizing: border-box;}
+        .panel { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); display: flex; flex-direction: column; border: 1px solid #e2e8f0; overflow-y: auto;}
+        .panel h3 { margin-top: 0; color: var(--dark); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; font-size: 1.3rem;}
         
         .mode-selector { display: flex; gap: 10px; margin-bottom: 20px; }
-        .mode-btn { flex: 1; padding: 12px; border: 2px solid #cbd5e1; background: white; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; color: #475569;}
-        .mode-btn.active { border-color: var(--ml-blue); background: #f0f9ff; color: var(--ml-blue); }
+        .mode-btn { flex: 1; padding: 12px; border: 2px solid #cbd5e1; background: white; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; color: #475569;}
+        .mode-btn:hover { border-color: #94a3b8; }
+        .mode-btn.active { border-color: var(--ml-blue); background: #f0f9ff; color: var(--ml-blue); box-shadow: 0 4px 10px rgba(2, 132, 199, 0.15);}
 
         .control-group { margin-bottom: 20px; }
-        .control-group label { display: block; font-weight: bold; color: #475569; margin-bottom: 8px; font-size: 0.95rem; }
-        .control-group select, .control-group button { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; cursor: pointer;}
+        .control-group label { display: block; font-weight: bold; color: #475569; margin-bottom: 10px; font-size: 0.95rem; }
+        .control-group select { width: 100%; padding: 12px; border: 2px solid #cbd5e1; border-radius: 8px; font-size: 1rem; cursor: pointer; background: #f8fafc; font-weight: bold; color: var(--dark);}
         
-        .btn { background: var(--ml-blue); color: white; border: none; font-weight: bold; transition: 0.2s; }
-        .btn:hover { background: #0369a1; }
-        .btn-atp { background: #eab308; color: #854d0e; border: none; font-weight: bold; box-shadow: 0 4px 0 #ca8a04; margin-top: 10px;}
+        .btn { width: 100%; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-bottom: 10px; font-size: 0.95rem; box-shadow: 0 4px 0 rgba(0,0,0,0.2);}
+        .btn:hover { filter: brightness(1.1); transform: translateY(-2px);}
+        .btn:active { transform: translateY(2px); box-shadow: none; }
+
+        .btn-atp { width: 100%; background: #eab308; color: #854d0e; border: none; font-weight: 900; box-shadow: 0 4px 0 #ca8a04; margin-top: 5px; font-size: 1.1rem; padding: 15px; border-radius: 8px; cursor: pointer; transition: 0.2s;}
         .btn-atp:active { transform: translateY(4px); box-shadow: none; }
+        .btn-atp:disabled { background: #cbd5e1; color: #94a3b8; box-shadow: none; cursor: not-allowed; }
+        .btn-atp.glow { animation: atpGlow 1.5s infinite; }
+        @keyframes atpGlow { 0% {box-shadow: 0 4px 0 #ca8a04, 0 0 10px #fde047;} 50% {box-shadow: 0 4px 0 #ca8a04, 0 0 25px #fde047;} 100% {box-shadow: 0 4px 0 #ca8a04, 0 0 10px #fde047;} }
 
-        .canvas-container { background: #0f172a; border-radius: 12px; border: 4px solid #94a3b8; overflow: hidden; position: relative; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); height: 500px; }
-        canvas { width: 100%; height: 100%; }
+        .canvas-container { background: #0f172a; border-radius: 15px; border: 4px solid #334155; overflow: hidden; position: relative; box-shadow: inset 0 0 30px rgba(0,0,0,0.8); height: 600px; }
+        canvas { width: 100%; height: 100%; display: block;}
 
-        .info-box { background: #f0f9ff; border-left: 5px solid var(--ml-blue); padding: 15px; border-radius: 0 8px 8px 0; margin-top: auto; font-size: 0.95rem; line-height: 1.5; color: #0369a1; }
+        .info-box { background: #f0f9ff; border-left: 5px solid var(--ml-blue); padding: 15px; border-radius: 0 8px 8px 0; margin-top: auto; font-size: 0.95rem; line-height: 1.6; color: #0369a1; }
+        .info-box b { color: #0c4a6e; }
     </style>
 </head>
 <body>
 
     <div class="nav">
-        <a href="unit2.html" class="back-link">⬅ Back to Unit 2</a>
-        <h2 style="margin:0; font-size: 1.2rem;">Lab 5: Cellular Transport & Osmosis</h2>
-        <span style="font-size: 0.9rem;">Maple Leaf Biology</span>
+        <a href="unit2.html" class="back-link">⬅ Back to Biology 11</a>
+        <h2 style="margin:0;">Lab 5: Transport & Osmosis Master</h2>
+        <span style="font-size: 0.9rem; opacity: 0.8;">Maple Leaf Biosystems</span>
     </div>
 
     <div class="workspace">
         <div class="panel">
-            <h3>Select Simulation Mode</h3>
+            <h3>Simulation Mode</h3>
             <div class="mode-selector">
                 <button class="mode-btn active" onclick="setMode('osmosis')" id="btn-osmosis">1. Osmosis (Macro)</button>
                 <button class="mode-btn" onclick="setMode('transport')" id="btn-transport">2. Membrane (Micro)</button>
             </div>
 
+            <!-- Osmosis Controls -->
             <div id="controls-osmosis">
                 <div class="control-group">
                     <label>Extracellular Environment:</label>
                     <select id="tonicity" onchange="updateOsmosis()">
                         <option value="isotonic">Isotonic (Equal Solutes)</option>
-                        <option value="hypotonic">Hypotonic (More water outside)</option>
-                        <option value="hypertonic">Hypertonic (More salt outside)</option>
+                        <option value="hypotonic">Hypotonic (More solutes INSIDE)</option>
+                        <option value="hypertonic">Hypertonic (More solutes OUTSIDE)</option>
                     </select>
                 </div>
             </div>
 
+            <!-- Transport Controls -->
             <div id="controls-transport" style="display:none;">
+                
                 <div class="control-group">
-                    <label>Add Molecules Outside Cell:</label>
-                    <button class="btn" onclick="spawnParticles('O2')" style="margin-bottom: 10px;">Add O₂ (Simple Diffusion)</button>
-                    <button class="btn" style="background:#8b5cf6; margin-bottom: 10px;" onclick="spawnParticles('Glucose')">Add Glucose (Facilitated Diffusion)</button>
-                    <button class="btn" style="background:#ef4444;" onclick="spawnParticles('Na')">Add Na⁺ (Outside) & K⁺ (Inside)</button>
+                    <label style="color:#0ea5e9; font-size:1.05rem;">1. Passive Transport (No Energy)</label>
+                    <p style="font-size:0.85rem; color:#64748b; margin-top:0; margin-bottom:10px;">Follows concentration gradient (High &rarr; Low)</p>
+                    <button class="btn" style="background:#0ea5e9;" onclick="spawnParticles('O2')">Add O₂ (Simple Diffusion)</button>
+                    <button class="btn" style="background:#8b5cf6;" onclick="spawnParticles('Glucose')">Add Glucose (Facilitated Diffusion)</button>
                 </div>
-                <div class="control-group">
-                    <button class="btn-atp" onclick="triggerPump()">⚡ Consume ATP (Activate Na⁺/K⁺ Pump)</button>
+
+                <div class="control-group" style="border-top: 2px dashed #e2e8f0; padding-top: 15px;">
+                    <label style="color:#ef4444; font-size:1.05rem;">2. Active Transport (Requires ATP)</label>
+                    <p style="font-size:0.85rem; color:#64748b; margin-top:0; margin-bottom:10px;">Moves <b>AGAINST</b> gradients (Low &rarr; High)</p>
+                    <button class="btn-atp glow" id="btn-pump" onclick="triggerPump()">▶ Play Na⁺/K⁺ Cycle (1 ATP)</button>
                 </div>
+
             </div>
 
-            <div class="info-box" id="info-box">
-                </div>
+            <div class="info-box" id="info-box"></div>
         </div>
 
-        <div class="canvas-container">
-            <canvas id="bioCanvas" width="800" height="500"></canvas>
+        <div class="canvas-container" id="canvas-wrapper">
+            <canvas id="bioCanvas"></canvas>
         </div>
     </div>
 
     <script>
         const cvs = document.getElementById('bioCanvas');
         const ctx = cvs.getContext('2d');
+        let width, height;
         
         let currentMode = 'osmosis';
         let time = 0;
         
         // Osmosis Variables
-        let cellRadius = 120;
-        let targetRadius = 120;
+        let cellRadius = 130;
+        let targetRadius = 130;
         let tonicity = 'isotonic';
 
         // Transport Variables
-        let particles = [];
-        let pumpState = 0; // 0: closed, 1: open outwards (ATP used)
+        let ambientParticles = [];
+        let membraneY = 300; 
+        
+        // Layout X positions
+        let chX = 0; // Channel Protein X
+        let pmX = 0; // Pump Protein X
+
+        // Pump Sequence State Machine
+        let pumpActive = false;
+        let seqTimer = 0;
+        let seqParticles = [];
+        let atpPos = {x: 0, y: 0, show: false, label: 'ATP', color: '#eab308'};
+        let flashAlpha = 0;
+
+        function resize() {
+            width = cvs.width = document.getElementById('canvas-wrapper').clientWidth;
+            height = cvs.height = document.getElementById('canvas-wrapper').clientHeight;
+            membraneY = height / 2 + 10;
+            
+            chX = width * 0.35; // 通道蛋白位置在左侧 35%
+            pmX = width * 0.75; // 钠钾泵位置在右侧 75%
+
+            initAmbientParticles();
+        }
+        window.addEventListener('resize', resize);
+
+        function initAmbientParticles() {
+            ambientParticles = [];
+            // 背景浓度梯度布置 (为主动运输提供视觉背景)
+            // 外界环境: 高 Na, 低 K
+            for(let i=0; i<35; i++) ambientParticles.push({x: Math.random()*width, y: Math.random()*(membraneY-50), vx: (Math.random()-0.5)*1.5, vy: (Math.random()-0.5)*1.5, type: 'Na'});
+            for(let i=0; i<5; i++) ambientParticles.push({x: Math.random()*width, y: Math.random()*(membraneY-50), vx: (Math.random()-0.5)*1.5, vy: (Math.random()-0.5)*1.5, type: 'K'});
+            // 细胞内: 低 Na, 高 K
+            for(let i=0; i<5; i++) ambientParticles.push({x: Math.random()*width, y: membraneY+50+Math.random()*(height-membraneY-50), vx: (Math.random()-0.5)*1.5, vy: (Math.random()-0.5)*1.5, type: 'Na'});
+            for(let i=0; i<35; i++) ambientParticles.push({x: Math.random()*width, y: membraneY+50+Math.random()*(height-membraneY-50), vx: (Math.random()-0.5)*1.5, vy: (Math.random()-0.5)*1.5, type: 'K'});
+        }
+
+        function spawnParticles(type) {
+            // 模拟被动运输：从上方（外界）滴加氧气或葡萄糖
+            for(let i=0; i<15; i++) {
+                ambientParticles.push({
+                    x: 50 + Math.random()*(width-100),
+                    y: 20 + Math.random()*(membraneY-100),
+                    vx: (Math.random()-0.5)*3,
+                    vy: Math.random()*1.5 + 1, // 初始有一个向下的速度，模拟顺浓度梯度流入
+                    type: type
+                });
+            }
+        }
 
         function setMode(mode) {
             currentMode = mode;
@@ -105,17 +166,17 @@
             document.getElementById('controls-osmosis').style.display = mode === 'osmosis' ? 'block' : 'none';
             document.getElementById('controls-transport').style.display = mode === 'transport' ? 'block' : 'none';
 
-            particles = [];
-            pumpState = 0;
-
             if(mode === 'osmosis') {
                 updateOsmosis();
             } else {
+                resize(); // 重置微观粒子
+                pumpActive = false;
+                document.getElementById('btn-pump').disabled = false;
                 document.getElementById('info-box').innerHTML = `
-                    <b>Microscopic Membrane Transport</b><br><br>
-                    • <b>O₂ (Small, non-polar):</b> Slips directly through the phospholipid bilayer.<br>
-                    • <b>Glucose (Large, polar):</b> Must use a channel protein.<br>
-                    • <b>Na⁺/K⁺ Pump:</b> Uses ATP to force 3 Na⁺ out and 2 K⁺ in against their concentration gradients (Active Transport).
+                    <b>Membrane Transport Rules:</b><br><br>
+                    • <b style="color:#0ea5e9;">O₂ (Simple):</b> Tiny and non-polar, slips right through lipids.<br>
+                    • <b style="color:#8b5cf6;">Glucose (Facilitated):</b> Large and polar, bounces off lipids. Needs a Channel Protein to cross.<br>
+                    • <b style="color:#ef4444;">Na⁺/K⁺ Pump (Active):</b> Uses ATP energy to force ions against their gradients.
                 `;
             }
         }
@@ -123,187 +184,280 @@
         function updateOsmosis() {
             tonicity = document.getElementById('tonicity').value;
             let info = document.getElementById('info-box');
-            
             if(tonicity === 'isotonic') {
-                targetRadius = 120;
-                info.innerHTML = `<b>Isotonic Environment</b><br>Water moves in and out of the cell at an equal rate. The cell maintains its normal shape.`;
+                targetRadius = 130;
+                info.innerHTML = `<b>Isotonic (Dynamic Equilibrium)</b><br>Solute concentration is equal. Water flows in and out at the same rate. Cell shape is stable.`;
             } else if(tonicity === 'hypotonic') {
-                targetRadius = 180;
-                info.innerHTML = `<b>Hypotonic Environment</b><br>There is a higher concentration of pure water outside. Water rushes INTO the cell, causing it to swell (and potentially burst/lyse in animal cells).`;
+                targetRadius = 190;
+                info.innerHTML = `<b>Hypotonic (Cytolysis Risk)</b><br>More solutes inside the cell. Water rushes <b>INTO</b> the cell to dilute it, causing swelling.`;
             } else if(tonicity === 'hypertonic') {
-                targetRadius = 70;
-                info.innerHTML = `<b>Hypertonic Environment</b><br>There is a higher concentration of solutes (like salt) outside. Water rushes OUT of the cell, causing it to shrivel (crenation).`;
-            }
-        }
-
-        function spawnParticles(type) {
-            if(type === 'Na') {
-                // Spawn Na outside, K inside
-                for(let i=0; i<15; i++) {
-                    particles.push({ x: 100+Math.random()*600, y: 50+Math.random()*100, vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2, type: 'Na', out: true });
-                    particles.push({ x: 100+Math.random()*600, y: 350+Math.random()*100, vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2, type: 'K', out: false });
-                }
-            } else {
-                for(let i=0; i<20; i++) {
-                    particles.push({
-                        x: 100 + Math.random()*600, 
-                        y: 50 + Math.random()*100, 
-                        vx: (Math.random()-0.5)*2, 
-                        vy: Math.random()*2 + 1, // moving down
-                        type: type,
-                        out: true
-                    });
-                }
+                targetRadius = 80;
+                info.innerHTML = `<b>Hypertonic (Crenation)</b><br>More solutes outside. Water rushes <b>OUT</b> of the cell, causing it to shrivel.`;
             }
         }
 
         function triggerPump() {
-            pumpState = 30; // 动画帧数
+            if(pumpActive) return;
+            pumpActive = true;
+            seqTimer = 0;
+            document.getElementById('btn-pump').disabled = true;
+            document.getElementById('btn-pump').classList.remove('glow');
+            
+            seqParticles = [];
+            // 3 Na+ starting inside
+            seqParticles.push({x: pmX-80, y: height-50, targetX: pmX-15, targetY: membraneY+10, type: 'Na', active: true, phase: 1});
+            seqParticles.push({x: pmX, y: height-30, targetX: pmX, targetY: membraneY+20, type: 'Na', active: true, phase: 1});
+            seqParticles.push({x: pmX+80, y: height-50, targetX: pmX+15, targetY: membraneY+10, type: 'Na', active: true, phase: 1});
+            
+            // 2 K+ starting outside
+            seqParticles.push({x: pmX-60, y: 50, targetX: pmX-10, targetY: membraneY-20, type: 'K', active: false, phase: 3});
+            seqParticles.push({x: pmX+60, y: 50, targetX: pmX+10, targetY: membraneY-20, type: 'K', active: false, phase: 3});
+
+            // ATP position
+            atpPos = {x: pmX - 150, y: height - 60, show: false, label: 'ATP', color: '#eab308'};
         }
 
         // --- DRAWING FUNCTIONS ---
 
         function drawOsmosis() {
-            // 背景水环境颜色
-            ctx.fillStyle = tonicity === 'hypertonic' ? '#082f49' : (tonicity === 'hypotonic' ? '#bae6fd' : '#0284c7');
-            ctx.fillRect(0,0,800,500);
+            ctx.fillStyle = tonicity === 'hypertonic' ? '#0f172a' : (tonicity === 'hypotonic' ? '#e0f2fe' : '#0284c7');
+            ctx.fillRect(0,0,width,height);
 
-            // 缓动动画改变细胞大小
-            cellRadius += (targetRadius - cellRadius) * 0.05;
+            cellRadius += (targetRadius - cellRadius) * 0.04;
+            let cx = width/2, cy = height/2;
 
-            // 细胞膜
             ctx.fillStyle = '#fca5a5';
             ctx.beginPath();
-            
-            // 如果是高渗皱缩，边缘变得不规则
-            if(tonicity === 'hypertonic' && cellRadius < 90) {
-                for(let i=0; i<Math.PI*2; i+=0.2) {
-                    let r = cellRadius + Math.sin(i*8 + time)*5;
-                    ctx.lineTo(400 + Math.cos(i)*r, 250 + Math.sin(i)*r);
+            if(tonicity === 'hypertonic' && cellRadius < 90) { 
+                for(let i=0; i<Math.PI*2; i+=0.1) {
+                    let r = cellRadius + Math.sin(i*12 + time)*6;
+                    ctx.lineTo(cx + Math.cos(i)*r, cy + Math.sin(i)*r);
                 }
             } else {
-                ctx.arc(400, 250, cellRadius, 0, Math.PI*2);
+                ctx.arc(cx, cy, cellRadius, 0, Math.PI*2);
             }
             ctx.fill();
-            ctx.lineWidth = 6; ctx.strokeStyle = '#ef4444'; ctx.stroke();
+            ctx.lineWidth = 5; ctx.strokeStyle = '#ef4444'; ctx.stroke();
 
-            // 细胞核
             ctx.fillStyle = '#c084fc';
-            ctx.beginPath(); ctx.arc(400, 250, cellRadius*0.3, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx, cy, cellRadius*0.25, 0, Math.PI*2); ctx.fill();
 
-            // 绘制动态水分子流动动画
-            ctx.fillStyle = 'white';
-            for(let i=0; i<15; i++) {
-                let angle = (time + i) % (Math.PI*2);
-                let dist = 150;
-                let dir = 0;
-                
-                if(tonicity === 'hypertonic') { dir = 1; dist = cellRadius + (time*50 + i*20)%100; } // out
-                else if(tonicity === 'hypotonic') { dir = -1; dist = 300 - (time*50 + i*20)%200; } // in
-                else { dist = cellRadius + Math.sin(time*2 + i)*30; } // isotonic wobble
+            // Solutes drawing
+            ctx.fillStyle = '#10b981';
+            let outCount = tonicity === 'hypertonic' ? 150 : (tonicity === 'hypotonic' ? 20 : 60);
+            let inCount = tonicity === 'hypertonic' ? 20 : (tonicity === 'hypotonic' ? 150 : 60);
+            
+            Math.seedrandom = function(s) { let m_w = s; let m_z = 987654321; let mask = 0xffffffff; return function() { m_z = (36969 * (m_z & 65535) + (m_z >> 16)) & mask; m_w = (18000 * (m_w & 65535) + (m_w >> 16)) & mask; let result = ((m_z << 16) + m_w) & mask; result /= 4294967296; return result + 0.5; } };
+            let rnd = Math.seedrandom(12345);
 
-                ctx.beginPath();
-                ctx.arc(400 + Math.cos(angle)*dist, 250 + Math.sin(angle)*dist, 4, 0, Math.PI*2);
-                ctx.fill();
+            for(let i=0; i<outCount; i++) {
+                let rx = rnd()*width; let ry = rnd()*height;
+                let dx = rx - cx; let dy = ry - cy;
+                if(Math.sqrt(dx*dx + dy*dy) > cellRadius + 20) {
+                    ctx.beginPath(); ctx.arc(rx, ry, 3, 0, Math.PI*2); ctx.fill();
+                }
+            }
+            for(let i=0; i<inCount; i++) {
+                let rx = cx + (rnd()-0.5)*cellRadius*1.5; let ry = cy + (rnd()-0.5)*cellRadius*1.5;
+                let dx = rx - cx; let dy = ry - cy;
+                if(Math.sqrt(dx*dx + dy*dy) < cellRadius - 10) {
+                    ctx.beginPath(); ctx.arc(rx, ry, 3, 0, Math.PI*2); ctx.fill();
+                }
             }
 
-            // 标签
-            ctx.fillStyle = 'white'; ctx.font = 'bold 20px Arial'; ctx.textAlign='center';
-            ctx.fillText(tonicity.toUpperCase(), 400, 50);
+            // Water flow arrows
+            ctx.lineWidth = 3;
+            let arrowDist = cellRadius + 40;
+            for(let i=0; i<4; i++) {
+                let angle = i * Math.PI/2 + time*0.5;
+                let ax = cx + Math.cos(angle)*arrowDist;
+                let ay = cy + Math.sin(angle)*arrowDist;
+                
+                ctx.save(); ctx.translate(ax, ay); ctx.rotate(angle);
+                ctx.strokeStyle = '#fff'; ctx.fillStyle = '#fff';
+                
+                if(tonicity === 'hypertonic') { 
+                    ctx.beginPath(); ctx.moveTo(-20, 0); ctx.lineTo(20, 0); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(20, 0); ctx.lineTo(10, -8); ctx.lineTo(10, 8); ctx.fill();
+                } else if (tonicity === 'hypotonic') { 
+                    ctx.beginPath(); ctx.moveTo(20, 0); ctx.lineTo(-20, 0); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(-20, 0); ctx.lineTo(-10, -8); ctx.lineTo(-10, 8); ctx.fill();
+                } else { 
+                    ctx.beginPath(); ctx.moveTo(-15, -5); ctx.lineTo(15, -5); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(15, -5); ctx.lineTo(5, -13); ctx.lineTo(5, 3); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo(15, 5); ctx.lineTo(-15, 5); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(-15, 5); ctx.lineTo(-5, -3); ctx.lineTo(-5, 13); ctx.fill();
+                }
+                ctx.restore();
+            }
+
+            ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(cx-100, 20, 200, 40);
+            ctx.fillStyle = 'white'; ctx.font = 'bold 24px Arial'; ctx.textAlign='center';
+            ctx.fillText(tonicity.toUpperCase(), cx, 48);
         }
 
         function drawTransport() {
-            ctx.fillStyle = '#0f172a'; ctx.fillRect(0,0,800,500);
+            ctx.fillStyle = '#0f172a'; ctx.fillRect(0,0,width,height);
             
-            // Extracellular / Intracellular labels
-            ctx.fillStyle = '#64748b'; ctx.font = '16px Arial';
-            ctx.fillText("Extracellular Space (Outside)", 100, 30);
-            ctx.fillText("Intracellular Space (Cytoplasm)", 100, 470);
+            // Background Labels
+            ctx.fillStyle = '#cbd5e1'; ctx.font = 'bold 18px Arial'; ctx.textAlign='left';
+            ctx.fillText("Extracellular Fluid", 20, 30);
+            ctx.fillStyle = '#ef4444'; ctx.fillText("[High Na⁺]", 20, 55);
+            ctx.fillStyle = '#f59e0b'; ctx.fillText("[Low K⁺]", 120, 55);
 
-            // Draw Phospholipid Bilayer
-            let membraneY = 220;
-            ctx.fillStyle = '#fde047'; // 亲水头
-            for(let x=0; x<=800; x+=20) {
-                if(x > 280 && x < 360) continue; // 通道蛋白位置
-                if(x > 500 && x < 580) continue; // 钠钾泵位置
-                ctx.beginPath(); ctx.arc(x, membraneY, 8, 0, Math.PI*2); ctx.fill(); // 上层
-                ctx.beginPath(); ctx.arc(x, membraneY+60, 8, 0, Math.PI*2); ctx.fill(); // 下层
-                // 疏水尾
-                ctx.strokeStyle='#fb923c'; ctx.lineWidth=2;
-                ctx.beginPath(); ctx.moveTo(x-2, membraneY+8); ctx.lineTo(x-4, membraneY+28); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(x+2, membraneY+8); ctx.lineTo(x+4, membraneY+28); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(x-2, membraneY+52); ctx.lineTo(x-4, membraneY+32); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(x+2, membraneY+52); ctx.lineTo(x+4, membraneY+32); ctx.stroke();
-            }
+            ctx.fillStyle = '#cbd5e1'; ctx.fillText("Cytoplasm", 20, height - 50);
+            ctx.fillStyle = '#ef4444'; ctx.fillText("[Low Na⁺]", 20, height - 25);
+            ctx.fillStyle = '#f59e0b'; ctx.fillText("[High K⁺]", 120, height - 25);
 
-            // Draw Channel Protein (Facilitated Diffusion)
-            ctx.fillStyle = '#8b5cf6';
-            ctx.fillRect(290, membraneY-15, 20, 90); ctx.fillRect(330, membraneY-15, 20, 90);
-            ctx.fillStyle = 'white'; ctx.font='12px Arial'; ctx.fillText("Channel", 320, membraneY-25);
-
-            // Draw Na+/K+ Pump
-            ctx.fillStyle = '#ef4444';
-            if(pumpState > 0) {
-                // ATP激活状态：向外开口
-                ctx.beginPath(); ctx.moveTo(500, membraneY-10); ctx.lineTo(580, membraneY-10); ctx.lineTo(560, membraneY+70); ctx.lineTo(520, membraneY+70); ctx.fill();
-                pumpState--;
-                ctx.fillStyle='#eab308'; ctx.fillText("⚡ ATP!", 540, membraneY+90);
-            } else {
-                // 静息状态：向内开口
-                ctx.beginPath(); ctx.moveTo(520, membraneY-10); ctx.lineTo(560, membraneY-10); ctx.lineTo(580, membraneY+70); ctx.lineTo(500, membraneY+70); ctx.fill();
-            }
-            ctx.fillStyle = 'white'; ctx.fillText("Na⁺/K⁺ Pump", 540, membraneY-25);
-
-            // Update & Draw Particles
-            particles.forEach(p => {
-                p.x += p.vx; p.y += p.vy;
-
-                // 墙壁反弹
-                if(p.x < 0 || p.x > 800) p.vx *= -1;
-                if(p.y < 0 || p.y > 500) p.vy *= -1;
-
-                // 膜拦截逻辑
-                let hitMembrane = (p.y > membraneY-10 && p.y < membraneY+70);
+            // 1. Draw Phospholipid Bilayer
+            for(let x=0; x<=width; x+=25) {
+                // Skip drawing lipids where proteins are
+                if(x > chX-35 && x < chX+35) continue; 
+                if(x > pmX-45 && x < pmX+45) continue; 
                 
-                if(hitMembrane) {
+                ctx.fillStyle = '#fde047'; 
+                ctx.beginPath(); ctx.arc(x, membraneY-35, 10, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(x, membraneY+35, 10, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle='#fb923c'; ctx.lineWidth=3;
+                ctx.beginPath(); ctx.moveTo(x-4, membraneY-25); ctx.lineTo(x-6, membraneY-5); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(x+4, membraneY-25); ctx.lineTo(x+6, membraneY-5); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(x-4, membraneY+25); ctx.lineTo(x-6, membraneY+5); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(x+4, membraneY+25); ctx.lineTo(x+6, membraneY+5); ctx.stroke();
+            }
+
+            // 2. Draw Channel Protein (Facilitated Diffusion)
+            ctx.fillStyle = '#8b5cf6';
+            ctx.fillRect(chX-25, membraneY-45, 15, 90); ctx.fillRect(chX+10, membraneY-45, 15, 90);
+            ctx.fillStyle = 'white'; ctx.font='bold 12px Arial'; ctx.textAlign='center'; 
+            ctx.fillText("Channel", chX, membraneY-55);
+
+            // 3. Ambient Particles Logic (Passive & Background)
+            ambientParticles.forEach(p => {
+                p.x += p.vx; p.y += p.vy;
+                
+                // Walls
+                if(p.x < 10 || p.x > width-10) p.vx *= -1;
+                if(p.y < 10 || p.y > height-10) p.vy *= -1;
+                
+                // Membrane Collision Zone
+                if(p.y > membraneY-50 && p.y < membraneY+50) {
                     if(p.type === 'O2') {
-                        // 氧气自由扩散：不阻挡，直接过
+                        // Free pass (Simple diffusion)
                     } 
-                    else if(p.type === 'Glucose') {
-                        // 葡萄糖：只能走通道 (x: 310-330)
-                        if(p.x < 310 || p.x > 330) {
-                            p.vy *= -1; // 撞在膜上反弹
-                            p.y = p.out ? membraneY-10 : membraneY+70;
+                    else if (p.type === 'Glucose') {
+                        // Must pass through Channel
+                        if(p.x < chX-20 || p.x > chX+20) {
+                            p.vy *= -1; p.y += p.vy*2; // Bounce off lipid
                         }
-                    }
-                    else if(p.type === 'Na' || p.type === 'K') {
-                        // 离子：走钠钾泵 (x: 520-560)
-                        if(p.x > 520 && p.x < 560) {
-                            if(pumpState > 0) {
-                                // 泵开启：Na出去，K进来
-                                if(p.type === 'Na') p.vy = -3;
-                                if(p.type === 'K') p.vy = 3;
-                            } else {
-                                // 泵关闭：卡在中间或反弹
-                                p.vy = 0;
-                            }
-                        } else {
-                            p.vy *= -1; // 撞在膜上反弹
-                            p.y = p.out ? membraneY-10 : membraneY+70;
-                        }
+                    } 
+                    else {
+                        // Background Na/K bounce off everything (they wait for active sequence)
+                        p.vy *= -1; p.y += p.vy*2;
                     }
                 }
-
-                // 记录是在膜内还是膜外
-                p.out = p.y < membraneY;
-
-                // Draw Particle
-                ctx.beginPath();
-                if(p.type === 'O2') { ctx.fillStyle = '#38bdf8'; ctx.arc(p.x, p.y, 4, 0, Math.PI*2); ctx.fill(); }
-                if(p.type === 'Glucose') { ctx.fillStyle = '#10b981'; ctx.fillRect(p.x-6, p.y-6, 12, 12); }
-                if(p.type === 'Na') { ctx.fillStyle = '#ef4444'; ctx.arc(p.x, p.y, 5, 0, Math.PI*2); ctx.fill(); ctx.fillStyle='white'; ctx.fillText("Na", p.x, p.y+3); }
-                if(p.type === 'K') { ctx.fillStyle = '#f59e0b'; ctx.arc(p.x, p.y, 6, 0, Math.PI*2); ctx.fill(); ctx.fillStyle='white'; ctx.fillText("K", p.x, p.y+4); }
+                drawIon(p.x, p.y, p.type);
             });
+
+            // 4. ATP PUMP SEQUENCE LOGIC
+            let pumpOpenOutside = false;
+
+            if(pumpActive) {
+                seqTimer++;
+                
+                // Phase 1: 3 Na+ move in (0 - 60)
+                if(seqTimer <= 60) {
+                    seqParticles.forEach(p => { if(p.phase===1) { p.x += (p.targetX - p.x)*0.1; p.y += (p.targetY - p.y)*0.1; } });
+                }
+                // Phase 2: ATP moves in (60 - 120)
+                else if(seqTimer > 60 && seqTimer <= 120) {
+                    atpPos.show = true;
+                    atpPos.x += (pmX - 40 - atpPos.x)*0.1;
+                    atpPos.y += (membraneY + 30 - atpPos.y)*0.1;
+                }
+                // Phase 3: Flash, ATP->ADP, Pump Flips (120 - 140)
+                else if(seqTimer > 120 && seqTimer <= 140) {
+                    if(seqTimer === 121) flashAlpha = 1;
+                    pumpOpenOutside = true;
+                    atpPos.label = 'ADP'; atpPos.color = '#94a3b8';
+                    atpPos.x -= 2; atpPos.y += 2; // ADP floats away
+                }
+                // Phase 4: Na+ shoots out (140 - 200)
+                else if(seqTimer > 140 && seqTimer <= 200) {
+                    pumpOpenOutside = true;
+                    seqParticles.forEach(p => { if(p.phase===1) { p.y -= 5; p.x += (Math.random()-0.5)*2; } });
+                    atpPos.x -= 2; atpPos.y += 2; 
+                }
+                // Phase 5: K+ moves in (200 - 260)
+                else if(seqTimer > 200 && seqTimer <= 260) {
+                    pumpOpenOutside = true;
+                    seqParticles.forEach(p => { if(p.phase===3) { p.active=true; p.x += (p.targetX - p.x)*0.1; p.y += (p.targetY - p.y)*0.1; } });
+                }
+                // Phase 6: Pi leaves, Pump Flips back (260 - 280)
+                else if(seqTimer > 260 && seqTimer <= 280) {
+                    pumpOpenOutside = false;
+                }
+                // Phase 7: K+ shoots in (280 - 340)
+                else if(seqTimer > 280 && seqTimer <= 340) {
+                    seqParticles.forEach(p => { if(p.phase===3) { p.y += 5; p.x += (Math.random()-0.5)*2; } });
+                }
+                // End Sequence
+                else if(seqTimer > 340) {
+                    pumpActive = false;
+                    document.getElementById('btn-pump').disabled = false;
+                    document.getElementById('btn-pump').classList.add('glow');
+                    atpPos.show = false;
+                }
+            }
+
+            // Draw Na/K Pump
+            ctx.fillStyle = '#6366f1';
+            if(pumpOpenOutside) {
+                ctx.beginPath(); ctx.moveTo(pmX-45, membraneY-45); ctx.lineTo(pmX+45, membraneY-45); ctx.lineTo(pmX+15, membraneY+45); ctx.lineTo(pmX-15, membraneY+45); ctx.fill();
+                // Draw bound Phosphate (Pi)
+                if(seqTimer > 120 && seqTimer < 270) {
+                    ctx.fillStyle = '#eab308'; ctx.beginPath(); ctx.arc(pmX-20, membraneY+30, 10, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#000'; ctx.font="10px Arial"; ctx.textAlign='center'; ctx.fillText("P", pmX-20, membraneY+34);
+                }
+            } else {
+                ctx.beginPath(); ctx.moveTo(pmX-15, membraneY-45); ctx.lineTo(pmX+15, membraneY-45); ctx.lineTo(pmX+45, membraneY+45); ctx.lineTo(pmX-45, membraneY+45); ctx.fill();
+            }
+            ctx.fillStyle = 'white'; ctx.font='bold 14px Arial'; ctx.textAlign='center'; ctx.fillText("Na⁺/K⁺ Pump", pmX, membraneY-60);
+
+            // Draw Sequence Particles & Effects
+            if(pumpActive) {
+                seqParticles.forEach(p => {
+                    if(p.active) drawIon(p.x, p.y, p.type);
+                });
+                if(atpPos.show) {
+                    ctx.fillStyle = atpPos.color;
+                    ctx.beginPath(); ctx.arc(atpPos.x, atpPos.y, 15, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.font="bold 12px Arial"; ctx.textAlign='center'; ctx.fillText(atpPos.label, atpPos.x, atpPos.y+4);
+                }
+                if(flashAlpha > 0) {
+                    ctx.fillStyle = `rgba(253, 224, 71, ${flashAlpha})`;
+                    ctx.beginPath(); ctx.arc(pmX, membraneY, 80, 0, Math.PI*2); ctx.fill();
+                    flashAlpha -= 0.05;
+                }
+            }
+        }
+
+        function drawIon(x, y, type) {
+            ctx.beginPath();
+            if(type === 'O2') { 
+                ctx.fillStyle = '#38bdf8'; ctx.arc(x, y, 6, 0, Math.PI*2); ctx.fill(); 
+            }
+            else if(type === 'Glucose') { 
+                ctx.fillStyle = '#10b981'; ctx.fillRect(x-8, y-8, 16, 16); 
+                ctx.fillStyle='white'; ctx.font='bold 10px Arial'; ctx.textAlign='center'; ctx.fillText("G", x, y+4);
+            }
+            else if(type === 'Na') { 
+                ctx.fillStyle = '#ef4444'; ctx.arc(x, y, 8, 0, Math.PI*2); ctx.fill(); 
+                ctx.fillStyle='white'; ctx.font='bold 10px Arial'; ctx.textAlign='center'; ctx.fillText("Na", x, y+3); 
+            }
+            else if(type === 'K') { 
+                ctx.fillStyle = '#f59e0b'; ctx.arc(x, y, 10, 0, Math.PI*2); ctx.fill(); 
+                ctx.fillStyle='white'; ctx.font='bold 12px Arial'; ctx.textAlign='center'; ctx.fillText("K", x, y+4); 
+            }
         }
 
         function animate() {
@@ -314,6 +468,7 @@
         }
 
         setMode('osmosis');
+        resize();
         animate();
     </script>
 </body>
