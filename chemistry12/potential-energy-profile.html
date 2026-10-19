@@ -68,8 +68,7 @@
             </div>
             <button class="btn-fire" onclick="fireParticle()">🚀 Fire Particle</button>
 
-            <div class="data-card" id="data-board">
-                </div>
+            <div class="data-card" id="data-board"></div>
         </div>
 
         <div class="canvas-box">
@@ -85,10 +84,10 @@
         let hr, hp, eaPeak, catPeak, ke;
         let hasCatalyst = false;
         
-        // 粒子过山车物理变量
-        let particle = null;
+        // 改进版：引入守恒定律的物理变量
         let p_x = 0; 
-        let p_vx = 0;
+        let totalEnergy = 0; // 粒子的系统总能量
+        let p_dir = 1;       // 1向右走，-1向左滑落
         let isAnimating = false;
 
         function resize() {
@@ -116,13 +115,21 @@
             let rawEa = parseInt(document.getElementById('ea-slider').value);
             ke = parseInt(document.getElementById('ke-slider').value);
             
+            // 化学逻辑防呆：如果是吸热反应，Ea 至少等于 ΔH
+            let minEa = hp > hr ? (hp - hr) : 0;
+            if(rawEa < minEa) rawEa = minEa;
+
             document.getElementById('hr-val').innerText = hr + " kJ";
             document.getElementById('hp-val').innerText = hp + " kJ";
-            document.getElementById('ea-val').innerText = rawEa + " kJ";
+            document.getElementById('ea-val').innerText = rawEa + " kJ" + (rawEa === minEa && minEa > 0 ? " (Min Limit)" : "");
             document.getElementById('ke-val').innerText = ke + " kJ";
 
             eaPeak = hr + rawEa;
-            catPeak = hr + (rawEa * 0.4); // 催化剂降低60%的活化能
+            
+            // 催化剂降低 60% 活化能，但也不能低于生成物的高度
+            let catEa = rawEa * 0.4;
+            if(catEa < minEa) catEa = minEa; 
+            catPeak = hr + catEa;
 
             let deltaH = hp - hr;
             let currentEa = hasCatalyst ? (catPeak - hr) : rawEa;
@@ -142,7 +149,6 @@
             if(!isAnimating) drawGraph();
         }
 
-        // 数学函数：通过 X 坐标计算对应的 Y 能量值 (构建平滑山峰)
         function getEnergyAtX(x) {
             let w = cvs.width;
             let center = w / 2;
@@ -151,11 +157,8 @@
             if(x < w*0.2) return hr;
             if(x > w*0.8) return hp;
 
-            // 用高斯函数和 sigmoid 混合生成平滑的化学势能面
             let normX = (x - center) / (w * 0.2); 
             let barrier = (peakTarget - Math.max(hr, hp)) * Math.exp(-0.5 * normX * normX);
-            
-            // 基础台阶平滑过渡
             let step = hr + (hp - hr) / (1 + Math.exp(-2.5 * normX));
             
             return Math.max(hr, hp) === peakTarget ? step : step + barrier;
@@ -164,8 +167,8 @@
         function fireParticle() {
             if(isAnimating) return;
             p_x = cvs.width * 0.1;
-            // 赋予初始动能，转换为速度
-            p_vx = Math.sqrt(ke) * 0.4; 
+            totalEnergy = hr + ke; // 设置绝对守恒的总能量
+            p_dir = 1;
             isAnimating = true;
             document.getElementById('status-msg').style.display = 'none';
             requestAnimationFrame(physicsLoop);
@@ -173,23 +176,32 @@
 
         function physicsLoop() {
             let currentPE = getEnergyAtX(p_x);
-            let nextPE = getEnergyAtX(p_x + p_vx);
+            let currentKE = totalEnergy - currentPE;
             
-            // 能量守恒: KE_new = KE_old - Delta_PE
-            let dPE = nextPE - currentPE;
-            let currentKE = 0.5 * (p_vx * p_vx) / 0.16; // 还原动能
-
-            if(currentKE > dPE) {
-                // 有足够能量爬坡/下坡
-                let newKE = currentKE - dPE;
-                p_vx = Math.sqrt(newKE) * 0.4 * Math.sign(p_vx);
-                p_x += p_vx;
-            } else {
-                // 能量不足，滑落反弹
-                p_vx *= -0.8; 
-                p_x += p_vx;
+            // 物理防穿透机制：如果步长导致粒子进入了不可能的能量壁
+            if(currentKE < 0) {
+                currentKE = 0;
+                p_dir *= -1; // 撞墙反弹
+                while(getEnergyAtX(p_x) > totalEnergy) {
+                    p_x += p_dir * 0.5; // 退回到合法区域
+                }
+                currentPE = getEnergyAtX(p_x);
+                currentKE = totalEnergy - currentPE;
             }
 
+            // 动能转化为速度，0.35是控制动画快慢的视觉常数
+            let speed = Math.sqrt(currentKE) * 0.35; 
+            
+            // 智能坡度检测：当动能几乎耗尽时，探测前后高度，顺着重力方向滑落
+            if(speed < 0.2) {
+                let grad = getEnergyAtX(p_x + 1) - getEnergyAtX(p_x - 1);
+                if(grad > 0) p_dir = -1;      // 右侧高，向左滑
+                else if(grad < 0) p_dir = 1;  // 右侧低，向右滑
+                speed = 0.5; // 给予微小启动速度，防止卡死在绝对平坦的峰顶
+            }
+            
+            p_x += speed * p_dir;
+            
             drawGraph();
             
             // 绘制滚动粒子
@@ -199,14 +211,14 @@
             ctx.beginPath(); ctx.arc(p_x, py - 15, 15, 0, Math.PI*2); ctx.fill();
             ctx.shadowBlur = 0;
 
-            // 胜利条件
+            // 成功条件
             if(p_x > cvs.width * 0.8) {
                 isAnimating = false;
                 showMsg("Reaction Successful!", "#22c55e");
                 return;
             }
-            // 失败条件 (退回起点且速度极慢)
-            if(p_x < cvs.width * 0.2 && Math.abs(p_vx) < 0.5 && currentKE < 5) {
+            // 失败退回条件
+            if(p_x < cvs.width * 0.2 && p_dir === -1) {
                 isAnimating = false;
                 showMsg("Reaction Failed (Low KE)", "#ef4444");
                 return;
@@ -229,7 +241,6 @@
             let w = cvs.width; let h = cvs.height;
             let baseY = h - 50; 
             
-            // Y坐标转换器 (Max Energy = 800)
             let toY = (e) => baseY - (e / 800) * (h - 100);
 
             // 绘制网格
@@ -239,7 +250,7 @@
                 ctx.fillStyle = '#475569'; ctx.font = '12px Arial'; ctx.fillText(i, 15, toY(i)+4);
             }
 
-            // 绘制当前设定的势能面
+            // 绘制实线势能面
             ctx.strokeStyle = hasCatalyst ? '#22c55e' : '#ef4444'; 
             ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
             ctx.beginPath();
@@ -253,13 +264,13 @@
             if(hasCatalyst) {
                 ctx.strokeStyle = 'rgba(239, 68, 68, 0.3)'; ctx.lineWidth = 4; ctx.setLineDash([10,10]);
                 ctx.beginPath();
-                hasCatalyst = false; // 临时关闭以获取原函数
+                hasCatalyst = false; 
                 for(let x=50; x<w; x+=5) {
                     let e = getEnergyAtX(x);
                     if(x===50) ctx.moveTo(x, toY(e)); else ctx.lineTo(x, toY(e));
                 }
                 ctx.stroke(); ctx.setLineDash([]);
-                hasCatalyst = true; // 恢复
+                hasCatalyst = true; 
             }
 
             // 坐标轴
