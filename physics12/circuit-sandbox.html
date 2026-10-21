@@ -33,11 +33,20 @@
         @keyframes flash { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
         /* Floating Editor (Smart Multimeter) */
-        .floating-editor { position: absolute; background: rgba(2, 6, 23, 0.95); border: 2px solid #38bdf8; color: white; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); display: none; z-index: 100; min-width: 250px; transform: translate(-50%, -110%); backdrop-filter: blur(5px);}
+        .floating-editor { 
+            position: absolute; background: rgba(2, 6, 23, 0.95); border: 2px solid #38bdf8; 
+            color: white; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); 
+            display: none; z-index: 100; min-width: 250px; backdrop-filter: blur(5px);
+            /* 移除了固定的 transform，交由 JS 动态计算 */
+        }
         .float-title { font-weight: 900; color: #38bdf8; margin-bottom: 15px; border-bottom: 1px dashed #475569; padding-bottom: 8px; text-transform: uppercase; font-size: 1rem; letter-spacing: 1px;}
-        .float-val { font-family: 'Courier New', monospace; font-size: 1.6rem; color: #22c55e; display: block; margin: 10px 0 15px 0; text-align: center; font-weight: bold;}
-        .float-slider { width: 100%; cursor: pointer; accent-color: #38bdf8;}
         
+        .input-group { display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 15px; }
+        .num-input { width: 80px; padding: 6px; font-size: 1.3rem; font-family: 'Courier New', monospace; font-weight: bold; background: #0f172a; color: #22c55e; border: 2px solid #38bdf8; border-radius: 6px; text-align: center; outline: none; transition: 0.2s;}
+        .num-input:focus { border-color: #fbbf24; box-shadow: 0 0 10px rgba(251,191,36,0.3);}
+        .unit-label { font-size: 1.3rem; color: #22c55e; font-weight: bold;}
+        
+        .float-slider { width: 100%; cursor: pointer; accent-color: #38bdf8;}
         .float-readout { font-family: 'Courier New', monospace; font-size: 0.95rem; color: #e2e8f0; margin-top: 15px; background: #0f172a; padding: 12px; border-radius: 8px; line-height: 1.6; border: 1px solid #334155;}
         .close-btn { position: absolute; top: 8px; right: 12px; cursor: pointer; color: #94a3b8; font-weight: bold; font-size: 1.5rem; transition: 0.2s;}
         .close-btn:hover { color: #ef4444; }
@@ -67,8 +76,8 @@
 
             <div class="info-panel">
                 <b>Pro Features:</b><br><br>
-                💡 <b>Auto-Splice:</b> Draw a resistor directly over a wire, and it will auto-cut into the circuit!<br><br>
-                💡 <b>Smart Solver:</b> Click on any active component using the 'Select' tool to view the live Ohm's Law breakdown.
+                💡 <b>Precision Setup:</b> Use the Select tool to type exact resistance or voltage values from your homework.<br><br>
+                💡 <b>Smart Solver:</b> Instantly view the step-by-step Ohm's Law breakdown for any selected component.
             </div>
         </div>
 
@@ -78,13 +87,15 @@
                 <div class="hint-box">Drag between grid dots to build. Electron speed indicates current magnitude.</div>
                 <div class="warning-box" id="warning-box">⚠️ HIGH CURRENT / SHORT CIRCUIT!</div>
                 
-                <!-- 悬浮万用表与编辑器 -->
                 <div class="floating-editor" id="float-editor">
                     <div class="close-btn" onclick="closeEditor()">&times;</div>
                     <div class="float-title" id="float-name">Component</div>
                     <div id="float-controls">
-                        <span class="float-val" id="float-value-text">10 &Omega;</span>
-                        <input type="range" class="float-slider" id="float-slider" min="1" max="100" step="1" oninput="updateComponentValue()">
+                        <div class="input-group">
+                            <input type="number" id="float-number" class="num-input" value="10" oninput="updateFromNumber()">
+                            <span id="float-unit" class="unit-label">&Omega;</span>
+                        </div>
+                        <input type="range" class="float-slider" id="float-slider" min="1" max="1000" step="1" oninput="updateFromSlider()">
                     </div>
                     <div class="float-readout" id="float-readout">
                         I: 0.00 A<br>V: 0.00 V
@@ -119,7 +130,7 @@
             drawLab();
         }
         window.addEventListener('resize', resize);
-        setTimeout(resize, 100); // init
+        setTimeout(resize, 100); 
 
         function setTool(tool) {
             currentTool = tool;
@@ -189,7 +200,7 @@
                             let defaultVal = currentTool === 'resistor' ? 10 : (currentTool === 'battery' ? 12 : 0);
                             let newComp = { type: currentTool, n1: dragStartNode, n2: endNode, val: defaultVal, I: 0, Vdrop: 0 };
                             
-                            removeOverlappingWires(newComp); // Auto-Splicing feature
+                            removeOverlappingWires(newComp); 
                             components.push(newComp);
                         }
                     }
@@ -216,7 +227,6 @@
             }
         }
 
-        // Auto-splice algorithm (cutting wires under new components)
         function removeOverlappingWires(newComp) {
             let x1 = newComp.n1.c, y1 = newComp.n1.r;
             let x2 = newComp.n2.c, y2 = newComp.n2.r;
@@ -263,25 +273,44 @@
             );
         }
 
-        // --- Floating Editor ---
+        // --- UPGRADED Floating Editor with Boundary Detection ---
         function openEditor(x, y) {
             let editor = document.getElementById('float-editor');
             editor.style.display = 'block';
+            
+            // 智能边界检测 (Boundary Detection)
+            let editorHeight = 280; // 预估悬浮窗最大高度
+            let yOffset = 30;
+            
+            // 如果鼠标点击位置 y 小于编辑器高度，说明如果在上面弹出会被遮挡
+            // 所以将其反转，在元件下方弹出
+            if (y < editorHeight) {
+                editor.style.top = (y + yOffset) + 'px';
+                editor.style.transform = 'translate(-50%, 0)'; // 向下弹出
+            } else {
+                editor.style.top = (y - yOffset) + 'px';
+                editor.style.transform = 'translate(-50%, -100%)'; // 向上弹出
+            }
+            
             editor.style.left = x + 'px';
-            editor.style.top = (y - 30) + 'px'; 
             
             let slider = document.getElementById('float-slider');
-            let valTxt = document.getElementById('float-value-text');
+            let numInput = document.getElementById('float-number');
+            let unitTxt = document.getElementById('float-unit');
             let controls = document.getElementById('float-controls');
             
             if(selectedComp.type === 'resistor') {
                 controls.style.display = 'block'; document.getElementById('float-name').innerText = 'Resistor Setup';
-                slider.min = 1; slider.max = 100; slider.step = 1; slider.value = selectedComp.val;
-                valTxt.innerHTML = selectedComp.val + ' &Omega;';
+                slider.min = 1; slider.max = 1000; slider.step = 1; 
+                slider.value = selectedComp.val;
+                numInput.value = selectedComp.val;
+                unitTxt.innerHTML = '&Omega;';
             } else if(selectedComp.type === 'battery') {
                 controls.style.display = 'block'; document.getElementById('float-name').innerText = 'Power Source (DC)';
-                slider.min = 1; slider.max = 120; slider.step = 1; slider.value = selectedComp.val;
-                valTxt.innerText = selectedComp.val + ' V';
+                slider.min = 1; slider.max = 240; slider.step = 1; 
+                slider.value = selectedComp.val;
+                numInput.value = selectedComp.val;
+                unitTxt.innerText = 'V';
             } else {
                 controls.style.display = 'none'; 
                 let title = selectedComp.type.toUpperCase();
@@ -296,11 +325,22 @@
             selectedComp = null;
         }
 
-        function updateComponentValue() {
+        function updateFromSlider() {
             if(selectedComp) {
-                selectedComp.val = parseFloat(document.getElementById('float-slider').value);
-                if(selectedComp.type === 'resistor') document.getElementById('float-value-text').innerHTML = selectedComp.val + ' &Omega;';
-                else document.getElementById('float-value-text').innerText = selectedComp.val + ' V';
+                let val = parseFloat(document.getElementById('float-slider').value);
+                document.getElementById('float-number').value = val;
+                selectedComp.val = val;
+                solveCircuit(); 
+                updateEditorReadout();
+            }
+        }
+
+        function updateFromNumber() {
+            if(selectedComp) {
+                let val = parseFloat(document.getElementById('float-number').value);
+                if(isNaN(val) || val < 0.01) val = 0.01; 
+                document.getElementById('float-slider').value = val;
+                selectedComp.val = val;
                 solveCircuit(); 
                 updateEditorReadout();
             }
@@ -311,7 +351,6 @@
                 let html = `Amps (I) : <span style="color:#38bdf8; font-weight:bold;">${Math.abs(selectedComp.I).toFixed(3)} A</span><br>` +
                            `Volts(V): <span style="color:#22c55e; font-weight:bold;">${Math.abs(selectedComp.Vdrop).toFixed(2)} V</span>`;
                 
-                // Add Step-by-Step Ohm's Law
                 if(selectedComp.type === 'resistor') {
                     let vStr = Math.abs(selectedComp.Vdrop).toFixed(2);
                     let iStr = Math.abs(selectedComp.I).toFixed(3);
@@ -321,10 +360,6 @@
             }
         }
 
-        // =========================================================
-        // PRO PHYSICS ENGINE (Advanced Modified Nodal Analysis)
-        // Completely robust against parallel loops and zero-resistance shorts.
-        // =========================================================
         function solveCircuit() {
             document.getElementById('warning-box').style.display = 'none';
 
@@ -336,20 +371,17 @@
             if (N < 2) { components.forEach(c => { c.I = 0; c.Vdrop = 0; }); return; }
 
             let nodeMap = {}; nodeArray.forEach((id, idx) => nodeMap[id] = idx);
-
-            // Matrix setup (G matrix for nodes)
             let A = Array(N).fill().map(() => Array(N).fill(0));
             let Z = Array(N).fill(0);
 
-            // To prevent singularity in pure wire loops, wires are treated as 0.001 ohm resistors
             components.forEach(c => {
                 let idx1 = nodeMap[c.n1.id]; let idx2 = nodeMap[c.n2.id];
                 let G = 0, I_norton = 0;
 
-                if (c.type === 'wire' || c.type === 'ammeter') G = 1000; // R = 0.001 Ohms
-                else if (c.type === 'voltmeter') G = 1e-7; // R = 10M Ohms (Open circuit approx)
+                if (c.type === 'wire' || c.type === 'ammeter') G = 1000; 
+                else if (c.type === 'voltmeter') G = 1e-7; 
                 else if (c.type === 'resistor') G = 1.0 / Math.max(c.val, 0.001);
-                else if (c.type === 'battery') { G = 1000; I_norton = c.val * G; } // Norton equivalent of non-ideal battery (r=0.001)
+                else if (c.type === 'battery') { G = 1000; I_norton = c.val * G; } 
 
                 A[idx1][idx1] += G; A[idx2][idx2] += G;
                 A[idx1][idx2] -= G; A[idx2][idx1] -= G;
@@ -357,7 +389,6 @@
                 if (c.type === 'battery') { Z[idx1] += I_norton; Z[idx2] -= I_norton; }
             });
 
-            // Ground Node 0
             let reducedA = []; let reducedZ = [];
             for(let i = 1; i < N; i++) {
                 let row = [];
@@ -367,9 +398,7 @@
 
             let X = gaussianElimination(reducedA, reducedZ);
 
-            if(!X) { // Failed to solve (completely disconnected sub-circuits usually)
-                components.forEach(c => { c.I = 0; c.Vdrop = 0; }); return;
-            }
+            if(!X) { components.forEach(c => { c.I = 0; c.Vdrop = 0; }); return; }
 
             let nodeVoltages = [0]; 
             for (let i = 0; i < N - 1; i++) nodeVoltages.push(X[i]);
@@ -380,28 +409,21 @@
                 let v2 = nodeVoltages[nodeMap[c.n2.id]];
                 c.Vdrop = v1 - v2;
 
-                if (c.type === 'battery') {
-                    // Norton to Thevenin current recovery
-                    c.I = (c.val - c.Vdrop) * 1000; 
-                } 
+                if (c.type === 'battery') { c.I = (c.val - c.Vdrop) * 1000; } 
                 else {
                     let R = (c.type === 'wire' || c.type==='ammeter') ? 0.001 : (c.type === 'voltmeter' ? 1e7 : c.val);
                     c.I = c.Vdrop / R; 
                 }
 
-                // Noise cleanup
                 if(Math.abs(c.I) < 1e-3) c.I = 0;
                 if(Math.abs(c.Vdrop) < 1e-3) c.Vdrop = 0;
-                
                 if(Math.abs(c.I) > maxCurrent && (c.type === 'wire' || c.type === 'battery')) maxCurrent = Math.abs(c.I);
             });
 
-            // Short Circuit Detection (Warning threshold > 200A)
             if(maxCurrent > 200) document.getElementById('warning-box').style.display = 'block';
             if(selectedComp) updateEditorReadout();
         }
 
-        // Robust Gaussian Elimination Solver
         function gaussianElimination(A, Z) {
             let n = Z.length; let M = [];
             for (let i = 0; i < n; i++) M.push([...A[i], Z[i]]); 
@@ -411,14 +433,11 @@
                 for (let k = i + 1; k < n; k++) {
                     if (Math.abs(M[k][i]) > maxEl) { maxEl = Math.abs(M[k][i]); maxRow = k; }
                 }
-                
-                // If max element is zero, matrix is singular (disconnected part)
                 if (maxEl < 1e-10) return null; 
 
                 for (let k = i; k < n + 1; k++) {
                     let tmp = M[maxRow][k]; M[maxRow][k] = M[i][k]; M[i][k] = tmp;
                 }
-
                 for (let k = i + 1; k < n; k++) {
                     let c = -M[k][i] / M[i][i];
                     for (let j = i; j < n + 1; j++) {
@@ -445,7 +464,6 @@
 
             ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle);
 
-            // Selection Glow
             ctx.strokeStyle = c === selectedComp ? '#38bdf8' : '#94a3b8';
             ctx.lineWidth = 4;
             if(c === selectedComp) { ctx.shadowBlur = 20; ctx.shadowColor = '#38bdf8'; }
@@ -471,7 +489,6 @@
                 ctx.strokeStyle = c === selectedComp ? '#38bdf8' : '#334155'; 
                 ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(10, -10); ctx.lineTo(10, 10); ctx.stroke();
                 
-                // + / - Signs
                 ctx.fillStyle = '#ef4444'; ctx.font='bold 14px Arial'; ctx.fillText("+", -25, -22);
                 ctx.fillStyle = '#334155'; ctx.font='bold 16px Arial'; ctx.fillText("-", 15, -22);
 
@@ -491,7 +508,6 @@
                 ctx.font='bold 20px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
                 ctx.fillText(c.type === 'ammeter' ? "A" : "V", 0, -2);
                 
-                // Digital Readout
                 ctx.fillStyle = '#cbd5e1'; ctx.font='bold 12px Courier New';
                 let measureText = c.type === 'ammeter' ? Math.abs(c.I).toFixed(2) + "A" : Math.abs(c.Vdrop).toFixed(1) + "V";
                 ctx.fillText(measureText, 0, 30);
@@ -499,13 +515,9 @@
 
             ctx.restore();
 
-            // --- Dynamic Electron Flow Animation ---
             if(Math.abs(c.I) > 0.01 && c.type !== 'voltmeter') {
                 let direction = c.I > 0 ? 1 : -1;
-                // Speed scales with current, max capped for visual sanity
                 let speed = Math.min(Math.abs(c.I) * 1.8, 25); 
-                
-                // If short circuit (massive current), make electrons red and crazy fast
                 let isShort = Math.abs(c.I) > 200;
                 
                 let offset = (time * speed * direction) % dist;
@@ -530,7 +542,6 @@
         function drawLab() {
             ctx.fillStyle = '#0f172a'; ctx.fillRect(0,0,cvs.width,cvs.height);
 
-            // Draw Grid dots
             ctx.fillStyle = 'rgba(255,255,255,0.08)';
             for(let r=1; r<rows; r++) {
                 for(let c=1; c<cols; c++) {
@@ -540,7 +551,6 @@
 
             components.forEach(c => drawComponent(c));
 
-            // Dragging feedback
             if(isDragging && dragStartNode) {
                 ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
                 ctx.lineWidth = 4; ctx.setLineDash([5, 5]);
