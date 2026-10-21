@@ -84,10 +84,9 @@
         let hr, hp, eaPeak, catPeak, ke;
         let hasCatalyst = false;
         
-        // 改进版：引入守恒定律的物理变量
         let p_x = 0; 
-        let totalEnergy = 0; // 粒子的系统总能量
-        let p_dir = 1;       // 1向右走，-1向左滑落
+        let totalEnergy = 0; 
+        let p_dir = 1;       
         let isAnimating = false;
 
         function resize() {
@@ -115,7 +114,6 @@
             let rawEa = parseInt(document.getElementById('ea-slider').value);
             ke = parseInt(document.getElementById('ke-slider').value);
             
-            // 化学逻辑防呆：如果是吸热反应，Ea 至少等于 ΔH
             let minEa = hp > hr ? (hp - hr) : 0;
             if(rawEa < minEa) rawEa = minEa;
 
@@ -126,7 +124,6 @@
 
             eaPeak = hr + rawEa;
             
-            // 催化剂降低 60% 活化能，但也不能低于生成物的高度
             let catEa = rawEa * 0.4;
             if(catEa < minEa) catEa = minEa; 
             catPeak = hr + catEa;
@@ -149,25 +146,42 @@
             if(!isAnimating) drawGraph();
         }
 
+        // 重构的能量曲线函数：使用严格的平滑阶跃函数 (Smoothstep) 确保峰值 100% 精准
         function getEnergyAtX(x) {
             let w = cvs.width;
             let center = w / 2;
             let peakTarget = hasCatalyst ? catPeak : eaPeak;
             
-            if(x < w*0.2) return hr;
-            if(x > w*0.8) return hp;
+            let startX = w * 0.2;
+            let endX = w * 0.8;
 
-            let normX = (x - center) / (w * 0.2); 
-            let barrier = (peakTarget - Math.max(hr, hp)) * Math.exp(-0.5 * normX * normX);
-            let step = hr + (hp - hr) / (1 + Math.exp(-2.5 * normX));
-            
-            return Math.max(hr, hp) === peakTarget ? step : step + barrier;
+            if (x <= startX) return hr;
+            if (x >= endX) return hp;
+
+            if (x < center) {
+                // 左侧爬升曲线 (从 hr 到 peakTarget)
+                let t = (x - startX) / (center - startX);
+                let smooth = t * t * (3 - 2 * t);
+                return hr + (peakTarget - hr) * smooth;
+            } else {
+                // 右侧滑落曲线 (从 peakTarget 到 hp)
+                let t = (x - center) / (endX - center);
+                let smooth = t * t * (3 - 2 * t);
+                return peakTarget + (hp - peakTarget) * smooth;
+            }
         }
 
         function fireParticle() {
             if(isAnimating) return;
             p_x = cvs.width * 0.1;
-            totalEnergy = hr + ke; // 设置绝对守恒的总能量
+            totalEnergy = hr + ke; 
+            
+            // 物理引擎补丁：如果理论上反应成功，给予微小的能量补偿，防止卡在绝对平坦的峰顶上
+            let currentEa = hasCatalyst ? (catPeak - hr) : (eaPeak - hr);
+            if(ke >= currentEa) {
+                totalEnergy += 0.1;
+            }
+
             p_dir = 1;
             isAnimating = true;
             document.getElementById('status-msg').style.display = 'none';
@@ -178,46 +192,41 @@
             let currentPE = getEnergyAtX(p_x);
             let currentKE = totalEnergy - currentPE;
             
-            // 物理防穿透机制：如果步长导致粒子进入了不可能的能量壁
             if(currentKE < 0) {
                 currentKE = 0;
-                p_dir *= -1; // 撞墙反弹
+                p_dir *= -1; 
                 while(getEnergyAtX(p_x) > totalEnergy) {
-                    p_x += p_dir * 0.5; // 退回到合法区域
+                    p_x += p_dir * 0.5; 
                 }
                 currentPE = getEnergyAtX(p_x);
                 currentKE = totalEnergy - currentPE;
             }
 
-            // 动能转化为速度，0.35是控制动画快慢的视觉常数
             let speed = Math.sqrt(currentKE) * 0.35; 
             
-            // 智能坡度检测：当动能几乎耗尽时，探测前后高度，顺着重力方向滑落
             if(speed < 0.2) {
                 let grad = getEnergyAtX(p_x + 1) - getEnergyAtX(p_x - 1);
-                if(grad > 0) p_dir = -1;      // 右侧高，向左滑
-                else if(grad < 0) p_dir = 1;  // 右侧低，向右滑
-                speed = 0.5; // 给予微小启动速度，防止卡死在绝对平坦的峰顶
+                if(grad > 0) p_dir = -1;      
+                else if(grad < 0) p_dir = 1;  
+                speed = 0.5; 
             }
             
             p_x += speed * p_dir;
             
             drawGraph();
             
-            // 绘制滚动粒子
             let py = cvs.height - 50 - (currentPE / 800) * (cvs.height - 100);
             ctx.fillStyle = '#38bdf8';
             ctx.shadowBlur = 20; ctx.shadowColor = '#38bdf8';
             ctx.beginPath(); ctx.arc(p_x, py - 15, 15, 0, Math.PI*2); ctx.fill();
             ctx.shadowBlur = 0;
 
-            // 成功条件
             if(p_x > cvs.width * 0.8) {
                 isAnimating = false;
                 showMsg("Reaction Successful!", "#22c55e");
                 return;
             }
-            // 失败退回条件
+            
             if(p_x < cvs.width * 0.2 && p_dir === -1) {
                 isAnimating = false;
                 showMsg("Reaction Failed (Low KE)", "#ef4444");
@@ -243,29 +252,26 @@
             
             let toY = (e) => baseY - (e / 800) * (h - 100);
 
-            // 绘制网格
             ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
             for(let i=100; i<=800; i+=100) {
                 ctx.beginPath(); ctx.moveTo(50, toY(i)); ctx.lineTo(w, toY(i)); ctx.stroke();
                 ctx.fillStyle = '#475569'; ctx.font = '12px Arial'; ctx.fillText(i, 15, toY(i)+4);
             }
 
-            // 绘制实线势能面
             ctx.strokeStyle = hasCatalyst ? '#22c55e' : '#ef4444'; 
             ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
             ctx.beginPath();
-            for(let x=50; x<w; x+=5) {
+            for(let x=50; x<=w; x+=2) {
                 let e = getEnergyAtX(x);
                 if(x===50) ctx.moveTo(x, toY(e)); else ctx.lineTo(x, toY(e));
             }
             ctx.stroke();
 
-            // 如果开启催化剂，画出原本的虚线背景
             if(hasCatalyst) {
                 ctx.strokeStyle = 'rgba(239, 68, 68, 0.3)'; ctx.lineWidth = 4; ctx.setLineDash([10,10]);
                 ctx.beginPath();
                 hasCatalyst = false; 
-                for(let x=50; x<w; x+=5) {
+                for(let x=50; x<=w; x+=2) {
                     let e = getEnergyAtX(x);
                     if(x===50) ctx.moveTo(x, toY(e)); else ctx.lineTo(x, toY(e));
                 }
@@ -273,11 +279,9 @@
                 hasCatalyst = true; 
             }
 
-            // 坐标轴
             ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 3;
             ctx.beginPath(); ctx.moveTo(50, 20); ctx.lineTo(50, baseY); ctx.lineTo(w-20, baseY); ctx.stroke();
 
-            // 文字标注
             ctx.fillStyle = '#f8fafc'; ctx.font = 'bold 16px Arial';
             ctx.fillText("Reactants", w*0.1, toY(hr) - 20);
             ctx.fillText("Products", w*0.85, toY(hp) - 20);
